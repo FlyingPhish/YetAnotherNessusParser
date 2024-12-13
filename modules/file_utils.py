@@ -36,6 +36,6 @@ def create_backup(nessus_file: str, output_folder: str) -> None:
 
 def get_default_output_name(nessus_file: str) -> str:
     """Generate default output name"""
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now().strftime('%d-%m-%y_%H-%M-%S')
     original_name = Path(nessus_file).stem
     return f"{timestamp}_{original_name}_Parsed_Nessus.json"

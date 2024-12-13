@@ -143,6 +143,8 @@ class NessusParser:
         """Format host summary section with default risk levels and unique vulnerability counts"""
         host_list = []
         port_map = defaultdict(set)
+        unique_ips = set()
+        unique_fqdns = set()
         
         # Track unique vulnerabilities globally by plugin_id
         unique_vulns = {
@@ -167,6 +169,10 @@ class NessusParser:
             host_fqdn = host['properties'].get('host-fqdn', '')
             
             if host_ip:
+                unique_ips.add(host_ip)
+                if host_fqdn:
+                    unique_fqdns.add(f"{host_ip} - {host_fqdn}")
+                
                 host_list.append({
                     "ip": host_ip,
                     "fqdn": host_fqdn
@@ -195,7 +201,8 @@ class NessusParser:
             }
         
         return {
-            "number_of_hosts": len(host_list),
+            "number_of_unique_ips": len(unique_ips),
+            "number_of_unique_fqdns": len(unique_fqdns),
             "number_of_unique_vulns_per_host_per_severity": host_vuln_counts,
             "total_unique_vulns": {
                 risk: len(plugins) for risk, plugins in unique_vulns.items()
