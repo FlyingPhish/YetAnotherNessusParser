@@ -4,6 +4,9 @@ Yet another bloody python-based Nessus parser. My intentions are to create one P
 
 This tool parses .Nessus XML files into structured JSON and Py formats. This tool provides a clean, efficient way to process Nessus vulnerability scan results with detailed host and vulnerability information.
 
+![image](https://github.com/user-attachments/assets/dd1c249c-7dc8-4b37-a011-e6aa3da2b00f)
+
+
 ## Features
 
 - Parse Nessus XML files into structured JSON
@@ -132,28 +135,6 @@ The tool generates a JSON file with the following structure:
     }
   }
 }
-```
-
-## Example Output
-
-Command line output:
-```
-Scan Summary:
-Unique IPs: 3
-Unique FQDNs: 4
-
-Discovered Ports: 15
-
-Unique Findings by Risk Factor:
-Critical: 0
-High: 0
-Medium: 4
-Low: 0
-None: 33
-
---------------------------------------------------
-
-Writing results to: output/20241213_151502_NessusFileName_Parsed_Nessus.json
 ```
 
 ## Development
