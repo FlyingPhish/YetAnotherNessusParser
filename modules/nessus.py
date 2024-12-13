@@ -142,11 +142,25 @@ class NessusParser:
     def _format_host_summary(self, hosts: List[Dict]) -> Dict:
         """Format host summary section with default risk levels and unique vulnerability counts"""
         host_list = []
-        vulns_per_host = defaultdict(lambda: defaultdict(int))
         port_map = defaultdict(set)
         
-        RISK_LEVELS = ['None', 'Low', 'Medium', 'High', 'Critical']
-        unique_vulns_tracker = defaultdict(lambda: defaultdict(set))
+        # Track unique vulnerabilities globally by plugin_id
+        unique_vulns = {
+            'Critical': set(),
+            'High': set(),
+            'Medium': set(),
+            'Low': set(),
+            'None': set()
+        }
+        
+        # Track unique vulnerabilities per host
+        host_vulns = defaultdict(lambda: {
+            'Critical': set(),
+            'High': set(),
+            'Medium': set(),
+            'Low': set(),
+            'None': set()
+        })
         
         for host in hosts:
             host_ip = host['properties'].get('host-ip', '')
@@ -157,28 +171,35 @@ class NessusParser:
                     "ip": host_ip,
                     "fqdn": host_fqdn
                 })
-                
-                for risk_level in RISK_LEVELS:
-                    vulns_per_host[host_ip][risk_level] = 0
             
             for vuln in host['vulnerabilities']:
                 risk_factor = vuln['risk_factor']
                 plugin_id = vuln['plugin_id']
                 
-                unique_vulns_tracker[host_ip][risk_factor].add(plugin_id)
+                # Track globally unique vulnerabilities
+                if risk_factor:
+                    unique_vulns[risk_factor].add(plugin_id)
+                    host_vulns[host_ip][risk_factor].add(plugin_id)
                 
+                # Track ports
                 if vuln.get('port') and vuln.get('protocol'):
                     formatted_port = f"{vuln['protocol']}/{vuln['port']}"
                     self.discovered_ports.add(formatted_port)
                     port_map[host_ip].add(formatted_port)
-            
-            for host_ip in unique_vulns_tracker:
-                for risk_level in RISK_LEVELS:
-                    vulns_per_host[host_ip][risk_level] = len(unique_vulns_tracker[host_ip][risk_level])
+        
+        # Convert host vulnerabilities to counts
+        host_vuln_counts = {}
+        for host_ip, risks in host_vulns.items():
+            host_vuln_counts[host_ip] = {
+                risk: len(plugins) for risk, plugins in risks.items()
+            }
         
         return {
             "number_of_hosts": len(host_list),
-            "number_of_unique_vulns_per_host_per_severity": dict(vulns_per_host),
+            "number_of_unique_vulns_per_host_per_severity": host_vuln_counts,
+            "total_unique_vulns": {
+                risk: len(plugins) for risk, plugins in unique_vulns.items()
+            },
             "list_of_hosts": host_list,
             "discovered_ports": sorted(list(self.discovered_ports)),
             "mapped_ports": {ip: sorted(list(ports)) for ip, ports in port_map.items()}

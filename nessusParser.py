@@ -10,12 +10,6 @@ from modules import (
 def display_summary(parsed_data: dict):
     """Display formatted summary of scan results"""
     host_summary = parsed_data['host_summary']
-    
-    # Calculate total unique vulnerabilities across all hosts
-    total_per_risk = {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'None': 0}
-    for host_vulns in host_summary['number_of_unique_vulns_per_host_per_severity'].values():
-        for risk_factor, count in host_vulns.items():
-            total_per_risk[risk_factor] += count
 
     # Print summary without timestamps
     print("-" * 50)
@@ -26,7 +20,7 @@ def display_summary(parsed_data: dict):
     print("\nUnique Findings by Risk Factor:")
     risk_order = ['Critical', 'High', 'Medium', 'Low', 'None']
     for risk in risk_order:
-        print(f"{risk}: {total_per_risk[risk]}")
+        print(f"{risk}: {host_summary['total_unique_vulns'][risk]}")
     print("-" * 50 + "\n")
 
 def main():
