@@ -141,10 +141,16 @@ class NessusParser:
         return vulnerabilities
 
     def _format_host_summary(self, hosts: List[Dict]) -> Dict:
-        """Format host summary section"""
+        """Format host summary section with default risk levels and unique vulnerability counts"""
         host_list = []
         vulns_per_host = defaultdict(lambda: defaultdict(int))
         port_map = defaultdict(set)
+        
+        # Define default risk levels
+        RISK_LEVELS = ['None', 'Low', 'Medium', 'High', 'Critical']
+        
+        # Track unique vulnerabilities per host and risk level
+        unique_vulns_tracker = defaultdict(lambda: defaultdict(set))
         
         for host in hosts:
             host_ip = host['properties'].get('host-ip', '')
@@ -155,14 +161,28 @@ class NessusParser:
                     "ip": host_ip,
                     "fqdn": host_fqdn
                 })
+                
+                # Initialize default risk levels for this host
+                for risk_level in RISK_LEVELS:
+                    vulns_per_host[host_ip][risk_level] = 0
             
+            # Track unique vulnerabilities by plugin_id
             for vuln in host['vulnerabilities']:
-                vulns_per_host[host_ip][vuln['risk_factor']] += 1
+                risk_factor = vuln['risk_factor']
+                plugin_id = vuln['plugin_id']
+                
+                # Add to unique vulnerabilities tracker
+                unique_vulns_tracker[host_ip][risk_factor].add(plugin_id)
                 
                 if vuln.get('port') and vuln.get('protocol'):
                     formatted_port = f"{vuln['protocol']}/{vuln['port']}"
                     self.discovered_ports.add(formatted_port)
                     port_map[host_ip].add(formatted_port)
+            
+            # Convert unique vulnerability counts
+            for host_ip in unique_vulns_tracker:
+                for risk_level in RISK_LEVELS:
+                    vulns_per_host[host_ip][risk_level] = len(unique_vulns_tracker[host_ip][risk_level])
         
         return {
             "number_of_hosts": len(host_list),
@@ -216,23 +236,23 @@ def main():
     else:
         print(json.dumps(parsed_data, indent=2))
     
-    # Print summary (based on host_summary data)
+    # Print summary
     host_summary = parsed_data['host_summary']
     print("\nScan Summary:")
     print(f"Total Hosts: {host_summary['number_of_hosts']}")
     print(f"\nDiscovered Ports: {len(host_summary['discovered_ports'])}")
     
-    # Print vulnerabilities per severity across all hosts
-    total_per_severity = defaultdict(int)
+    # Print unique vulnerabilities per risk factor across all hosts
+    total_per_risk = defaultdict(int)
     for host_vulns in host_summary['number_of_unique_vulns_per_host_per_severity'].values():
-        for severity, count in host_vulns.items():
-            total_per_severity[severity] += count
+        for risk_factor, count in host_vulns.items():
+            total_per_risk[risk_factor] += count
     
-    print("\nFindings by Severity:")
-    severity_names = {'4': 'Critical', '3': 'High', '2': 'Medium', '1': 'Low', '0': 'Info'}
-    for severity, name in severity_names.items():
-        if str(severity) in total_per_severity:
-            print(f"{name}: {total_per_severity[str(severity)]}")
+    print("\nUnique Findings by Risk Factor:")
+    risk_order = ['Critical', 'High', 'Medium', 'Low', 'None']
+    for risk in risk_order:
+        if risk in total_per_risk:
+            print(f"{risk}: {total_per_risk[risk]}")
 
 if __name__ == "__main__":
     main()
