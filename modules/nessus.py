@@ -1,9 +1,9 @@
 import logging
 import xml.etree.ElementTree as ET
-import json
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, Union
+from modules.json_utils import parse_html_encoded_fqdns
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ class NessusParser:
             
             # Handle multiple FQDNs
             fqdns_str = self._get_tag_value(properties, 'host-fqdns')
-            fqdns = self._parse_fqdns(fqdns_str) if fqdns_str else []
+            fqdns = parse_html_encoded_fqdns(fqdns_str) if fqdns_str else []
             
             # Fallback to single FQDN if host-fqdns not present
             if not fqdns:
@@ -355,15 +355,3 @@ class NessusParser:
             "0": "None"
         }
         return severity_map.get(severity, "None")
-    
-    def _parse_fqdns(self, fqdns_str: str) -> List[str]:
-        """Parse JSON-formatted FQDN string into list of FQDNs."""
-        try:
-            # Remove HTML encoding and parse JSON
-            cleaned_str = fqdns_str.replace('&quot;', '"')
-            fqdns_data = json.loads(cleaned_str)
-            
-            # Extract all unique FQDNs
-            return [entry['FQDN'] for entry in fqdns_data if 'FQDN' in entry]
-        except (json.JSONDecodeError, TypeError):
-            return []

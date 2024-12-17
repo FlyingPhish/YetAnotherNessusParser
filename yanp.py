@@ -1,4 +1,3 @@
-from colorama import init, Fore, Style
 from pathlib import Path
 from modules import (
     logger,
@@ -7,87 +6,12 @@ from modules import (
     json_utils,
     nessus
 )
-init(autoreset=True) 
 
-def print_banner():
-    """Print YANP ASCII art banner"""
-    banner = """
-▓██   ██▓ ▄▄▄       ███▄    █  ██▓███  
- ▒██  ██▒▒████▄     ██ ▀█   █ ▓██░  ██▒
-  ▒██ ██░▒██  ▀█▄  ▓██  ▀█ ██▒▓██░ ██▓▒
-  ░ ▐██▓░░██▄▄▄▄██ ▓██▒  ▐▌██▒▒██▄█▓▒ ▒
-  ░ ██▒▓░ ▓█   ▓██▒▒██░   ▓██░▒██▒ ░  ░
-   ██▒▒▒  ▒▒   ▓▒█░░ ▒░   ▒ ▒ ▒▓▒░ ░  ░
- ▓██ ░▒░   ▒   ▒▒ ░░ ░░   ░ ▒░░▒ ░     
- ▒ ▒ ░░    ░   ▒      ░   ░ ░ ░░       
- ░ ░           ░  ░         ░          
- ░ ░                                   """
-
-    tagline = "Same shit, different parser"
-    author = "By @FlyingPhishy"
-    version = "             v2.0.0"
-
-    print(f"{Fore.GREEN}{Style.BRIGHT}{banner}{Style.RESET_ALL}")
-    print(f"{Fore.GREEN}{Style.BRIGHT}{version}{Style.RESET_ALL}\n")
-    print(f"{Fore.YELLOW}{Style.BRIGHT}{tagline}{Style.RESET_ALL}")
-    print(f"{Fore.RED}{Style.BRIGHT}{author}{Style.RESET_ALL}\n")
-
-def display_summary(parsed_data: dict):
-    """Display formatted summary of scan results"""
-    stats = parsed_data['stats']
-    context = parsed_data['context']
-
-    # Color mappings for risk factors
-    risk_colors = {
-        'Critical': Fore.MAGENTA + Style.BRIGHT,
-        'High': Fore.RED + Style.BRIGHT,
-        'Medium': '\033[38;5;214m' + Style.BRIGHT,
-        'Low': Fore.YELLOW + Style.BRIGHT,
-        'None': Fore.GREEN
-    }
-
-    # Print Summary
-    print(f"\n{Fore.CYAN}{'=' * 50}{Style.RESET_ALL}")
-    print(f"{Fore.WHITE}{Style.BRIGHT}SCAN SUMMARY{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}{'-' * 50}{Style.RESET_ALL}")
-    
-    # Scan Context
-    print(f"{Fore.WHITE}{Style.BRIGHT}Scan Context:{Style.RESET_ALL}")
-    print(f"  • Start Time: {Fore.GREEN}{context['scan_start']}{Style.RESET_ALL}")
-    print(f"  • End Time: {Fore.GREEN}{context['scan_end']}{Style.RESET_ALL}")
-    print(f"  • Duration: {Fore.GREEN}{context['scan_duration']}{Style.RESET_ALL}")
-    print(f"  • Policy: {Fore.GREEN}{context['policy_name']}{Style.RESET_ALL}")
-    
-    # Asset Information
-    print(f"\n{Fore.WHITE}{Style.BRIGHT}Asset Information:{Style.RESET_ALL}")
-    print(f"  • Total Hosts: {Fore.GREEN}{stats['hosts']['total']}{Style.RESET_ALL}")
-    print(f"  • Hosts with Multiple FQDNs: {Fore.GREEN}{stats['hosts']['multi_fqdn_hosts']}{Style.RESET_ALL}")
-    print(f"  • Unique IPs: {Fore.GREEN}{stats['hosts']['total_ips']}{Style.RESET_ALL}")
-    print(f"  • Unique FQDNs: {Fore.GREEN}{stats['hosts']['total_fqdns']}{Style.RESET_ALL}")
-    print(f"  • Discovered Ports: {Fore.GREEN}{stats['ports']['total_discovered']}{Style.RESET_ALL}")
-    print(f"  • Credentialed Hosts: {Fore.GREEN}{stats['hosts']['credentialed_checks']}{Style.RESET_ALL}")
-    
-    # Vulnerability Summary
-    print(f"\n{Fore.WHITE}{Style.BRIGHT}Vulnerability Summary:{Style.RESET_ALL}")
-    risk_order = ['Critical', 'High', 'Medium', 'Low', 'None']
-    
-    for risk in risk_order:
-        # Safely get count with default of 0
-        count = stats['vulnerabilities']['by_severity'].get(risk, 0)
-        bullet = "•"
-        print(f"  {bullet} {risk_colors[risk]}{risk}: {count}{Style.RESET_ALL}")
-
-    # Service Information (only if services exist)
-    if stats['ports']['services']:
-        print(f"\n{Fore.WHITE}{Style.BRIGHT}Service Information:{Style.RESET_ALL}")
-        for service, count in stats['ports']['services'].items():
-            print(f"  • {service}: {Fore.GREEN}{count}{Style.RESET_ALL}")
-    
-    print(f"{Fore.CYAN}{'=' * 50}{Style.RESET_ALL}\n")
+version = "2.1.0"
 
 def main():
     """Main execution function"""
-    print_banner()
+    cli.print_banner(version)
     # Setup logging
     log = logger.setup_logging()
     
@@ -111,7 +35,7 @@ def main():
         return 1
     
     # Display formatted summary
-    display_summary(parsed_data)
+    cli.display_summary(parsed_data)
 
     # Set output filename and write results
     output_name = args.output_name or file_utils.get_default_output_name(args.nessus_file)

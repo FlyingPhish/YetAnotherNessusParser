@@ -1,6 +1,6 @@
 # YetAnotherNessusParser
 
-Yet another bloody python-based Nessus parser. My intentions are to create one Py-based Nessus parser to rule them all whilst being modular, efficent and easy to contribute to. This tool works without nessus-file-reader as its not my cup of tea to develop with.
+Yet another bloody python-based Nessus parser. My intentions are to create one Py-based Nessus parser to rule them all whilst being modular, efficent and easy to contribute to. This tool doesn't use any external libs (looking at you nessus-file-reader)
 
 This tool parses .Nessus XML files into structured JSON and Py formats. This tool provides a clean, efficient way to process Nessus vulnerability scan results with detailed host and vulnerability information.
 
@@ -11,10 +11,13 @@ This tool parses .Nessus XML files into structured JSON and Py formats. This too
 
 - Parse Nessus XML files into structured JSON
 - Track unique vulnerabilities globally and per host
-- Identify unique IPs and FQDNs in the scan
+- Identify unique hosts in the scan
 - Map discovered ports to hosts
+- Provides high-level stats and info
 - Detailed vulnerability information including CVE, CVSS scores, and affected systems
 - Modular design for easy extension
+- No external libs needed
+- Py dictionary is the exact same as JSON object
 
 ## To-Do
 - [X] Create the dammed thing
@@ -55,7 +58,8 @@ This tool parses .Nessus XML files into structured JSON and Py formats. This too
 git clone https://github.com/FlyingPhish/YetAnotherNessusParser && cd YetAnotherNessusParser
 ```
 
-2. Create a virtual environment (recommended):
+2. Done! No external libs needed.
+<!-- 2. Create a virtual environment (recommended):
 ```bash
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
@@ -66,7 +70,7 @@ source venv/bin/activate  # Linux/Mac
 3. Install requirements:
 ```bash
 pip install -r requirements.txt
-```
+``` -->
 
 ## Usage
 
