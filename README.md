@@ -1,4 +1,6 @@
 # YetAnotherNessusParser
+![No External Dependencies](/.github/badges/no-dependencies.svg)
+![Py](/.github/badges/python.svg)
 
 Yet another bloody python-based Nessus parser. My intentions are to create one Py-based Nessus parser to rule them all whilst being modular, efficent and easy to contribute to. This tool doesn't use any external libs (looking at you nessus-file-reader)
 
