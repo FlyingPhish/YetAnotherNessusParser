@@ -1,5 +1,4 @@
 import argparse
-from pathlib import Path
 
 def setup_argparse() -> argparse.ArgumentParser:
     """Setup and return argument parser"""

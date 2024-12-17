@@ -1,8 +1,9 @@
 import logging
 import xml.etree.ElementTree as ET
+import json
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, Any, Optional, List, Set, Union
+from typing import Dict, Any, Optional, List, Union
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +79,6 @@ class NessusParser:
             "scan_start": self._format_datetime(scan_start) if scan_start else "",
             "scan_end": self._format_datetime(scan_end) if scan_end else "",
             "scan_duration": self._calculate_duration(scan_start, scan_end) if scan_start and scan_end else "",
-            "scanner_version": self._get_scanner_version(),
-            "plugin_feed": self._get_plugin_feed()
         }
     
     def _parse_hosts(self) -> Dict[str, Dict[str, Any]]:
@@ -95,12 +94,22 @@ class NessusParser:
                 
             # Extract host basic information
             ip = self._get_tag_value(properties, 'host-ip')
-            fqdn = self._get_tag_value(properties, 'host-fqdn')
+            
+            # Handle multiple FQDNs
+            fqdns_str = self._get_tag_value(properties, 'host-fqdns')
+            fqdns = self._parse_fqdns(fqdns_str) if fqdns_str else []
+            
+            # Fallback to single FQDN if host-fqdns not present
+            if not fqdns:
+                single_fqdn = self._get_tag_value(properties, 'host-fqdn')
+                if single_fqdn:
+                    fqdns = [single_fqdn]
+            
             os = self._get_tag_value(properties, 'operating-system')
             start_time = self._get_tag_value(properties, 'HOST_START')
             end_time = self._get_tag_value(properties, 'HOST_END')
             credentialed_scan = self._get_tag_value(properties, 'Credentialed_Scan')
-            
+
             # Initialize vulnerability counts
             vuln_counts = {
                 "Critical": 0,
@@ -150,7 +159,7 @@ class NessusParser:
             # Build host entry
             hosts[host_id] = {
                 "ip": ip,
-                "fqdn": fqdn,
+                "fqdns": fqdns,
                 "os": os,
                 "scan_start": self._format_datetime(start_time) if start_time else "",
                 "scan_end": self._format_datetime(end_time) if end_time else "",
@@ -242,6 +251,7 @@ class NessusParser:
         unique_fqdns = set()
         credentialed_hosts = 0
         discovered_ports = set()
+        multi_fqdn_hosts = 0  # Counter for hosts with multiple FQDNs
         
         # Check for credentialed scans from the XML
         for host_elem in self.root.findall('.//ReportHost'):
@@ -252,10 +262,20 @@ class NessusParser:
                     credentialed_hosts += 1
         
         for host_data in hosts.values():
-            if host_data.get('ip'):
-                unique_ips.add(host_data['ip'])
-            if host_data.get('fqdn'):
-                unique_fqdns.add(host_data['fqdn'])
+            ip = host_data.get('ip', '')
+            if ip:
+                unique_ips.add(ip)
+            
+            # Process FQDNs and count hosts with multiple valid FQDNs
+            fqdns = host_data.get('fqdns', [])
+            if fqdns:
+                # Filter out IP-based FQDNs
+                valid_fqdns = [fqdn for fqdn in fqdns if ip not in fqdn]
+                unique_fqdns.update(valid_fqdns)
+                
+                # If we have more than one valid FQDN, increment counter
+                if len(valid_fqdns) > 1:
+                    multi_fqdn_hosts += 1
                 
             # Collect discovered ports
             for port in host_data.get('ports', {}).keys():
@@ -266,6 +286,7 @@ class NessusParser:
                 "total": total_hosts,
                 "total_ips": len(unique_ips),
                 "total_fqdns": len(unique_fqdns),
+                "multi_fqdn_hosts": multi_fqdn_hosts,
                 "credentialed_checks": credentialed_hosts
             },
             "ports": {
@@ -335,20 +356,14 @@ class NessusParser:
         }
         return severity_map.get(severity, "None")
     
-    def _get_scanner_version(self) -> str:
-        """Get scanner version from preferences."""
-        prefs = self.root.find('.//ServerPreferences')
-        if prefs is not None:
-            for pref in prefs.findall('.//preference'):
-                if pref.findtext('name') == 'scanner_version':
-                    return pref.findtext('value', '')
-        return ""
-    
-    def _get_plugin_feed(self) -> str:
-        """Get plugin feed version from preferences."""
-        prefs = self.root.find('.//ServerPreferences')
-        if prefs is not None:
-            for pref in prefs.findall('.//preference'):
-                if pref.findtext('name') == 'plugin_feed':
-                    return pref.findtext('value', '')
-        return ""
+    def _parse_fqdns(self, fqdns_str: str) -> List[str]:
+        """Parse JSON-formatted FQDN string into list of FQDNs."""
+        try:
+            # Remove HTML encoding and parse JSON
+            cleaned_str = fqdns_str.replace('&quot;', '"')
+            fqdns_data = json.loads(cleaned_str)
+            
+            # Extract all unique FQDNs
+            return [entry['FQDN'] for entry in fqdns_data if 'FQDN' in entry]
+        except (json.JSONDecodeError, TypeError):
+            return []

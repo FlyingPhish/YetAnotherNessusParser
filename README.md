@@ -17,12 +17,13 @@ This tool parses .Nessus XML files into structured JSON and Py formats. This too
 - Modular design for easy extension
 
 ## To-Do
-- [x] Create the dammed thing
-- [x] Obligatory ASCII art banner for the haters (it isn't a proper tool without one)
-- [x] Make it pretty 👉👈
-- [ ] Capture all vulnerability information such as CWE and etc
-- [ ] Capture all scan information (context)
-- [ ] Print more stats on the Nessus file
+- [X] Create the dammed thing
+- [X] Obligatory ASCII art banner for the haters (it isn't a proper tool without one)
+- [X] Make it pretty 👉👈
+- [X] Capture all vulnerability information such as CWE and etc
+- [X] Capture all scan information (context)
+- [X] Print more stats on the Nessus file
+- [ ] Ensure proper typing on JSON object 🤓 (priority pls)
 - [ ] Create .txt output for all CVEs, CWEs, Stats and other
 - [ ] Write to XLSX
 - [ ] Expand XLSX functionality to include tabs for various things such as all vulns, host info, scan info, grouped plugins
@@ -32,9 +33,9 @@ This tool parses .Nessus XML files into structured JSON and Py formats. This too
 
 ```
 .
-├── config/             # Configuration files
-├── input/             # Input directory for Nessus files
-├── modules/           # Core functionality modules
+├── config/           # Configuration files - not used yet
+├── input/            # Input directory for Nessus files
+├── modules/          # Core functionality modules
 │   ├── __init__.py
 │   ├── cli.py        # CLI argument handling
 │   ├── file_utils.py # File operations
@@ -42,7 +43,7 @@ This tool parses .Nessus XML files into structured JSON and Py formats. This too
 │   ├── logger.py     # Logging configuration
 │   └── nessus.py     # Nessus parsing logic
 ├── output/           # Output directory for JSON files
-├── nessusParser.py   # Main script
+├── yanp.py           # Main script
 ├── README.md
 └── requirements.txt
 ```
@@ -90,48 +91,120 @@ The tool generates a JSON file with the following structure:
 
 ```json
 {
-  "scan_info": {
+  "context": {
+    "scan_id": "string",
+    "scan_name": "string",
     "policy_name": "string",
-    "scan_date": "string"
+    "scan_start": "string",
+    "scan_end": "string",
+    "scan_duration": "string"
   },
-  "host_summary": {
-    "number_of_unique_ips": "integer",
-    "number_of_unique_fqdns": "integer",
-    "number_of_unique_vulns_per_host_per_severity": {
-      "host_ip": {
-        "Critical": "integer",
-        "High": "integer",
-        "Medium": "integer",
-        "Low": "integer",
-        "None": "integer"
+  "stats": {
+    "hosts": {
+      "total": int,
+      "total_ips": int,
+      "total_fqdns": int,
+      "multi_fqdn_hosts": int,
+      "credentialed_checks": int
+    },
+    "ports": {
+      "total_discovered": int,
+      "list": [
+        "string # 445/tcp for example" 
+      ],
+      "services": {
+        "www": int,
+        "general": int
       }
     },
-    "total_unique_vulns": {
-      "Critical": "integer",
-      "High": "integer",
-      "Medium": "integer",
-      "Low": "integer",
-      "None": "integer"
-    },
-    "discovered_ports": ["string"],
-    "mapped_ports": {
-      "host_ip": ["string"]
+    "vulnerabilities": {
+      "total": int,
+      "by_severity": {
+        "Critical": int,
+        "High": int,
+        "Medium": int,
+        "Low": int,
+        "None": int
+      },
+      "by_family": {
+        "General": int,
+        "Service detection": int,
+        "Port scanners": int,
+        "Web Servers": int,
+        "Misc.": int,
+        "Settings": int
+      }
+    }
+  },
+  "hosts": {
+    "1": {
+      "ip": "string",
+      "fqdns": [
+        "string",
+        "string"
+      ],
+      "os": "string",
+      "scan_start": "string",
+      "scan_end": "string",
+      "credentialed_scan": bool,
+      "vulnerabilities": {
+        "Critical": int,
+        "High": int,
+        "Medium": int,
+        "Low": int,
+        "None": int
+      },
+      "ports": {
+        "443/tcp": {
+          "service": "string",
+          "vulnerabilities": [
+            "string # plugin id"
+          ]
+        },
+        "80/tcp": {
+          "service": "string",
+          "vulnerabilities": [
+            "string # plugin id"
+          ]
+        }
+      }
     }
   },
   "vulnerabilities": {
-    "vulnerability_name": {
-      "plugin_id": "string",
-      "severity": "int",
+    "142960": {
+      "name": "string",
+      "family": "string",
+      "severity": int,
       "risk_factor": "string",
-      "cvss3_base_score": "int",
+      "cvss": {
+        "base_score": int,
+        "temporal_score": int,
+        "vector": "string"
+      },
+      "cvss3": {
+        "base_score": int,
+        "temporal_score": int,
+        "vector": "string"
+      },
       "description": "string",
+      "synopsis": "string",
       "solution": "string",
-      "plugin_output": "string",
-      "cve": ["string"],
-      "references": ["string"],
-      "affected_ips": ["string"],
-      "affected_fqdns": ["string"], (IP - FQDN)
-      "ports": ["string"] (IP - protocol/port)
+      "see_also": [
+        "string"
+      ],
+      "cve": [],
+      "cwe": [],
+      "xref": [],
+      "affected_hosts": {
+        "1": {
+          "ip": "string",
+          "fqdn": "string",
+          "ports": [
+            "string # 445/tcp for example" 
+          ],
+          "plugin_output": "string"
+        }
+      }
     }
   }
 }
