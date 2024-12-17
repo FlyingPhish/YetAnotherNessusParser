@@ -25,7 +25,7 @@ def print_banner():
 
     tagline = "Same shit, different parser"
     author = "By @FlyingPhishy"
-    version = "             v1.9.0"
+    version = "             v1.9.1"
 
     print(f"{Fore.GREEN}{Style.BRIGHT}{banner}{Style.RESET_ALL}")
     print(f"{Fore.GREEN}{Style.BRIGHT}{version}{Style.RESET_ALL}\n")
@@ -52,6 +52,7 @@ def display_summary(parsed_data: dict):
     
     # Asset Information
     print(f"{Fore.WHITE}{Style.BRIGHT}Asset Information:{Style.RESET_ALL}")
+    print(f"  • Total Hosts: {Fore.GREEN}{stats['hosts']['total']}{Style.RESET_ALL}")
     print(f"  • Unique IPs: {Fore.GREEN}{stats['hosts']['total_ips']}{Style.RESET_ALL}")
     print(f"  • Unique FQDNs: {Fore.GREEN}{stats['hosts']['total_fqdns']}{Style.RESET_ALL}")
     print(f"  • Discovered Ports: {Fore.GREEN}{stats['ports']['total_discovered']}{Style.RESET_ALL}")

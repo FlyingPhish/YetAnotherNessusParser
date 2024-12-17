@@ -173,6 +173,7 @@ class NessusParser:
             if host_properties is None:
                 continue
                 
+            host_id = str(self._get_host_id())  # Get sequential host ID
             host_ip = self._get_tag_value(host_properties, 'host-ip')
             host_fqdn = self._get_tag_value(host_properties, 'host-fqdn')
             
@@ -212,21 +213,21 @@ class NessusParser:
                     severity = self._get_severity_label(item.get('severity', '0'))
                     self._severity_counts[severity] += 1
                 
-                # Add host-specific information
-                host_key = f"{host_ip}_{plugin_id}"  # Unique key for host-plugin combination
-                if host_key not in processed_plugins:
+                # Add host-specific information using sequential host ID
+                host_plugin_key = f"{plugin_id}_{host_id}"  # Unique key for tracking
+                if host_plugin_key not in processed_plugins:
                     port = item.get('port', '')
                     protocol = item.get('protocol', '')
                     port_info = f"{port}/{protocol}" if port and protocol else ""
                     
-                    vulnerabilities[plugin_id]["affected_hosts"][host_key] = {
+                    vulnerabilities[plugin_id]["affected_hosts"][host_id] = {
                         "ip": host_ip,
                         "fqdn": host_fqdn,
                         "ports": [port_info] if port_info else [],
                         "plugin_output": item.findtext('plugin_output', '')
                     }
                     
-                    processed_plugins.add(host_key)
+                    processed_plugins.add(host_plugin_key)
                     
                     # Update service statistics
                     service = item.get('svc_name', '')
@@ -237,7 +238,8 @@ class NessusParser:
     
     def _generate_statistics(self, hosts: Dict[str, Dict], vulnerabilities: Dict[str, Dict]) -> Dict[str, Any]:
         """Generate comprehensive statistics."""
-        # Count unique IPs and FQDNs
+        # Count unique hosts, IPs and FQDNs
+        total_hosts = len(hosts)
         unique_ips = set()
         unique_fqdns = set()
         credentialed_hosts = 0
@@ -259,6 +261,7 @@ class NessusParser:
         
         return {
             "hosts": {
+                "total": total_hosts,
                 "total_ips": len(unique_ips),
                 "total_fqdns": len(unique_fqdns),
                 "credentialed_checks": credentialed_hosts
