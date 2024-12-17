@@ -2,7 +2,7 @@ import logging
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, Any, Optional, List, Set
+from typing import Dict, Any, Optional, List, Set, Union
 
 logger = logging.getLogger(__name__)
 
@@ -59,21 +59,17 @@ class NessusParser:
         policy = self.root.find('.//Policy')
         report = self.root.find('.//Report')
         
-        # Find earliest start and latest end times across all hosts
-        start_times = []
-        end_times = []
-        for host in self.root.findall('.//ReportHost'):
-            props = host.find('HostProperties')
-            if props is not None:
-                start = self._get_tag_value(props, 'HOST_START')
-                end = self._get_tag_value(props, 'HOST_END')
-                if start:
-                    start_times.append(start)
-                if end:
-                    end_times.append(end)
+        # Get scan timestamps from policy preferences
+        scan_start = None
+        scan_end = None
         
-        scan_start = min(start_times) if start_times else None
-        scan_end = max(end_times) if end_times else None
+        prefs = self.root.findall('.//preference')
+        for pref in prefs:
+            name = pref.findtext('name')
+            if name == 'scan_start_timestamp':
+                scan_start = pref.findtext('value')
+            elif name == 'scan_end_timestamp':
+                scan_end = pref.findtext('value')
         
         return {
             "scan_id": report.get('name') if report is not None else "",
@@ -103,6 +99,7 @@ class NessusParser:
             os = self._get_tag_value(properties, 'operating-system')
             start_time = self._get_tag_value(properties, 'HOST_START')
             end_time = self._get_tag_value(properties, 'HOST_END')
+            credentialed_scan = self._get_tag_value(properties, 'Credentialed_Scan')
             
             # Initialize vulnerability counts
             vuln_counts = {
@@ -157,6 +154,7 @@ class NessusParser:
                 "os": os,
                 "scan_start": self._format_datetime(start_time) if start_time else "",
                 "scan_end": self._format_datetime(end_time) if end_time else "",
+                "credentialed_scan": credentialed_scan.lower() == 'true' if credentialed_scan else False,
                 "vulnerabilities": vuln_counts,
                 "ports": ports
             }
@@ -245,15 +243,19 @@ class NessusParser:
         credentialed_hosts = 0
         discovered_ports = set()
         
+        # Check for credentialed scans from the XML
+        for host_elem in self.root.findall('.//ReportHost'):
+            props = host_elem.find('HostProperties')
+            if props is not None:
+                cred_scan = self._get_tag_value(props, 'Credentialed_Scan')
+                if cred_scan.lower() == 'true':
+                    credentialed_hosts += 1
+        
         for host_data in hosts.values():
             if host_data.get('ip'):
                 unique_ips.add(host_data['ip'])
             if host_data.get('fqdn'):
                 unique_fqdns.add(host_data['fqdn'])
-            
-            # Count credentialed checks (this might need adjustment based on your criteria)
-            if host_data.get('os'):  # Assuming OS detection indicates credential usage
-                credentialed_hosts += 0
                 
             # Collect discovered ports
             for port in host_data.get('ports', {}).keys():
@@ -289,19 +291,34 @@ class NessusParser:
         tag = properties.find(f".//tag[@name='{tag_name}']")
         return tag.text if tag is not None else ""
     
-    def _format_datetime(self, timestamp: str) -> str:
-        """Format datetime to d-m-y h:m:s format."""
+    def _format_datetime(self, timestamp: Union[str, int]) -> str:
+        """Format datetime to d-m-y h:m:s format.
+        Args:
+            timestamp: Either Unix timestamp (int/str) or formatted date string
+        """
         try:
+            # Handle Unix timestamp
+            if str(timestamp).isdigit():
+                dt = datetime.fromtimestamp(int(timestamp))
+                return dt.strftime("%d-%m-%Y %H:%M:%S")
+            
+            # Handle formatted date string
             dt = datetime.strptime(timestamp, "%a %b %d %H:%M:%S %Y")
             return dt.strftime("%d-%m-%Y %H:%M:%S")
         except (ValueError, TypeError):
             return ""
     
-    def _calculate_duration(self, start: str, end: str) -> str:
-        """Calculate scan duration."""
+    def _calculate_duration(self, start: Union[str, int], end: Union[str, int]) -> str:
+        """Calculate scan duration from timestamps."""
         try:
-            start_dt = datetime.strptime(start, "%a %b %d %H:%M:%S %Y")
-            end_dt = datetime.strptime(end, "%a %b %d %H:%M:%S %Y")
+            # Convert to datetime objects
+            if str(start).isdigit() and str(end).isdigit():
+                start_dt = datetime.fromtimestamp(int(start))
+                end_dt = datetime.fromtimestamp(int(end))
+            else:
+                start_dt = datetime.strptime(start, "%a %b %d %H:%M:%S %Y")
+                end_dt = datetime.strptime(end, "%a %b %d %H:%M:%S %Y")
+            
             duration = end_dt - start_dt
             return str(duration)
         except (ValueError, TypeError):

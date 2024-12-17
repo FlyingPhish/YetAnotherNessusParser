@@ -25,7 +25,7 @@ def print_banner():
 
     tagline = "Same shit, different parser"
     author = "By @FlyingPhishy"
-    version = "             v1.9.1"
+    version = "             v1.9.2"
 
     print(f"{Fore.GREEN}{Style.BRIGHT}{banner}{Style.RESET_ALL}")
     print(f"{Fore.GREEN}{Style.BRIGHT}{version}{Style.RESET_ALL}\n")
@@ -35,6 +35,7 @@ def print_banner():
 def display_summary(parsed_data: dict):
     """Display formatted summary of scan results"""
     stats = parsed_data['stats']
+    context = parsed_data['context']
 
     # Color mappings for risk factors
     risk_colors = {
@@ -50,8 +51,15 @@ def display_summary(parsed_data: dict):
     print(f"{Fore.WHITE}{Style.BRIGHT}SCAN SUMMARY{Style.RESET_ALL}")
     print(f"{Fore.CYAN}{'-' * 50}{Style.RESET_ALL}")
     
+    # Scan Context
+    print(f"{Fore.WHITE}{Style.BRIGHT}Scan Context:{Style.RESET_ALL}")
+    print(f"  • Start Time: {Fore.GREEN}{context['scan_start']}{Style.RESET_ALL}")
+    print(f"  • End Time: {Fore.GREEN}{context['scan_end']}{Style.RESET_ALL}")
+    print(f"  • Duration: {Fore.GREEN}{context['scan_duration']}{Style.RESET_ALL}")
+    print(f"  • Policy: {Fore.GREEN}{context['policy_name']}{Style.RESET_ALL}")
+    
     # Asset Information
-    print(f"{Fore.WHITE}{Style.BRIGHT}Asset Information:{Style.RESET_ALL}")
+    print(f"\n{Fore.WHITE}{Style.BRIGHT}Asset Information:{Style.RESET_ALL}")
     print(f"  • Total Hosts: {Fore.GREEN}{stats['hosts']['total']}{Style.RESET_ALL}")
     print(f"  • Unique IPs: {Fore.GREEN}{stats['hosts']['total_ips']}{Style.RESET_ALL}")
     print(f"  • Unique FQDNs: {Fore.GREEN}{stats['hosts']['total_fqdns']}{Style.RESET_ALL}")
