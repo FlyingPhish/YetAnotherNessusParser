@@ -25,7 +25,7 @@ def print_banner():
 
     tagline = "Same shit, different parser"
     author = "By @FlyingPhishy"
-    version = "             v1.0.0"
+    version = "             v1.9.0"
 
     print(f"{Fore.GREEN}{Style.BRIGHT}{banner}{Style.RESET_ALL}")
     print(f"{Fore.GREEN}{Style.BRIGHT}{version}{Style.RESET_ALL}\n")
@@ -34,7 +34,7 @@ def print_banner():
 
 def display_summary(parsed_data: dict):
     """Display formatted summary of scan results"""
-    host_summary = parsed_data['host_summary']
+    stats = parsed_data['stats']
 
     # Color mappings for risk factors
     risk_colors = {
@@ -52,18 +52,26 @@ def display_summary(parsed_data: dict):
     
     # Asset Information
     print(f"{Fore.WHITE}{Style.BRIGHT}Asset Information:{Style.RESET_ALL}")
-    print(f"  • Unique IPs: {Fore.GREEN}{host_summary['number_of_unique_ips']}{Style.RESET_ALL}")
-    print(f"  • Unique FQDNs: {Fore.GREEN}{host_summary['number_of_unique_fqdns']}{Style.RESET_ALL}")
-    print(f"  • Discovered Ports: {Fore.GREEN}{len(host_summary['discovered_ports'])}{Style.RESET_ALL}")
+    print(f"  • Unique IPs: {Fore.GREEN}{stats['hosts']['total_ips']}{Style.RESET_ALL}")
+    print(f"  • Unique FQDNs: {Fore.GREEN}{stats['hosts']['total_fqdns']}{Style.RESET_ALL}")
+    print(f"  • Discovered Ports: {Fore.GREEN}{stats['ports']['total_discovered']}{Style.RESET_ALL}")
+    print(f"  • Credentialed Hosts: {Fore.GREEN}{stats['hosts']['credentialed_checks']}{Style.RESET_ALL}")
     
     # Vulnerability Summary
     print(f"\n{Fore.WHITE}{Style.BRIGHT}Vulnerability Summary:{Style.RESET_ALL}")
     risk_order = ['Critical', 'High', 'Medium', 'Low', 'None']
     
     for risk in risk_order:
-        count = host_summary['total_unique_vulns'][risk]
+        # Safely get count with default of 0
+        count = stats['vulnerabilities']['by_severity'].get(risk, 0)
         bullet = "•"
         print(f"  {bullet} {risk_colors[risk]}{risk}: {count}{Style.RESET_ALL}")
+
+    # Service Information (only if services exist)
+    if stats['ports']['services']:
+        print(f"\n{Fore.WHITE}{Style.BRIGHT}Service Information:{Style.RESET_ALL}")
+        for service, count in stats['ports']['services'].items():
+            print(f"  • {service}: {Fore.GREEN}{count}{Style.RESET_ALL}")
     
     print(f"{Fore.CYAN}{'=' * 50}{Style.RESET_ALL}\n")
 
