@@ -44,7 +44,6 @@ def main():
     # Write to JSON file
     if not json_utils.write_json_output(parsed_data, output_path):
         return 1
-
     return 0
 
 if __name__ == "__main__":
