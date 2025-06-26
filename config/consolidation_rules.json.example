@@ -1,0 +1,16 @@
+{
+  "consolidation_rules": [
+    {
+      "rule_name": "example_rule",
+      "title": "Example Consolidation Rule",
+      "enabled": false,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [],
+        "exclude_families": [],
+        "exclude_name_patterns": []
+      },
+      "grouping_criteria": ["ip", "port"]
+    }
+  ]
+}

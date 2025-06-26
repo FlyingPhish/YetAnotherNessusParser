@@ -74,8 +74,8 @@ class VulnerabilityConsolidator:
             if not vuln_data_list:
                 continue
             
-            # Aggregate metadata
-            aggregated_metadata = self._aggregate_metadata(vuln_data_list, rule['aggregation'])
+            # Aggregate metadata (using smart defaults)
+            aggregated_metadata = self._aggregate_metadata(vuln_data_list)
             
             # Consolidate solutions
             consolidated_solutions = self._consolidate_solutions(vuln_data_list)
@@ -101,8 +101,8 @@ class VulnerabilityConsolidator:
         
         return consolidated_entries
     
-    def _aggregate_metadata(self, vuln_data_list: List[Dict[str, Any]], aggregation_rules: Dict[str, str]) -> Dict[str, Any]:
-        """Aggregate vulnerability metadata according to rules."""
+    def _aggregate_metadata(self, vuln_data_list: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Aggregate vulnerability metadata using smart defaults."""
         # Initialize aggregated data
         aggregated = {
             'severity': 0,
@@ -120,7 +120,7 @@ class VulnerabilityConsolidator:
         risk_factors = []
         
         for vuln in vuln_data_list:
-            # Collect severity data
+            # Collect severity data (always take maximum)
             severity = vuln.get('severity', 0)
             risk_factor = vuln.get('risk_factor', 'None')
             
@@ -129,7 +129,7 @@ class VulnerabilityConsolidator:
             
             risk_factors.append(risk_factor)
             
-            # Collect CVSS data (take maximum scores)
+            # Collect CVSS data (always take maximum scores)
             cvss = vuln.get('cvss', {})
             cvss3 = vuln.get('cvss3', {})
             
@@ -139,7 +139,7 @@ class VulnerabilityConsolidator:
             if cvss3.get('base_score', 0) > aggregated['cvss3']['base_score']:
                 aggregated['cvss3'] = cvss3.copy()
             
-            # Union collections (remove duplicates)
+            # Union collections (always combine unique values)
             for field in ['cve', 'cwe', 'xref', 'see_also']:
                 values = vuln.get(field, [])
                 if isinstance(values, list):
@@ -389,7 +389,7 @@ class VulnerabilityConsolidator:
     
     def _validate_rule_structure(self, rule: Dict[str, Any], index: int) -> bool:
         """Validate individual rule structure."""
-        required_fields = ['rule_name', 'title', 'filters', 'grouping_criteria', 'aggregation']
+        required_fields = ['rule_name', 'title', 'filters', 'grouping_criteria']
         
         for field in required_fields:
             if field not in rule:
@@ -406,12 +406,6 @@ class VulnerabilityConsolidator:
         grouping = rule['grouping_criteria']
         if not isinstance(grouping, list):
             logger.error(f"Rule {index}: 'grouping_criteria' must be a list")
-            return False
-        
-        # Validate aggregation
-        aggregation = rule['aggregation']
-        if not isinstance(aggregation, dict):
-            logger.error(f"Rule {index}: 'aggregation' must be a dictionary")
             return False
         
         logger.debug(f"Rule {index} '{rule['rule_name']}' structure is valid")
