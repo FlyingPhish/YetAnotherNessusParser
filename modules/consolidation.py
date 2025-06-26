@@ -42,9 +42,188 @@ class VulnerabilityConsolidator:
         
         logger.info(f"Matched {sum(len(matches) for matches in matched_vulnerabilities.values())} vulnerabilities across {len(matched_vulnerabilities)} rules")
         
-        # TODO: Implement aggregation logic in Task 4
-        # For now, return structure showing what was matched
-        return self._create_matched_consolidated_structure(parsed_data, matched_vulnerabilities)
+        # Apply data aggregation
+        consolidated_entries = self.aggregate_vulnerabilities(parsed_data, matched_vulnerabilities)
+        
+        return self._create_final_consolidated_structure(parsed_data, matched_vulnerabilities, consolidated_entries)
+    
+    def aggregate_vulnerabilities(self, parsed_data: Dict[str, Any], matched_vulns: Dict[str, List[str]]) -> Dict[str, Dict[str, Any]]:
+        """
+        Aggregate matched vulnerabilities according to rule specifications.
+        
+        Args:
+            parsed_data: Original parsed Nessus data
+            matched_vulns: Dictionary mapping rule names to plugin ID lists
+            
+        Returns:
+            Dictionary of consolidated vulnerability entries
+        """
+        vulnerabilities = parsed_data.get('vulnerabilities', {})
+        consolidated_entries = {}
+        
+        for rule_name, plugin_ids in matched_vulns.items():
+            rule = next((r for r in self.rules if r['rule_name'] == rule_name), None)
+            if not rule:
+                continue
+                
+            logger.info(f"Aggregating {len(plugin_ids)} vulnerabilities for rule '{rule_name}'")
+            
+            # Collect vulnerability data for aggregation
+            vuln_data_list = [vulnerabilities[pid] for pid in plugin_ids if pid in vulnerabilities]
+            
+            if not vuln_data_list:
+                continue
+            
+            # Aggregate metadata
+            aggregated_metadata = self._aggregate_metadata(vuln_data_list, rule['aggregation'])
+            
+            # Consolidate solutions
+            consolidated_solutions = self._consolidate_solutions(vuln_data_list)
+            
+            # Group affected services
+            affected_services = self._group_affected_services(vuln_data_list, plugin_ids, rule['grouping_criteria'])
+            
+            # Build consolidated entry
+            consolidated_entries[rule_name] = {
+                "title": rule['title'],
+                "severity": aggregated_metadata['severity'],
+                "risk_factor": aggregated_metadata['risk_factor'],
+                "cvss": aggregated_metadata['cvss'],
+                "cvss3": aggregated_metadata['cvss3'],
+                "consolidated_plugins": plugin_ids,
+                "cve": aggregated_metadata['cve'],
+                "cwe": aggregated_metadata['cwe'],
+                "xref": aggregated_metadata['xref'],
+                "see_also": aggregated_metadata['see_also'],
+                "solutions": consolidated_solutions,
+                "affected_services": affected_services
+            }
+        
+        return consolidated_entries
+    
+    def _aggregate_metadata(self, vuln_data_list: List[Dict[str, Any]], aggregation_rules: Dict[str, str]) -> Dict[str, Any]:
+        """Aggregate vulnerability metadata according to rules."""
+        # Initialize aggregated data
+        aggregated = {
+            'severity': 0,
+            'risk_factor': 'None',
+            'cvss': {'base_score': 0, 'temporal_score': 0, 'vector': ''},
+            'cvss3': {'base_score': 0, 'temporal_score': 0, 'vector': ''},
+            'cve': [],
+            'cwe': [],
+            'xref': [],
+            'see_also': []
+        }
+        
+        # Severity hierarchy for comparison
+        severity_order = {'None': 0, 'Low': 1, 'Medium': 2, 'High': 3, 'Critical': 4}
+        risk_factors = []
+        
+        for vuln in vuln_data_list:
+            # Collect severity data
+            severity = vuln.get('severity', 0)
+            risk_factor = vuln.get('risk_factor', 'None')
+            
+            if severity > aggregated['severity']:
+                aggregated['severity'] = severity
+            
+            risk_factors.append(risk_factor)
+            
+            # Collect CVSS data (take maximum scores)
+            cvss = vuln.get('cvss', {})
+            cvss3 = vuln.get('cvss3', {})
+            
+            if cvss.get('base_score', 0) > aggregated['cvss']['base_score']:
+                aggregated['cvss'] = cvss.copy()
+            
+            if cvss3.get('base_score', 0) > aggregated['cvss3']['base_score']:
+                aggregated['cvss3'] = cvss3.copy()
+            
+            # Union collections (remove duplicates)
+            for field in ['cve', 'cwe', 'xref', 'see_also']:
+                values = vuln.get(field, [])
+                if isinstance(values, list):
+                    aggregated[field].extend(values)
+        
+        # Remove duplicates from lists
+        for field in ['cve', 'cwe', 'xref', 'see_also']:
+            aggregated[field] = list(set(aggregated[field]))
+            aggregated[field] = [x for x in aggregated[field] if x]  # Remove empty strings
+        
+        # Set highest risk factor
+        if risk_factors:
+            risk_priority = {'Critical': 4, 'High': 3, 'Medium': 2, 'Low': 1, 'None': 0}
+            aggregated['risk_factor'] = max(risk_factors, key=lambda x: risk_priority.get(x, 0))
+        
+        return aggregated
+    
+    def _consolidate_solutions(self, vuln_data_list: List[Dict[str, Any]]) -> List[str]:
+        """Consolidate solutions from multiple vulnerabilities."""
+        solutions = []
+        
+        for vuln in vuln_data_list:
+            solution = vuln.get('solution', '').strip()
+            if solution and solution not in solutions:
+                solutions.append(solution)
+        
+        return solutions
+    
+    def _group_affected_services(self, vuln_data_list: List[Dict[str, Any]], plugin_ids: List[str], grouping_criteria: List[str]) -> Dict[str, Any]:
+        """Group affected services according to grouping criteria."""
+        services = {}
+        
+        for i, vuln in enumerate(vuln_data_list):
+            plugin_id = plugin_ids[i] if i < len(plugin_ids) else str(i)
+            affected_hosts = vuln.get('affected_hosts', {})
+            
+            for host_id, host_data in affected_hosts.items():
+                ip = host_data.get('ip', '')
+                fqdn = host_data.get('fqdn', '')
+                ports = host_data.get('ports', [])
+                plugin_output = host_data.get('plugin_output', '')
+                
+                # Create service keys based on grouping criteria
+                for port in ports:
+                    if 'port' in grouping_criteria:
+                        service_key = f"{ip}:{port}" if 'ip' in grouping_criteria else port
+                    else:
+                        service_key = ip
+                    
+                    if service_key not in services:
+                        services[service_key] = {
+                            "ip": ip,
+                            "fqdn": fqdn,
+                            "port": port if ports else "",
+                            "issues_found": [],
+                            "plugin_outputs": {}
+                        }
+                    
+                    # Add plugin-specific information
+                    if plugin_id not in services[service_key]["issues_found"]:
+                        services[service_key]["issues_found"].append(plugin_id)
+                    
+                    if plugin_output:
+                        services[service_key]["plugin_outputs"][plugin_id] = plugin_output
+        
+        return services
+    
+    def _create_final_consolidated_structure(self, parsed_data: Dict[str, Any], matched_vulns: Dict[str, List[str]], consolidated_entries: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+        """Create the final consolidated structure."""
+        from datetime import datetime
+        
+        rule_names = [rule['rule_name'] for rule in self.rules]
+        total_vulns = len(parsed_data.get('vulnerabilities', {}))
+        total_matched = sum(len(matches) for matches in matched_vulns.values())
+        
+        return {
+            "consolidation_metadata": {
+                "rules_applied": rule_names,
+                "original_plugins_count": total_vulns,
+                "consolidated_count": total_matched,
+                "consolidation_timestamp": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+            },
+            "consolidated_vulnerabilities": consolidated_entries
+        }
     
     def match_vulnerabilities(self, parsed_data: Dict[str, Any]) -> Dict[str, List[str]]:
         """
