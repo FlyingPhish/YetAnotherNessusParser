@@ -110,4 +110,10 @@ def setup_argparse() -> argparse.ArgumentParser:
         help='Output file name (default: timestamp_<original-name>_Parsed_Nessus.json)'
     )
     
+    parser.add_argument(
+        '-c', '--consolidate',
+        action='store_true',
+        help='Generate consolidated findings file based on rules'
+    )
+    
     return parser

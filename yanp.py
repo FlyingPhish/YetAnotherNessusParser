@@ -4,7 +4,8 @@ from modules import (
     file_utils,
     cli,
     json_utils,
-    nessus
+    nessus,
+    consolidation
 )
 
 version = "2.1.0"
@@ -44,6 +45,24 @@ def main():
     # Write to JSON file
     if not json_utils.write_json_output(parsed_data, output_path):
         return 1
+    
+    # Handle consolidation if requested
+    if args.consolidate:
+        log.info("Consolidation requested, processing...")
+        consolidator = consolidation.VulnerabilityConsolidator()
+        consolidated_data = consolidator.consolidate(parsed_data)
+        
+        if consolidated_data:
+            # Generate consolidated findings filename
+            consolidated_name = file_utils.get_consolidated_output_name(args.nessus_file)
+            consolidated_path = output_folder / consolidated_name
+            
+            if not json_utils.write_json_output(consolidated_data, consolidated_path):
+                log.warning("Failed to write consolidated findings file")
+                return 1
+        else:
+            log.warning("Consolidation was requested but no consolidated data was generated")
+    
     return 0
 
 if __name__ == "__main__":

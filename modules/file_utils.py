@@ -39,3 +39,9 @@ def get_default_output_name(nessus_file: str) -> str:
     timestamp = datetime.now().strftime('%d-%m-%y_%H-%M-%S')
     original_name = Path(nessus_file).stem
     return f"{timestamp}_{original_name}_Parsed_Nessus.json"
+
+def get_consolidated_output_name(nessus_file: str) -> str:
+    """Generate consolidated findings output name"""
+    timestamp = datetime.now().strftime('%d-%m-%y_%H-%M-%S')
+    original_name = Path(nessus_file).stem
+    return f"{timestamp}_{original_name}_Consolidated_Findings.json"
