@@ -48,11 +48,13 @@ def main():
     
     # Handle consolidation if requested
     if args.consolidate:
-        log.info("Consolidation requested, processing...")
         consolidator = consolidation.VulnerabilityConsolidator()
         consolidated_data = consolidator.consolidate(parsed_data)
         
         if consolidated_data:
+            # Display consolidation summary in YANP style
+            cli.display_consolidation_summary(consolidated_data)
+            
             # Generate consolidated findings filename
             consolidated_name = file_utils.get_consolidated_output_name(args.nessus_file)
             consolidated_path = output_folder / consolidated_name
@@ -60,6 +62,7 @@ def main():
             if not json_utils.write_json_output(consolidated_data, consolidated_path):
                 log.warning("Failed to write consolidated findings file")
                 return 1
+                
         else:
             log.warning("Consolidation was requested but no consolidated data was generated")
     

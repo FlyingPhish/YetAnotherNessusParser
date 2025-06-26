@@ -24,23 +24,23 @@ class VulnerabilityConsolidator:
         Returns:
             Consolidated findings data or None if consolidation fails
         """
-        logger.info("Starting vulnerability consolidation")
+        logger.debug("Starting vulnerability consolidation")
         
         # Load consolidation rules
         if not self._load_rules():
             logger.warning("No consolidation rules loaded, skipping consolidation")
             return None
         
-        logger.info(f"Processing {len(parsed_data.get('vulnerabilities', {}))} vulnerabilities with {len(self.rules)} rules")
+        logger.debug(f"Processing {len(parsed_data.get('vulnerabilities', {}))} vulnerabilities with {len(self.rules)} rules")
         
         # Apply rule matching
         matched_vulnerabilities = self.match_vulnerabilities(parsed_data)
         
         if not matched_vulnerabilities:
-            logger.info("No vulnerabilities matched consolidation rules")
+            logger.debug("No vulnerabilities matched consolidation rules")
             return self._create_basic_consolidated_structure(parsed_data)
         
-        logger.info(f"Matched {sum(len(matches) for matches in matched_vulnerabilities.values())} vulnerabilities across {len(matched_vulnerabilities)} rules")
+        logger.debug(f"Matched {sum(len(matches) for matches in matched_vulnerabilities.values())} vulnerabilities across {len(matched_vulnerabilities)} rules")
         
         # Apply data aggregation
         consolidated_entries = self.aggregate_vulnerabilities(parsed_data, matched_vulnerabilities)
@@ -66,7 +66,7 @@ class VulnerabilityConsolidator:
             if not rule:
                 continue
                 
-            logger.info(f"Aggregating {len(plugin_ids)} vulnerabilities for rule '{rule_name}'")
+            logger.debug(f"Aggregating {len(plugin_ids)} vulnerabilities for rule '{rule_name}'")
             
             # Collect vulnerability data for aggregation
             vuln_data_list = [vulnerabilities[pid] for pid in plugin_ids if pid in vulnerabilities]
@@ -246,7 +246,7 @@ class VulnerabilityConsolidator:
             
             if matches:
                 matched_vulns[rule_name] = matches
-                logger.info(f"Rule '{rule_name}' matched {len(matches)} vulnerabilities: {matches}")
+                logger.debug(f"Rule '{rule_name}' matched {len(matches)} vulnerabilities: {matches}")
             else:
                 logger.debug(f"Rule '{rule_name}' found no matches")
         
@@ -349,7 +349,7 @@ class VulnerabilityConsolidator:
             all_rules = config_data.get('consolidation_rules', [])
             self.rules = [rule for rule in all_rules if rule.get('enabled', True)]
             
-            logger.info(f"Loaded {len(self.rules)} enabled consolidation rules")
+            logger.debug(f"Loaded {len(self.rules)} enabled consolidation rules")
             if len(self.rules) == 0:
                 logger.warning("No enabled consolidation rules found")
                 return False
