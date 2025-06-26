@@ -1,5 +1,6 @@
 import logging
 import json
+import re
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
@@ -32,9 +33,122 @@ class VulnerabilityConsolidator:
         
         logger.info(f"Processing {len(parsed_data.get('vulnerabilities', {}))} vulnerabilities with {len(self.rules)} rules")
         
-        # TODO: Implement actual consolidation logic in subsequent tasks
-        # For now, return a basic structure showing rules were loaded
-        return self._create_basic_consolidated_structure(parsed_data)
+        # Apply rule matching
+        matched_vulnerabilities = self.match_vulnerabilities(parsed_data)
+        
+        if not matched_vulnerabilities:
+            logger.info("No vulnerabilities matched consolidation rules")
+            return self._create_basic_consolidated_structure(parsed_data)
+        
+        logger.info(f"Matched {sum(len(matches) for matches in matched_vulnerabilities.values())} vulnerabilities across {len(matched_vulnerabilities)} rules")
+        
+        # TODO: Implement aggregation logic in Task 4
+        # For now, return structure showing what was matched
+        return self._create_matched_consolidated_structure(parsed_data, matched_vulnerabilities)
+    
+    def match_vulnerabilities(self, parsed_data: Dict[str, Any]) -> Dict[str, List[str]]:
+        """
+        Match vulnerabilities against consolidation rules.
+        
+        Args:
+            parsed_data: The original parsed Nessus data
+            
+        Returns:
+            Dictionary mapping rule names to lists of matching plugin IDs
+        """
+        vulnerabilities = parsed_data.get('vulnerabilities', {})
+        matched_vulns = {}
+        
+        for rule in self.rules:
+            rule_name = rule['rule_name']
+            logger.debug(f"Applying rule: {rule_name}")
+            
+            matches = self._apply_rule_filters(vulnerabilities, rule)
+            
+            if matches:
+                matched_vulns[rule_name] = matches
+                logger.info(f"Rule '{rule_name}' matched {len(matches)} vulnerabilities: {matches}")
+            else:
+                logger.debug(f"Rule '{rule_name}' found no matches")
+        
+        return matched_vulns
+    
+    def _apply_rule_filters(self, vulnerabilities: Dict[str, Any], rule: Dict[str, Any]) -> List[str]:
+        """Apply filtering logic for a single rule."""
+        matches = []
+        filters = rule['filters']
+        
+        for plugin_id, vuln_data in vulnerabilities.items():
+            if self._matches_filter_criteria(vuln_data, filters):
+                matches.append(plugin_id)
+        
+        return matches
+    
+    def _matches_filter_criteria(self, vuln_data: Dict[str, Any], filters: Dict[str, Any]) -> bool:
+        """Check if a vulnerability matches the filter criteria."""
+        # Get vulnerability properties
+        family = vuln_data.get('family', '')
+        name = vuln_data.get('name', '')
+        
+        # Check plugin families (if specified)
+        plugin_families = filters.get('plugin_families', [])
+        if plugin_families and family not in plugin_families:
+            return False
+        
+        # Check exclude families
+        exclude_families = filters.get('exclude_families', [])
+        if exclude_families and family in exclude_families:
+            return False
+        
+        # Check name patterns (if specified)
+        name_patterns = filters.get('name_patterns', [])
+        if name_patterns:
+            pattern_matches = False
+            for pattern in name_patterns:
+                if re.search(pattern, name, re.IGNORECASE):
+                    pattern_matches = True
+                    break
+            if not pattern_matches:
+                return False
+        
+        # Check exclude name patterns
+        exclude_name_patterns = filters.get('exclude_name_patterns', [])
+        if exclude_name_patterns:
+            for pattern in exclude_name_patterns:
+                if re.search(pattern, name, re.IGNORECASE):
+                    return False
+        
+        return True
+    
+    def _create_matched_consolidated_structure(self, parsed_data: Dict[str, Any], matched_vulns: Dict[str, List[str]]) -> Dict[str, Any]:
+        """Create consolidated structure showing what was matched."""
+        from datetime import datetime
+        
+        rule_names = [rule['rule_name'] for rule in self.rules]
+        total_vulns = len(parsed_data.get('vulnerabilities', {}))
+        total_matched = sum(len(matches) for matches in matched_vulns.values())
+        
+        # Create basic consolidated vulnerabilities structure for matched items
+        consolidated_vulns = {}
+        for rule_name, plugin_ids in matched_vulns.items():
+            # Find the rule details
+            rule = next((r for r in self.rules if r['rule_name'] == rule_name), None)
+            if rule:
+                consolidated_vulns[rule_name] = {
+                    "title": rule['title'],
+                    "matched_plugins": plugin_ids,
+                    "match_count": len(plugin_ids)
+                }
+        
+        return {
+            "consolidation_metadata": {
+                "rules_applied": rule_names,
+                "original_plugins_count": total_vulns,
+                "consolidated_count": total_matched,
+                "consolidation_timestamp": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+            },
+            "consolidated_vulnerabilities": consolidated_vulns
+        }
     
     def _load_rules(self) -> bool:
         """Load consolidation rules from config file."""
