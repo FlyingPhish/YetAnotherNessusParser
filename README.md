@@ -6,7 +6,8 @@ Yet another bloody python-based Nessus parser. My intentions are to create one P
 
 This tool parses .Nessus XML files into structured JSON and Py formats. This tool provides a clean, efficient way to process Nessus vulnerability scan results with detailed host and vulnerability information, plus an advanced consolidation engine to group related vulnerabilities intelligently.
 
-![image](https://github.com/user-attachments/assets/5fe9f8a5-fec0-443e-b89a-850ea78d3de2)
+![image](https://github.com/user-attachments/assets/860c69e9-8e13-4dd7-a6e7-6350f54b0cda)
+
 
 ## Features
 
@@ -120,9 +121,8 @@ python yanp.py -h
 The consolidation engine groups related vulnerabilities into meaningful categories, reducing noise and making vulnerability management more efficient.
 
 ### Example Consolidation Output:
-```
-SCREENSHOT
-```
+![image](https://github.com/user-attachments/assets/2f8a0d80-5de7-414b-8569-de936a92c892)
+
 
 ### Consolidation Features:
 - **Smart Pattern Matching**: Uses regex patterns to match vulnerability names and plugin output content
