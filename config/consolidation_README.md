@@ -14,7 +14,7 @@ Instead of seeing 50 separate "outdated software" vulnerabilities, you get **1 c
 
 Think of rules as **smart filters** that find related vulnerabilities and group them together.
 
-### Rule Structure (Simple Version)
+### Rule Structure
 
 ```json
 {
@@ -22,7 +22,9 @@ Think of rules as **smart filters** that find related vulnerabilities and group 
   "title": "What Users Will See",
   "enabled": true,
   "filters": {
-    "name_patterns": ["What to look for in vulnerability names"]
+    "name_patterns": ["What to look for in vulnerability names"],
+    "plugin_output_patterns": ["What to search for in plugin output"],
+    "plugin_output_require_all": false
   },
   "grouping_criteria": ["ip", "port"]
 }
@@ -45,7 +47,8 @@ Look at your Nessus results and identify patterns:
   "title": "Adobe Software Vulnerabilities", 
   "enabled": true,
   "filters": {
-    "name_patterns": ["Adobe.*"]
+    "name_patterns": ["Adobe.*"],
+    "plugin_output_patterns": ["Installed version.*Fixed version"]
   },
   "grouping_criteria": ["ip"]
 }
@@ -75,11 +78,29 @@ This finds vulnerabilities with "Adobe" or "Flash" in the name.
 ```
 Only look at vulnerabilities in these categories.
 
+#### **🆕 plugin_output_patterns** - Search inside plugin output
+```json
+"plugin_output_patterns": ["Installed version.*Fixed version", "jQuery.*version"]
+```
+This searches **inside the actual plugin output** for these patterns. Perfect for finding outdated software!
+
+#### **🆕 plugin_output_require_all** - AND vs OR logic
+```json
+"plugin_output_require_all": true   // ALL patterns must match
+"plugin_output_require_all": false  // ANY pattern can match (default)
+```
+
 #### **exclude_name_patterns** - Skip certain vulnerabilities  
 ```json
 "exclude_name_patterns": [".*Info.*", ".*Detection.*"]
 ```
 Ignore vulnerabilities with "Info" or "Detection" in the name.
+
+#### **🆕 exclude_plugin_output_patterns** - Skip based on plugin output
+```json
+"exclude_plugin_output_patterns": [".*Detection only.*", ".*Information.*"]
+```
+Exclude vulnerabilities containing these patterns in their plugin output.
 
 ### 📋 **Grouping** (How to Organize)
 - `["ip"]` - Group by server
@@ -98,71 +119,100 @@ Ignore vulnerabilities with "Info" or "Detection" in the name.
 
 **Note:** These aggregation methods work well for 90% of use cases and ensure you never lose important security information.
 
-```json
-"aggregation": {
-  "note": "Uses smart defaults - highest severity, combined CVEs/solutions"
-}
-```
+## Advanced Rule Patterns
 
-## Common Rule Patterns
-
-### 📊 **Pattern 1: Software Vendor Issues**
+### 📊 **Pattern 1: Outdated Software Detection**
 ```json
 {
-  "rule_name": "microsoft_issues",
-  "title": "Microsoft Software Vulnerabilities",
+  "rule_name": "outdated_software",
+  "title": "Outdated Software Issues",
   "enabled": true,
   "filters": {
-    "name_patterns": ["Microsoft.*", "Windows.*", "MS[0-9]"]
+    "plugin_output_patterns": [
+      "Installed version.*Fixed version",
+      "Current version.*Latest version"
+    ],
+    "plugin_output_require_all": false,
+    "exclude_plugin_output_patterns": [".*Detection only.*"]
   },
   "grouping_criteria": ["ip"]
 }
 ```
 
-### 🔒 **Pattern 2: Security Protocol Issues**
+### 🔒 **Pattern 2: Weak Encryption (Multi-layer)**
 ```json
 {
   "rule_name": "weak_encryption",
   "title": "Weak Encryption and Ciphers",
   "enabled": true,
   "filters": {
-    "name_patterns": [".*Cipher.*", ".*RC4.*", ".*DES.*"],
-    "plugin_families": ["Web Servers"]
+    "name_patterns": [".*TLS.*", ".*SSL.*", ".*Cipher.*"],
+    "plugin_families": ["Service detection"],
+    "plugin_output_patterns": [
+      "weak.*cipher",
+      "deprecated.*protocol",
+      "TLS.*1\\.[01].*supported"
+    ],
+    "plugin_output_require_all": false
   },
   "grouping_criteria": ["ip", "port"]
 }
 ```
 
-### 🌐 **Pattern 3: Web Application Issues**
+### 🌐 **Pattern 3: JavaScript Library Issues**
 ```json
 {
-  "rule_name": "web_app_vulns",
-  "title": "Web Application Vulnerabilities", 
+  "rule_name": "js_libraries",
+  "title": "Outdated JavaScript Libraries", 
   "enabled": true,
   "filters": {
     "plugin_families": ["Web Servers", "CGI abuses"],
-    "exclude_name_patterns": [".*Info.*", ".*Enumeration.*"]
+    "plugin_output_patterns": [
+      "jQuery.*version",
+      "Angular.*version", 
+      "React.*version"
+    ],
+    "plugin_output_require_all": false,
+    "exclude_plugin_output_patterns": ["Windows.*KB[0-9]+"]
   },
   "grouping_criteria": ["ip", "port"]
 }
 ```
 
+## Plugin Output Pattern Examples
+
+### 🎯 **Version Detection Patterns**
+- `"Installed version.*Fixed version"` - Standard version format
+- `"Current version.*Latest version"` - Alternative version format
+- `"jQuery.*version.*[0-9]+"` - Specific to jQuery libraries
+- `"Windows.*KB[0-9]+"` - Windows Knowledge Base updates
+
+### 🔍 **Certificate Issue Patterns**
+- `"certificate.*expired"` - Expired certificates
+- `"self-signed.*certificate"` - Self-signed certificates
+- `"certificate.*verification.*failed"` - Verification failures
+
+### ⚠️ **Security Configuration Patterns**
+- `"default.*credentials.*detected"` - Default passwords
+- `"anonymous.*access.*allowed"` - Anonymous access
+- `"weak.*cipher.*enabled"` - Weak encryption
+
 ## Pattern Matching Tips
 
-### 🎯 **Name Patterns Use "Regex"**
-- `Adobe.*` = "Adobe" followed by anything
-- `.*SSL.*` = anything containing "SSL"  
-- `TLS.*Detection` = "TLS" followed by anything ending in "Detection"
-- `MS[0-9]` = "MS" followed by a number
+### 🎯 **Plugin Output Patterns Use "Regex"**
+- `"Installed version.*Fixed version"` = "Installed version" followed by anything then "Fixed version"
+- `"jQuery.*version"` = "jQuery" followed by anything containing "version"
+- `"TLS.*1\\.[01]"` = "TLS" followed by version 1.0 or 1.1
+- `"KB[0-9]+"` = "KB" followed by one or more digits
 
-### ✅ **Good Pattern Examples**
-- `["Adobe.*", "Flash.*"]` - Adobe and Flash issues
-- `[".*Certificate.*", ".*Cert.*"]` - Certificate problems
-- `[".*Weak.*", ".*RC4.*"]` - Weak encryption
+### ✅ **Good Plugin Output Patterns**
+- `["Installed version.*Fixed version"]` - Version information
+- `["certificate.*expired", "certificate.*invalid"]` - Certificate issues
+- `["weak.*cipher", "deprecated.*protocol"]` - Encryption problems
 
 ### ❌ **Avoid These Patterns**
 - `[".*"]` - Matches everything (too broad)
-- `["Info"]` - Only matches exactly "Info" (too narrow)
+- `["version"]` - Too simple, will match too much
 - `[]` - Empty list (matches nothing)
 
 ## Testing Your Rules
@@ -178,18 +228,50 @@ Consolidated Categories:
     └─ 5 plugins → 12 affected services
 ```
 
-### 3. **Refine as Needed**
-- Too many matches? Add `exclude_name_patterns`
-- Too few matches? Broaden your `name_patterns`
-- Wrong vulnerabilities? Check your `plugin_families`
+### 3. **Debug Plugin Output Matching**
+Enable debug logging to see exactly what plugin output is being searched:
+```bash
+python yanp.py -n your_file.nessus -c --debug
+```
+
+### 4. **Refine as Needed**
+- Too many matches? Add `exclude_plugin_output_patterns`
+- Too few matches? Broaden your `plugin_output_patterns`
+- Wrong vulnerabilities? Check both `name_patterns` and `plugin_output_patterns`
+
+## Advanced Features
+
+### 🔄 **Combining Multiple Filter Types**
+You can use name patterns AND plugin output patterns together:
+```json
+{
+  "filters": {
+    "name_patterns": ["Adobe.*"],
+    "plugin_output_patterns": ["Installed version.*Fixed version"],
+    "exclude_plugin_output_patterns": [".*Detection only.*"]
+  }
+}
+```
+
+### 🎛️ **Logic Control**
+Control whether ALL patterns must match or just ANY:
+```json
+{
+  "plugin_output_patterns": ["pattern1", "pattern2", "pattern3"],
+  "plugin_output_require_all": true  // ALL three must be found
+}
+```
 
 ## Quick Reference
 
 ### **Most Common Settings**
 ```json
-"grouping_criteria": ["ip", "port"]
+{
+  "plugin_output_patterns": ["Installed version.*Fixed version"],
+  "plugin_output_require_all": false,
+  "grouping_criteria": ["ip", "port"]
+}
 ```
-*Note: Aggregation uses smart defaults automatically*
 
 ### **Enable/Disable Rules**
 ```json
@@ -207,9 +289,10 @@ Consolidated Categories:
 
 1. **Start with the examples** - Copy and modify existing rules
 2. **Test incrementally** - Add one pattern at a time
-3. **Check the original JSON** - Look at the raw Nessus data to see exact vulnerability names
-4. **Use simple patterns first** - Get basic matching working before adding complexity
+3. **Use debug mode** - See exactly what's being matched
+4. **Check the consolidated JSON** - Look at actual plugin outputs in results
+5. **Use simple patterns first** - Get basic matching working before adding complexity
 
 ---
 
-**Remember:** The goal is to reduce noise and group related issues. Start simple and gradually refine your rules as you learn what works for your environment.
+**Remember:** The goal is to reduce noise and group related issues. Plugin output searching is powerful - start simple and gradually refine your patterns as you learn what works for your environment.

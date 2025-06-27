@@ -8,7 +8,7 @@ from modules import (
     consolidation
 )
 
-version = "2.1.0"
+version = "3.1.0"
 
 def main():
     """Main execution function"""

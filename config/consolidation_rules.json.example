@@ -1,26 +1,91 @@
 {
   "consolidation_rules": [
     {
-      "rule_name": "tls_weak_protocols",
-      "title": "Weak TLS/SSL Protocols Enabled",
+      "rule_name": "ssl_tls_protocol_weaknesses",
+      "title": "SSL/TLS Protocol Weaknesses",
       "enabled": true,
       "filters": {
-        "plugin_families": ["Service detection", "General"],
-        "name_patterns": ["TLS.*Protocol Detection", "SSL.*Protocol Detection", "TLS.*Supported", "SSL.*Supported"],
+        "plugin_families": ["Service detection", "General", "Misc."],
+        "name_patterns": [
+          "SSL.*TLS.*Versions.*Supported",
+          "TLS.*Version.*1\\.0.*Protocol.*Detection",
+          "TLS.*Version.*1\\.1.*Deprecated.*Protocol",
+          "TLS.*Version.*1\\.1.*Protocol.*Detection"
+        ],
         "exclude_families": [],
-        "exclude_name_patterns": []
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [
+          "TLSv1\\.1",
+          "TLSv1\\.0", 
+          "SSLv3",
+          "SSLv2"
+        ],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
       },
       "grouping_criteria": ["ip", "port"]
     },
     {
-      "rule_name": "example_rule",
-      "title": "Example Consolidation Rule",
+      "rule_name": "ssh_weaknesses",
+      "title": "SSH Weaknesses",
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "SSH Password Authentication Accepted",
+          "SSH Protocol Versions Supported",
+          "SSH Weak Algorithms Supported",
+          "SSH Weak Key Exchange Algorithms Enabled",
+          "SSH Server CBC Mode Ciphers Enabled",
+          "SSH Weak MAC Algorithms Enabled",
+          "SSH Terrapin Prefix Truncation Weakness \\(CVE-2023-48795\\)"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [
+
+        ],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": ["ip", "port"]
+    },
+    {
+      "rule_name": "cleartext_services",
+      "title": "Cleartext Services",
+      "enabled": true,
+      "filters": {
+        "plugin_families": ["Service detection", "Misc.", "FTP"],
+        "name_patterns": [
+          "vsftpd.*Detection",
+          "FTP.*Server.*Detection",
+          "TFTP.*Daemon.*Detection", 
+          "Unencrypted.*Telnet.*Server"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": ["ip", "port"]
+    },
+    {
+      "rule_name": "example_disabled_rule",
+      "title": "Example Template Rule (Disabled)",
       "enabled": false,
       "filters": {
         "plugin_families": [],
         "name_patterns": [],
         "exclude_families": [],
-        "exclude_name_patterns": []
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
       },
       "grouping_criteria": ["ip", "port"]
     }

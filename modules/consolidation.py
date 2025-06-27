@@ -83,6 +83,14 @@ class VulnerabilityConsolidator:
             # Group affected services
             affected_services = self._group_affected_services(vuln_data_list, plugin_ids, rule['grouping_criteria'])
             
+            # Create plugin mapping with names for readability
+            consolidated_plugins = {}
+            for plugin_id in plugin_ids:
+                if plugin_id in vulnerabilities:
+                    consolidated_plugins[plugin_id] = vulnerabilities[plugin_id].get('name', f'Plugin {plugin_id}')
+                else:
+                    consolidated_plugins[plugin_id] = f'Plugin {plugin_id}'
+            
             # Build consolidated entry
             consolidated_entries[rule_name] = {
                 "title": rule['title'],
@@ -90,7 +98,7 @@ class VulnerabilityConsolidator:
                 "risk_factor": aggregated_metadata['risk_factor'],
                 "cvss": aggregated_metadata['cvss'],
                 "cvss3": aggregated_metadata['cvss3'],
-                "consolidated_plugins": plugin_ids,
+                "consolidated_plugins": consolidated_plugins,
                 "cve": aggregated_metadata['cve'],
                 "cwe": aggregated_metadata['cwe'],
                 "xref": aggregated_metadata['xref'],
@@ -223,6 +231,7 @@ class VulnerabilityConsolidator:
         
         for i, vuln in enumerate(vuln_data_list):
             plugin_id = plugin_ids[i] if i < len(plugin_ids) else str(i)
+            plugin_name = vuln.get('name', f'Plugin {plugin_id}')
             affected_hosts = vuln.get('affected_hosts', {})
             
             for host_id, host_data in affected_hosts.items():
@@ -247,12 +256,20 @@ class VulnerabilityConsolidator:
                             "plugin_outputs": {}
                         }
                     
-                    # Add plugin-specific information
-                    if plugin_id not in services[service_key]["issues_found"]:
-                        services[service_key]["issues_found"].append(plugin_id)
+                    # Add plugin-specific information with human-readable format
+                    plugin_info = {
+                        "id": plugin_id,
+                        "name": plugin_name
+                    }
+                    
+                    if plugin_info not in services[service_key]["issues_found"]:
+                        services[service_key]["issues_found"].append(plugin_info)
                     
                     if plugin_output:
-                        services[service_key]["plugin_outputs"][plugin_id] = plugin_output
+                        services[service_key]["plugin_outputs"][plugin_id] = {
+                            "name": plugin_name,
+                            "output": plugin_output
+                        }
         
         return services
     
@@ -377,6 +394,7 @@ class VulnerabilityConsolidator:
         rule_names = [rule['rule_name'] for rule in self.rules]
         total_vulns = len(parsed_data.get('vulnerabilities', {}))
         total_matched = sum(len(matches) for matches in matched_vulns.values())
+        vulnerabilities = parsed_data.get('vulnerabilities', {})
         
         # Create basic consolidated vulnerabilities structure for matched items
         consolidated_vulns = {}
@@ -384,9 +402,17 @@ class VulnerabilityConsolidator:
             # Find the rule details
             rule = next((r for r in self.rules if r['rule_name'] == rule_name), None)
             if rule:
+                # Create plugin mapping with names for readability
+                matched_plugins = {}
+                for plugin_id in plugin_ids:
+                    if plugin_id in vulnerabilities:
+                        matched_plugins[plugin_id] = vulnerabilities[plugin_id].get('name', f'Plugin {plugin_id}')
+                    else:
+                        matched_plugins[plugin_id] = f'Plugin {plugin_id}'
+                
                 consolidated_vulns[rule_name] = {
                     "title": rule['title'],
-                    "matched_plugins": plugin_ids,
+                    "matched_plugins": matched_plugins,
                     "match_count": len(plugin_ids)
                 }
         
