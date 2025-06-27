@@ -473,13 +473,88 @@ class VulnerabilityConsolidator:
             logger.error(f"Rule {index}: 'filters' must be a dictionary")
             return False
         
+        # Validate filter fields
+        if not self._validate_filter_fields(filters, index):
+            return False
+        
         # Validate grouping_criteria
         grouping = rule['grouping_criteria']
         if not isinstance(grouping, list):
             logger.error(f"Rule {index}: 'grouping_criteria' must be a list")
             return False
         
+        # Validate grouping criteria values
+        valid_grouping_options = ['ip', 'port', 'service']
+        for criterion in grouping:
+            if criterion not in valid_grouping_options:
+                logger.warning(f"Rule {index}: Unknown grouping criterion '{criterion}'. Valid options: {valid_grouping_options}")
+        
         logger.debug(f"Rule {index} '{rule['rule_name']}' structure is valid")
+        return True
+    
+    def _validate_filter_fields(self, filters: Dict[str, Any], rule_index: int) -> bool:
+        """Validate filter field types and content."""
+        # Define expected field types
+        list_fields = [
+            'plugin_families', 'name_patterns', 'exclude_families', 
+            'exclude_name_patterns', 'plugin_output_patterns', 
+            'exclude_plugin_output_patterns'
+        ]
+        
+        bool_fields = [
+            'plugin_output_require_all', 'exclude_plugin_output_require_all'
+        ]
+        
+        # Validate list fields
+        for field in list_fields:
+            if field in filters:
+                value = filters[field]
+                if not isinstance(value, list):
+                    logger.error(f"Rule {rule_index}: '{field}' must be a list, got {type(value).__name__}")
+                    return False
+                
+                # Validate regex patterns
+                if 'patterns' in field:
+                    if not self._validate_regex_patterns(value, field, rule_index):
+                        return False
+        
+        # Validate boolean fields
+        for field in bool_fields:
+            if field in filters:
+                value = filters[field]
+                if not isinstance(value, bool):
+                    logger.error(f"Rule {rule_index}: '{field}' must be a boolean, got {type(value).__name__}")
+                    return False
+        
+        # Validate plugin families against known families
+        if 'plugin_families' in filters:
+            known_families = [
+                'Service detection', 'Web Servers', 'Windows', 'General', 
+                'CGI abuses', 'Firewalls', 'Databases', 'DNS', 'FTP',
+                'SMTP problems', 'SNMP', 'Remote file access', 'Backdoors',
+                'Peer-To-Peer File Sharing', 'Gain a shell remotely',
+                'Denial of Service', 'Default Unix Accounts'
+            ]
+            
+            for family in filters['plugin_families']:
+                if family not in known_families:
+                    logger.warning(f"Rule {rule_index}: Unknown plugin family '{family}'. This may still work but consider checking the spelling.")
+        
+        return True
+    
+    def _validate_regex_patterns(self, patterns: List[str], field_name: str, rule_index: int) -> bool:
+        """Validate regex patterns for syntax errors."""
+        for pattern in patterns:
+            if not isinstance(pattern, str):
+                logger.error(f"Rule {rule_index}: All patterns in '{field_name}' must be strings")
+                return False
+            
+            try:
+                re.compile(pattern, re.IGNORECASE)
+            except re.error as e:
+                logger.error(f"Rule {rule_index}: Invalid regex pattern '{pattern}' in '{field_name}': {str(e)}")
+                return False
+        
         return True
     
     def _create_basic_consolidated_structure(self, parsed_data: Dict[str, Any]) -> Dict[str, Any]:
