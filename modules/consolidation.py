@@ -101,6 +101,55 @@ class VulnerabilityConsolidator:
         
         return consolidated_entries
     
+    def _search_plugin_output(self, vuln_data: Dict[str, Any], patterns: List[str], require_all: bool = False) -> bool:
+        """
+        Search for patterns in plugin output across all affected hosts.
+        
+        Args:
+            vuln_data: Vulnerability data containing affected_hosts
+            patterns: List of regex patterns to search for
+            require_all: If True, all patterns must match; if False, any pattern match is sufficient
+            
+        Returns:
+            True if pattern(s) found according to require_all logic, False otherwise
+        """
+        if not patterns:
+            return True  # No patterns to match means always pass
+        
+        affected_hosts = vuln_data.get('affected_hosts', {})
+        if not affected_hosts:
+            return False
+        
+        # Collect all plugin outputs from all affected hosts
+        all_plugin_outputs = []
+        for host_data in affected_hosts.values():
+            plugin_output = host_data.get('plugin_output', '')
+            if plugin_output:
+                all_plugin_outputs.append(plugin_output)
+        
+        if not all_plugin_outputs:
+            return False
+        
+        # Join all outputs for comprehensive searching
+        combined_output = '\n'.join(all_plugin_outputs)
+        
+        matched_patterns = []
+        for pattern in patterns:
+            try:
+                if re.search(pattern, combined_output, re.IGNORECASE | re.MULTILINE):
+                    matched_patterns.append(pattern)
+                    if not require_all:
+                        # Early exit if we only need one match
+                        return True
+            except re.error as e:
+                logger.warning(f"Invalid regex pattern '{pattern}': {str(e)}")
+                continue
+        
+        if require_all:
+            return len(matched_patterns) == len(patterns)
+        else:
+            return len(matched_patterns) > 0
+    
     def _aggregate_metadata(self, vuln_data_list: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Aggregate vulnerability metadata using smart defaults."""
         # Initialize aggregated data
@@ -284,9 +333,13 @@ class VulnerabilityConsolidator:
         if name_patterns:
             pattern_matches = False
             for pattern in name_patterns:
-                if re.search(pattern, name, re.IGNORECASE):
-                    pattern_matches = True
-                    break
+                try:
+                    if re.search(pattern, name, re.IGNORECASE):
+                        pattern_matches = True
+                        break
+                except re.error as e:
+                    logger.warning(f"Invalid regex pattern '{pattern}': {str(e)}")
+                    continue
             if not pattern_matches:
                 return False
         
@@ -294,8 +347,26 @@ class VulnerabilityConsolidator:
         exclude_name_patterns = filters.get('exclude_name_patterns', [])
         if exclude_name_patterns:
             for pattern in exclude_name_patterns:
-                if re.search(pattern, name, re.IGNORECASE):
-                    return False
+                try:
+                    if re.search(pattern, name, re.IGNORECASE):
+                        return False
+                except re.error as e:
+                    logger.warning(f"Invalid regex pattern '{pattern}': {str(e)}")
+                    continue
+        
+        # NEW: Check plugin output patterns (if specified)
+        plugin_output_patterns = filters.get('plugin_output_patterns', [])
+        if plugin_output_patterns:
+            require_all = filters.get('plugin_output_require_all', False)
+            if not self._search_plugin_output(vuln_data, plugin_output_patterns, require_all):
+                return False
+        
+        # NEW: Check exclude plugin output patterns
+        exclude_plugin_output_patterns = filters.get('exclude_plugin_output_patterns', [])
+        if exclude_plugin_output_patterns:
+            require_all = filters.get('exclude_plugin_output_require_all', False)
+            if self._search_plugin_output(vuln_data, exclude_plugin_output_patterns, require_all):
+                return False
         
         return True
     

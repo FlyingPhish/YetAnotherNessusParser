@@ -1,6 +1,18 @@
 {
   "consolidation_rules": [
     {
+      "rule_name": "tls_weak_protocols",
+      "title": "Weak TLS/SSL Protocols Enabled",
+      "enabled": true,
+      "filters": {
+        "plugin_families": ["Service detection", "General"],
+        "name_patterns": ["TLS.*Protocol Detection", "SSL.*Protocol Detection", "TLS.*Supported", "SSL.*Supported"],
+        "exclude_families": [],
+        "exclude_name_patterns": []
+      },
+      "grouping_criteria": ["ip", "port"]
+    },
+    {
       "rule_name": "example_rule",
       "title": "Example Consolidation Rule",
       "enabled": false,
