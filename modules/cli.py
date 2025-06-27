@@ -86,6 +86,61 @@ def display_summary(parsed_data: dict):
             print(f"  • {service}: {Colors.GREEN}{count}{Colors.RESET}")
     
     print(f"{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
+
+def display_consolidation_summary(consolidated_data: dict):
+    """Display formatted consolidation summary matching YANP aesthetic"""
+    if not consolidated_data or not consolidated_data.get('consolidated_vulnerabilities'):
+        return
+    
+    metadata = consolidated_data['consolidation_metadata']
+    consolidated_vulns = consolidated_data['consolidated_vulnerabilities']
+    
+    # Calculate impact metrics
+    original_count = metadata['original_plugins_count']
+    consolidated_count = len(consolidated_vulns)
+    reduction = metadata['consolidated_count']
+    final_count = original_count - reduction + consolidated_count
+    
+    # Print Consolidation Summary
+    print(f"{Colors.CYAN}{'=' * 50}{Colors.RESET}")
+    print(f"{Colors.WHITE}{Colors.BRIGHT}CONSOLIDATION SUMMARY{Colors.RESET}")
+    print(f"{Colors.CYAN}{'-' * 50}{Colors.RESET}")
+    
+    # Impact Statistics
+    print(f"{Colors.WHITE}{Colors.BRIGHT}Impact Statistics:{Colors.RESET}")
+    print(f"  • Original Vulnerabilities: {Colors.YELLOW}{original_count}{Colors.RESET}")
+    print(f"  • Vulnerabilities Consolidated: {Colors.ORANGE}{reduction}{Colors.RESET}")
+    print(f"  • Consolidated Into: {Colors.GREEN}{consolidated_count}{Colors.RESET} categories")
+    print(f"  • Final Vulnerability Count: {Colors.GREEN}{final_count}{Colors.RESET}")
+    print(f"  • Reduction: {Colors.MAGENTA}{Colors.BRIGHT}{reduction}{Colors.RESET} plugins")
+    
+    # Rules Applied
+    print(f"\n{Colors.WHITE}{Colors.BRIGHT}Rules Applied:{Colors.RESET}")
+    for rule_name in metadata['rules_applied']:
+        print(f"  • {Colors.GREEN}{rule_name}{Colors.RESET}")
+    
+    # Consolidated Categories
+    print(f"\n{Colors.WHITE}{Colors.BRIGHT}Consolidated Categories:{Colors.RESET}")
+    for rule_name, rule_data in consolidated_vulns.items():
+        title = rule_data['title']
+        plugin_count = len(rule_data.get('consolidated_plugins', []))
+        service_count = len(rule_data.get('affected_services', {}))
+        
+        # Color code by severity
+        severity = rule_data.get('severity', 0)
+        if severity >= 3:
+            severity_color = Colors.RED + Colors.BRIGHT
+        elif severity >= 2:
+            severity_color = Colors.ORANGE + Colors.BRIGHT
+        elif severity >= 1:
+            severity_color = Colors.YELLOW + Colors.BRIGHT
+        else:
+            severity_color = Colors.GREEN
+        
+        print(f"  • {severity_color}{title}{Colors.RESET}")
+        print(f"    └─ {Colors.CYAN}{plugin_count}{Colors.RESET} plugins → {Colors.CYAN}{service_count}{Colors.RESET} affected services")
+    
+    print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
     
 def setup_argparse() -> argparse.ArgumentParser:
     """Setup and return argument parser"""
@@ -108,6 +163,12 @@ def setup_argparse() -> argparse.ArgumentParser:
     parser.add_argument(
         '-on', '--output-name',
         help='Output file name (default: timestamp_<original-name>_Parsed_Nessus.json)'
+    )
+    
+    parser.add_argument(
+        '-c', '--consolidate',
+        action='store_true',
+        help='Generate consolidated findings file based on rules'
     )
     
     return parser

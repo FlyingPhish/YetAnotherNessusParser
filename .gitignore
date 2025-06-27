@@ -178,5 +178,8 @@ input/*.nessus
 *.xlsx
 *.json
 
+## Config
+# !config/*.json
+
 ## Dev
 reference/
