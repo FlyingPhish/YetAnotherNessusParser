@@ -5,7 +5,7 @@
       "title": "SSL/TLS Protocol Weaknesses",
       "enabled": true,
       "filters": {
-        "plugin_families": ["Service detection", "General", "Misc."],
+        "plugin_families": [],
         "name_patterns": [
           "SSL.*TLS.*Versions.*Supported",
           "TLS.*Version.*1\\.0.*Protocol.*Detection",
@@ -57,7 +57,7 @@
       "title": "Cleartext Services",
       "enabled": true,
       "filters": {
-        "plugin_families": ["Service detection", "Misc.", "FTP"],
+        "plugin_families": [],
         "name_patterns": [
           "vsftpd.*Detection",
           "FTP.*Server.*Detection",
