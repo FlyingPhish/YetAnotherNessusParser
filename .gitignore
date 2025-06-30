@@ -177,6 +177,7 @@ input/*.nessus
 *.nessus
 *.xlsx
 *.json
+*.csv
 
 ## Config
 # !config/*.json
