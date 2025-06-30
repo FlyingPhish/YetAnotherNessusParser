@@ -101,8 +101,8 @@
           "SHA-1.*hash",
           "diffie.*hellman.*weak",
           "cipher.*strength.*low",
-          "*weak*",
-          "*insecure*"
+          ".*weak*",
+          ".*insecure*"
         ],
         "plugin_output_require_all": false,
         "exclude_plugin_output_patterns": [],
@@ -192,6 +192,11 @@
           "unsupported",
           "end of life",
           "obsolete",
+          ".*unsupported*",
+          ".*end of life*",
+          ".*obsolete*",
+          ".*Supported version.*",
+          ".*is prior to.*",
           "Fixed version.*Installed version",
           "Installed version.*Fixed version",
           "Current version.*Latest version",
