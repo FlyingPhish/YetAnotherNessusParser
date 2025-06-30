@@ -182,5 +182,8 @@ input/*.nessus
 ## Config
 # !config/*.json
 
+## Config
+# !config/*.json
+
 ## Dev
 reference/
