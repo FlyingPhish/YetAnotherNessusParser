@@ -85,8 +85,8 @@ YANP delivers decent performance on large Nessus files:
 ```bash
 git clone https://github.com/FlyingPhish/YetAnotherNessusParser && cd YetAnotherNessusParser
 ```
-2. Done! No external libs needed.
-
+2. Rename consolidation_rules.json.example -> consolidation_rules.json
+3. Done! No external libs needed.
 
 ## Usage
 
