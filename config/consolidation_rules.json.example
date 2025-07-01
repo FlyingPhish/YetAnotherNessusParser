@@ -3,6 +3,7 @@
     {
       "rule_name": "ssl_tls_protocol_weaknesses",
       "title": "SSL/TLS Protocol Weaknesses",
+      "internal_vulnerability_id": 999,
       "enabled": true,
       "filters": {
         "plugin_families": [],

@@ -20,6 +20,7 @@ Think of rules as **smart filters** that find related vulnerabilities and group 
 {
   "rule_name": "my_rule_name",
   "title": "What Users Will See",
+  "internal_vulnerability_id": 999, //this is an optional field for internal use. You can assign an internal vuln id to your rules so you can easily turn this output into a finding within your report.
   "enabled": true,
   "filters": {
     "name_patterns": ["What to look for in vulnerability names"],

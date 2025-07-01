@@ -92,8 +92,14 @@ class VulnerabilityConsolidator:
                     consolidated_plugins[plugin_id] = f'Plugin {plugin_id}'
             
             # Build consolidated entry
-            consolidated_entries[rule_name] = {
-                "title": rule['title'],
+            entry = {"title": rule['title']}
+
+            # Add internal_vulnerability_id right after title if present
+            if 'internal_vulnerability_id' in rule:
+                entry["internal_vulnerability_id"] = rule['internal_vulnerability_id']
+
+            # Add the rest of the fields
+            entry.update({
                 "severity": aggregated_metadata['severity'],
                 "risk_factor": aggregated_metadata['risk_factor'],
                 "cvss": aggregated_metadata['cvss'],
@@ -105,8 +111,10 @@ class VulnerabilityConsolidator:
                 "see_also": aggregated_metadata['see_also'],
                 "solutions": consolidated_solutions,
                 "affected_services": affected_services
-            }
-        
+            })
+
+            consolidated_entries[rule_name] = entry
+
         return consolidated_entries
     
     def _search_plugin_output(self, vuln_data: Dict[str, Any], patterns: List[str], require_all: bool = False) -> bool:
@@ -387,45 +395,6 @@ class VulnerabilityConsolidator:
         
         return True
     
-    def _create_matched_consolidated_structure(self, parsed_data: Dict[str, Any], matched_vulns: Dict[str, List[str]]) -> Dict[str, Any]:
-        """Create consolidated structure showing what was matched."""
-        from datetime import datetime
-        
-        rule_names = [rule['rule_name'] for rule in self.rules]
-        total_vulns = len(parsed_data.get('vulnerabilities', {}))
-        total_matched = sum(len(matches) for matches in matched_vulns.values())
-        vulnerabilities = parsed_data.get('vulnerabilities', {})
-        
-        # Create basic consolidated vulnerabilities structure for matched items
-        consolidated_vulns = {}
-        for rule_name, plugin_ids in matched_vulns.items():
-            # Find the rule details
-            rule = next((r for r in self.rules if r['rule_name'] == rule_name), None)
-            if rule:
-                # Create plugin mapping with names for readability
-                matched_plugins = {}
-                for plugin_id in plugin_ids:
-                    if plugin_id in vulnerabilities:
-                        matched_plugins[plugin_id] = vulnerabilities[plugin_id].get('name', f'Plugin {plugin_id}')
-                    else:
-                        matched_plugins[plugin_id] = f'Plugin {plugin_id}'
-                
-                consolidated_vulns[rule_name] = {
-                    "title": rule['title'],
-                    "matched_plugins": matched_plugins,
-                    "match_count": len(plugin_ids)
-                }
-        
-        return {
-            "consolidation_metadata": {
-                "rules_applied": rule_names,
-                "original_plugins_count": total_vulns,
-                "consolidated_count": total_matched,
-                "consolidation_timestamp": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-            },
-            "consolidated_vulnerabilities": consolidated_vulns
-        }
-    
     def _load_rules(self) -> bool:
         """Load consolidation rules from config file."""
         try:
@@ -596,18 +565,6 @@ class VulnerabilityConsolidator:
                 "original_plugins_count": total_vulns,
                 "consolidated_count": 0,  # Will be updated in actual consolidation
                 "consolidation_timestamp": datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-            },
-            "consolidated_vulnerabilities": {}
-        }
-    
-    def _create_empty_consolidated_structure(self) -> Dict[str, Any]:
-        """Create empty consolidated structure for testing."""
-        return {
-            "consolidation_metadata": {
-                "rules_applied": [],
-                "original_plugins_count": 0,
-                "consolidated_count": 0,
-                "consolidation_timestamp": ""
             },
             "consolidated_vulnerabilities": {}
         }

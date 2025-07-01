@@ -51,9 +51,11 @@ YANP delivers decent performance on large Nessus files:
 - [X] Consolidation rule guidance
 - [X] Plugin output pattern matching and filtering
 - [X] Human-readable consolidated output with plugin names
+- [X] Consolidation rules can now have internal_vulnerability_id, which is used to match consolidated rules to findings within your vulnerability stock/reporting software
+- [X] Bit of spring cleaning (code)
 - [ ] Verbose consolidation info (to show what was missed and why)
 - [ ] Ensure proper typing on JSON object 🤓 (priority pls)
-- [ ] Create output module to output to text and xslx files using jq.
+- [ ] Create output module to output to text and xslx files
 - [ ] Expand XLSX functionality to include tabs for various things such as all vulns, host info, scan info, grouped plugins
 - [ ] Send JSON object to user-specified URL with cookies and headers
 
