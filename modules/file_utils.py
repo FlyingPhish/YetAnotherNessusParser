@@ -33,3 +33,9 @@ def get_consolidated_output_name(nessus_file: str) -> str:
     timestamp = datetime.now().strftime('%d-%m-%y_%H-%M-%S')
     original_name = Path(nessus_file).stem
     return f"{timestamp}_{original_name}_Consolidated_Findings.json"
+
+def get_api_output_name(nessus_file: str) -> str:
+    """Generate API-ready output name"""
+    timestamp = datetime.now().strftime('%d-%m-%y_%H-%M-%S')
+    original_name = Path(nessus_file).stem
+    return f"{timestamp}_{original_name}_API_Ready.json"

@@ -1,4 +1,5 @@
 import argparse
+from typing import Dict, Any, List
 
 class Colors:
     MAGENTA = '\033[95m'
@@ -141,7 +142,50 @@ def display_consolidation_summary(consolidated_data: dict):
         print(f"    └─ {Colors.CYAN}{plugin_count}{Colors.RESET} plugins → {Colors.CYAN}{service_count}{Colors.RESET} affected services")
     
     print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
+
+def display_api_summary(api_data: List[Dict[str, Any]]):
+    """Display formatted API output summary matching YANP aesthetic"""
+    if not api_data:
+        return
     
+    # Calculate statistics
+    total_findings = len(api_data)
+    finding_ids = [finding['finding_id'] for finding in api_data]
+    unique_finding_ids = list(set(finding_ids))
+    
+    # Count total affected entities across all findings
+    total_entities = 0
+    for finding in api_data:
+        affected_entities = finding.get('affected_entities', '')
+        if affected_entities:
+            # Count <br /> occurrences + 1 for total entities
+            entity_count = affected_entities.count('<br />') + 1
+            total_entities += entity_count
+    
+    # Print API Summary
+    print(f"{Colors.CYAN}{'=' * 50}{Colors.RESET}")
+    print(f"{Colors.WHITE}{Colors.BRIGHT}API OUTPUT SUMMARY{Colors.RESET}")
+    print(f"{Colors.CYAN}{'-' * 50}{Colors.RESET}")
+    
+    # Generation Statistics
+    print(f"{Colors.WHITE}{Colors.BRIGHT}Generation Statistics:{Colors.RESET}")
+    print(f"  • API Findings Generated: {Colors.GREEN}{total_findings}{Colors.RESET}")
+    print(f"  • Unique Stock Finding IDs: {Colors.GREEN}{len(unique_finding_ids)}{Colors.RESET}")
+    print(f"  • Total Affected Entities: {Colors.GREEN}{total_entities}{Colors.RESET}")
+    
+    # Stock Finding IDs Used
+    if unique_finding_ids:
+        print(f"\n{Colors.WHITE}{Colors.BRIGHT}Stock Finding IDs Used:{Colors.RESET}")
+        for finding_id in sorted(unique_finding_ids):
+            # Count how many times this finding_id appears
+            count = finding_ids.count(finding_id)
+            if count > 1:
+                print(f"  • Finding ID {Colors.GREEN}{finding_id}{Colors.RESET} ({Colors.CYAN}{count}{Colors.RESET} consolidated rules)")
+            else:
+                print(f"  • Finding ID {Colors.GREEN}{finding_id}{Colors.RESET}")
+    
+    print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
+
 def setup_argparse() -> argparse.ArgumentParser:
     """Setup and return argument parser"""
     parser = argparse.ArgumentParser(
@@ -171,4 +215,9 @@ def setup_argparse() -> argparse.ArgumentParser:
         help='Generate consolidated findings file based on rules'
     )
     
+    parser.add_argument(
+        '-a', '--api-output',
+        action='store_true',
+        help='Generate API-ready JSON format (requires --consolidate)'
+    )
     return parser

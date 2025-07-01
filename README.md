@@ -53,6 +53,7 @@ YANP delivers decent performance on large Nessus files:
 - [X] Human-readable consolidated output with plugin names
 - [X] Consolidation rules can now have internal_vulnerability_id, which is used to match consolidated rules to findings within your vulnerability stock/reporting software
 - [X] Bit of spring cleaning (code)
+- [X] New arg -a (--api-output) that uses internal stock id to generate a JSON object to use with my GhostWriter fork (SQL API to insert/attach blank/stock findings to a report)
 - [ ] Verbose consolidation info (to show what was missed and why)
 - [ ] Ensure proper typing on JSON object 🤓 (priority pls)
 - [ ] Create output module to output to text and xslx files
