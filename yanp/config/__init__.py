@@ -1,4 +1,5 @@
 """
+yanp/config/__init__.py
 YANP configuration package.
 
 This package contains default configuration files and utilities

@@ -1,4 +1,5 @@
 """
+yanp/__init__.py
 YANP - Yet Another Nessus Parser
 A Python library for parsing and processing Nessus XML reports.
 

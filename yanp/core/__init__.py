@@ -1,4 +1,5 @@
 """
+yanp/core/__init__.py
 YANP core processing modules.
 
 This package contains the core functionality for parsing, consolidating,

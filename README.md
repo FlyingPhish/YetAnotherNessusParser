@@ -117,7 +117,7 @@ yanp -n input/scan.nessus --no-output -c
 ```
 
 ### 🐍 Python Library
-Checkout `examples/library_usage.py` and `examples/README.md`
+Checkout [Library Usage Examples](examples/library_usage.py) and [Library README](examples/README_Library.md)
 
 ## 🏗️ Project Structure
 
