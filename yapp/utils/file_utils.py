@@ -196,6 +196,25 @@ def get_api_output_name(input_file: Union[str, Path], file_type: str = None) -> 
     else:
         return f"{timestamp}_{original_name}_API_Ready.json"
 
+def get_flat_json_output_name(input_file: Union[str, Path], file_type: str = None) -> str:
+    """
+    Generate flat JSON output filename.
+    
+    Args:
+        input_file: Path to the original input file
+        file_type: Optional file type to include in name
+        
+    Returns:
+        Generated filename string
+    """
+    timestamp = datetime.now().strftime('%d-%m-%y_%H-%M-%S')
+    original_name = Path(input_file).stem
+    
+    if file_type:
+        return f"{timestamp}_{original_name}_Flat_{file_type.title()}.json"
+    else:
+        return f"{timestamp}_{original_name}_Flat.json"
+
 def ensure_output_directory(output_path: Union[str, Path]) -> Path:
     """
     Ensure output directory exists, creating it if necessary.
@@ -224,7 +243,7 @@ def write_results_to_files(results: Dict[str, Any], input_file: Union[str, Path]
     Write all processing results to appropriately named files.
     
     Args:
-        results: Dictionary containing parsed data and optional consolidated/API data
+        results: Dictionary containing parsed data and optional consolidated/API/flat_json data
         input_file: Original input file path (for naming)
         output_dir: Output directory path
         custom_output_name: Custom name for the main parsed file (optional)
@@ -273,6 +292,15 @@ def write_results_to_files(results: Dict[str, Any], input_file: Union[str, Path]
             api_filename = get_api_output_name(input_file, file_type)
         api_path = output_dir / api_filename
         write_status['api_ready'] = write_json_output(results['api_ready'], api_path)
+    
+    # Write flat JSON file (Nmap only)
+    if 'flat_json' in results and results['flat_json']:
+        if base_name:
+            flat_filename = f"{base_name}_Flat.json"
+        else:
+            flat_filename = get_flat_json_output_name(input_file, file_type)
+        flat_path = output_dir / flat_filename
+        write_status['flat_json'] = write_json_output(results['flat_json'], flat_path)
     
     return write_status
 

@@ -5,7 +5,7 @@ A Python library for parsing and processing various pentesting tool outputs.
 
 Supported formats:
 - Nessus .nessus XML files (with consolidation and API formatting)
-- Nmap .xml XML files
+- Nmap .xml XML files (with flat JSON output option)
 
 Examples:
     Basic parsing (auto-detect):
@@ -21,6 +21,10 @@ Examples:
     Nmap with port filtering:
         >>> from yapp import process_file
         >>> results = process_file('scan.xml', port_status='open')
+    
+    Nmap with flat JSON output (legacy tool compatibility):
+        >>> from yapp import process_file
+        >>> results = process_file('scan.xml', flat_json=True)
     
     Using individual components:
         >>> from yapp import NessusParser, NmapParser, VulnerabilityConsolidator, APIFormatter
@@ -103,13 +107,15 @@ def process_file(
     rules_file: str = None,
     entity_limit: int = None,
     output_dir: str = None,
-    custom_output_name: str = None
+    custom_output_name: str = None,
+    flat_json: bool = False
 ) -> dict:
     """
     Complete processing pipeline for supported file types.
     
     This is the main convenience function that handles the complete workflow:
-    parsing, optional consolidation (Nessus only), and optional API formatting (Nessus only).
+    parsing, optional consolidation (Nessus only), optional API formatting (Nessus only),
+    and optional flat JSON output (Nmap only).
     
     Args:
         input_file: Path to input file
@@ -121,9 +127,10 @@ def process_file(
         entity_limit: Maximum number of affected entities per API finding (Nessus only)
         output_dir: If provided, write JSON files to this directory
         custom_output_name: Custom name for the main parsed output file
+        flat_json: Whether to generate flat JSON format compatible with legacy tools (Nmap only)
         
     Returns:
-        dict: Contains 'parsed', 'file_type', and optional 'consolidated'/'api_ready' keys
+        dict: Contains 'parsed', 'file_type', and optional 'consolidated'/'api_ready'/'flat_json' keys
         
     Raises:
         FileNotFoundError: If the input file doesn't exist
@@ -149,6 +156,11 @@ def process_file(
             >>> results = process_file('scan.xml', port_status='open')
             >>> nmap_data = results['parsed']
             >>> print(f"Found {nmap_data['stats']['services']['total']} services")
+        
+        Nmap with flat JSON output for legacy tools:
+            >>> results = process_file('scan.xml', flat_json=True)
+            >>> flat_data = results['flat_json']
+            >>> print(f"Generated {len(flat_data)} port records")
     """
     results = {}
     
@@ -181,8 +193,10 @@ def process_file(
         results['parsed'] = parsed_data
         results['file_type'] = 'nmap'
         
-        # Note: Nmap doesn't support consolidation/API formatting yet
-        # Future enhancement could add Nmap-specific processing here
+        # Optional flat JSON output (Nmap only)
+        if flat_json:
+            flat_data = parser.parse_to_flat_json(port_status_filter=port_status)
+            results['flat_json'] = flat_data
         
     else:
         raise ValueError(f"Unsupported file type: {file_type}")
@@ -249,7 +263,7 @@ def get_supported_file_types() -> dict:
         "nmap": {
             "description": "Nmap network scanner XML files", 
             "extensions": [".xml"],
-            "features": ["parsing", "port_filtering"],
+            "features": ["parsing", "port_filtering", "flat_json_output"],
             "parser_class": "NmapParser"
         }
     }

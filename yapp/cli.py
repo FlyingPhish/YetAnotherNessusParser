@@ -332,6 +332,12 @@ def setup_argparse() -> argparse.ArgumentParser:
         help='Filter by port status (Nmap only, default: all)'
     )
     
+    nmap_group.add_argument(
+        '-fj', '--flat-json',
+        action='store_true',
+        help='Generate flat JSON format compatible with legacy tools (Nmap only)'
+    )
+    
     parser.add_argument(
         '--no-output',
         action='store_true',
@@ -353,7 +359,8 @@ def process_file(
     consolidate: bool = False,
     api_format: bool = False,
     rules_file: str = None,
-    entity_limit: int = None
+    entity_limit: int = None,
+    flat_json: bool = False
 ) -> Dict[str, Any]:
     """
     Process input file through the appropriate parser pipeline.
@@ -366,6 +373,7 @@ def process_file(
         api_format: Whether to format for API consumption (Nessus only)
         rules_file: Custom consolidation rules file (Nessus only)
         entity_limit: Maximum number of affected entities per API finding (Nessus only)
+        flat_json: Whether to generate flat JSON format (Nmap only)
         
     Returns:
         dict: Contains parsed data and optional consolidated/API data
@@ -404,6 +412,11 @@ def process_file(
         parsed_data = parser.parse(port_status_filter=port_status)
         results['parsed'] = parsed_data
         results['file_type'] = 'nmap'
+        
+        # Optional flat JSON format (Nmap only)
+        if flat_json:
+            flat_data = parser.parse_to_flat_json(port_status_filter=port_status)
+            results['flat_json'] = flat_data
         
     else:
         raise ValueError(f"Unsupported file type: {file_type}")
@@ -444,6 +457,15 @@ def main():
         if nessus_only_options and args.file_type == 'nmap':
             log.warning(f"Ignoring Nessus-only options for Nmap file: {', '.join(nessus_only_options)}")
     
+    # Check for Nmap-only options with other file types
+    if args.file_type in ['nessus'] or (args.file_type == 'auto' and Path(args.input_file).suffix.lower() == '.nessus'):
+        nmap_only_options = []
+        if args.flat_json:
+            nmap_only_options.append("--flat-json")
+        
+        if nmap_only_options and args.file_type == 'nessus':
+            log.warning(f"Ignoring Nmap-only options for Nessus file: {', '.join(nmap_only_options)}")
+    
     try:
         # Process using the appropriate parser
         results = process_file(
@@ -453,7 +475,8 @@ def main():
             consolidate=args.consolidate,
             api_format=args.api_output,
             rules_file=args.rules_file,
-            entity_limit=args.entity_limit
+            entity_limit=args.entity_limit,
+            flat_json=args.flat_json
         )
         
         # Display results

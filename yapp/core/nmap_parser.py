@@ -60,6 +60,124 @@ class NmapParser:
         except Exception as e:
             logger.error(f"Unexpected error during parsing: {str(e)}")
             raise
+
+    def parse_to_flat_json(self, port_status_filter: str = "all") -> List[Dict[str, Any]]:
+        """
+        Parse Nmap XML file and return flat JSON format compatible with legacy tools.
+        This creates the exact same structure as NmapXmlToJson.py
+        
+        Args:
+            port_status_filter: Filter by port status (open, closed, filtered, all)
+        
+        Returns:
+            List of dictionaries with flattened host/port information
+            
+        Raises:
+            FileNotFoundError: If the Nmap file doesn't exist
+            ET.ParseError: If the XML is malformed
+            ValueError: If the file is not a valid Nmap file
+        """
+        # Validate input file
+        self._validate_file()
+        
+        try:
+            self.tree = ET.parse(self.file_path)
+            self.root = self.tree.getroot()
+        except ET.ParseError as e:
+            logger.error(f"Error parsing XML file: {str(e)}")
+            raise ET.ParseError(f"Invalid XML format in file: {self.file_path}")
+        
+        results = []
+        
+        # Process each host in the scan
+        for host in self.root.findall(".//host"):
+            # Get IP address
+            ip_address = None
+            for address in host.findall("address"):
+                if address.get("addrtype") == "ipv4":
+                    ip_address = address.get("addr")
+                    break
+            
+            if not ip_address:
+                continue  # Skip hosts without IP addresses
+            
+            # Get hostname if available
+            hostname = ""
+            hostnames = host.find("hostnames")
+            if hostnames is not None:
+                hostname_elem = hostnames.find("hostname")
+                if hostname_elem is not None:
+                    hostname = hostname_elem.get("name", "")
+            
+            # Process each port found on this host
+            ports = host.find("ports")
+            if ports is None:
+                continue
+                
+            for port in ports.findall("port"):
+                port_id = port.get("portid", "")
+                protocol = port.get("protocol", "").upper()
+                
+                # Get port state
+                state = port.find("state")
+                port_state = state.get("state", "") if state is not None else ""
+                
+                # Skip this port if it doesn't match the filter
+                if port_status_filter != "all" and port_state != port_status_filter:
+                    continue
+                
+                # Get service information
+                service = port.find("service")
+                service_name = ""
+                service_details = {}
+                
+                if service is not None:
+                    service_name = service.get("name", "")
+                    
+                    # Extract additional service details
+                    for attr in ["product", "version", "extrainfo", "method", "conf"]:
+                        if service.get(attr):
+                            service_details[attr] = service.get(attr)
+                    
+                    # Add combined product/version field if both exist
+                    product = service.get("product")
+                    version = service.get("version")
+                    if product or version:
+                        combined = []
+                        if product:
+                            combined.append(product)
+                        if version:
+                            combined.append(version)
+                        service_details["combined_info"] = " ".join(combined)
+                
+                # Create a record for this port (exact match to NmapXmlToJson.py)
+                record = {
+                    "fqdn": hostname,
+                    "ip": ip_address,
+                    "port": f"{protocol}/{port_id}",
+                    "port_status": port_state,
+                    "service": service_name
+                }
+                
+                # Add detailed service info if available
+                if service_details:
+                    record["detailed_service_info"] = service_details
+                    
+                # Add script output if available
+                scripts = port.findall("script")
+                if scripts:
+                    script_output = {}
+                    for script in scripts:
+                        script_id = script.get("id", "")
+                        if script_id:
+                            script_output[script_id] = script.get("output", "")
+                    
+                    if script_output:
+                        record["script_output"] = script_output
+                
+                results.append(record)
+        
+        return results
     
     def _validate_file(self) -> None:
         """Validate if the input file is accessible and has correct format."""
