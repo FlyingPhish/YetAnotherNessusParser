@@ -3,9 +3,24 @@
 ![No External Dependencies](/.github/badges/no-dependencies.svg)
 ![Py](/.github/badges/python.svg)
 
+> **"Same shit, different parser"** - but this time it's actually good. 🔥
+
 **A powerful Python library and CLI tool for parsing and processing multiple pentesting tool outputs.**
 
 YAPP is a comprehensive solution for parsing pentesting tool outputs (Nessus, Nmap, and more) into structured JSON, with advanced consolidation capabilities and both programmatic and command-line interfaces. Built as an extensible framework with modularity, efficiency, and ease of use in mind.
+
+## 🎯 Why YAPP Exists 
+The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most businesses treat capabilities development as an afterthought - they'd rather hire more people to combat performance and resource issues, rather than fix their piss-poor workflows and capabiltiies.
+
+- **Why?** 💰C.R.E.A.M.💰
+    - Unbilled consultant = cost to business
+        - This is a bad mindset as business teaches us that you need to spend money to make money.
+- **Result?**
+    - Consultants working unpaid overtime because basic data processing eats half their day
+    - Delays, lots of them. These delays then cause a snowball effect where the next engagement is impacted.
+    - Cutting corners to meet deadlines.
+    - Burnout & general negative vibes.
+
 
 ![YAPP CLI Banner](https://github.com/user-attachments/assets/bd35da53-b726-4f4b-b68e-ff7bb8fa11e2)
 
@@ -495,6 +510,9 @@ See [Module Expansion Guide](yapp/docs/Module%20Expansion.md) for detailed instr
 ## 📈 Roadmap
 
 ### Current Version Features:
+- [X] Make the damned tool
+- [X] Obligatory ASCII art banner for the haters (it isn't a proper tool without one)
+- [X] Make it pretty 👉👈
 - [X] Multi-tool parsing framework
 - [X] Nessus parsing with consolidation
 - [X] Nmap parsing with flat JSON support
@@ -508,6 +526,9 @@ See [Module Expansion Guide](yapp/docs/Module%20Expansion.md) for detailed instr
 - [ ] Excel/XLSX output formats
 - [ ] Additional tool parsers
 - [ ] Advanced filtering and querying
+- [ ] Intergrate functionality from [Nmap-Analysis](https://github.com/FlyingPhish/Nmap-Analysis)
+- [ ] Intergrate functionality from [NessCIS](https://github.com/FlyingPhish/NessCIS)
+- [ ] (Maybe) AI reporting (finding + executive summary/consultants comments) using [Fabric](https://github.com/danielmiessler/fabric) or something similar.
 
 ## 🤝 Contributing
 
