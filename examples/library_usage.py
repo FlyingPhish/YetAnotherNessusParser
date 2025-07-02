@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 YANP Programmatic Usage Examples
-Comprehensive examples for all use cases
+Comprehensive examples for all use cases including entity limit functionality
 """
 
 from pathlib import Path
@@ -314,11 +314,108 @@ def example_6_full_pipeline_in_memory_only():
     
     return parsed_data, consolidated_data, api_data
 
-def example_7_custom_rules_and_output_names():
+def example_7_entity_limit_functionality():
     """
-    Example 7: Advanced usage with custom rules and output names
+    Example 7: Using entity limit functionality to control API output size
+    Demonstrates entity limiting for findings with too many affected hosts
     """
-    print("\n🔧 Example 7: Advanced usage with custom rules and output names")
+    print("\n🎯 Example 7: Entity limit functionality")
+    
+    # Method A: Using convenience function with entity limit
+    from yanp import process_nessus_file
+    
+    print("🔧 Testing without entity limit (unlimited):")
+    results_unlimited = process_nessus_file(
+        nessus_file=NESSUS_FILE,
+        consolidate=True,
+        api_format=True
+        # No entity_limit = unlimited entities
+    )
+    
+    if results_unlimited.get('api_ready'):
+        api_data_unlimited = results_unlimited['api_ready']
+        print(f"✅ Generated {len(api_data_unlimited)} findings without limit")
+        
+        # Show entity counts for each finding
+        for finding in api_data_unlimited:
+            entities_html = finding['affected_entities']
+            if 'replaceMe' in entities_html:
+                print(f"  🔗 Finding {finding['finding_id']}: CSV reference (limit applied)")
+            else:
+                entity_count = entities_html.count('<br />') + 1 if entities_html else 0
+                print(f"  📊 Finding {finding['finding_id']}: {entity_count} entities")
+    
+    print("\n🔧 Testing with entity limit of 5:")
+    results_limited = process_nessus_file(
+        nessus_file=NESSUS_FILE,
+        consolidate=True,
+        api_format=True,
+        entity_limit=5,  # Limit to 5 entities per finding
+        output_dir=f"{OUTPUT_DIR}/limited"
+    )
+    
+    if results_limited.get('api_ready'):
+        api_data_limited = results_limited['api_ready']
+        print(f"✅ Generated {len(api_data_limited)} findings with entity limit")
+        
+        # Compare with unlimited version
+        csv_references = 0
+        for finding in api_data_limited:
+            entities_html = finding['affected_entities']
+            if 'replaceMe' in entities_html:
+                csv_references += 1
+                print(f"  🔗 Finding {finding['finding_id']}: CSV reference (>5 entities)")
+            else:
+                entity_count = entities_html.count('<br />') + 1 if entities_html else 0
+                print(f"  📊 Finding {finding['finding_id']}: {entity_count} entities")
+        
+        print(f"🎯 Findings with CSV reference due to limit: {csv_references}")
+    
+    # Method B: Using individual classes with different limits
+    from yanp import NessusParser, VulnerabilityConsolidator, APIFormatter
+    
+    print("\n🔧 Testing with individual classes and different entity limits:")
+    
+    # Parse and consolidate once
+    parser = NessusParser(NESSUS_FILE)
+    parsed_data = parser.parse()
+    
+    consolidator = VulnerabilityConsolidator()
+    consolidated_data = consolidator.consolidate(parsed_data)
+    
+    if consolidated_data:
+        # Test different entity limits
+        limits_to_test = [1, 3, 10, None]  # None = no limit
+        
+        for limit in limits_to_test:
+            print(f"\n  🎛️  Testing entity limit: {limit if limit else 'unlimited'}")
+            
+            formatter = APIFormatter(entity_limit=limit)
+            api_data = formatter.format_for_api(consolidated_data)
+            
+            if api_data:
+                csv_count = sum(1 for f in api_data if 'replaceMe' in f['affected_entities'])
+                normal_count = len(api_data) - csv_count
+                print(f"    📊 Normal findings: {normal_count}")
+                print(f"    🔗 CSV references: {csv_count}")
+                
+                # Show first finding details
+                if api_data:
+                    first_finding = api_data[0]
+                    entities = first_finding['affected_entities']
+                    if 'replaceMe' in entities:
+                        print(f"    📄 Sample: Finding {first_finding['finding_id']} → CSV reference")
+                    else:
+                        entity_count = entities.count('<br />') + 1 if entities else 0
+                        print(f"    📄 Sample: Finding {first_finding['finding_id']} → {entity_count} entities")
+    
+    return results_unlimited, results_limited
+
+def example_8_custom_rules_and_output_names():
+    """
+    Example 8: Advanced usage with custom rules and output names
+    """
+    print("\n🔧 Example 8: Advanced usage with custom rules and output names")
     
     from yanp import process_nessus_file
     
@@ -331,6 +428,7 @@ def example_7_custom_rules_and_output_names():
             consolidate=True,
             api_format=True,
             rules_file=custom_rules_file,  # Custom rules
+            entity_limit=10,  # Entity limit for API output
             output_dir=OUTPUT_DIR,
             custom_output_name="advanced_scan_results.json"  # Custom naming
         )
@@ -344,25 +442,85 @@ def example_7_custom_rules_and_output_names():
     except FileNotFoundError:
         print(f"⚠️  Custom rules file not found, using default rules")
         
-        # Fallback to default rules
+        # Fallback to default rules with entity limit
         results = process_nessus_file(
             nessus_file=NESSUS_FILE,
             consolidate=True,
             api_format=True,
+            entity_limit=10,  # Apply entity limit
             output_dir=OUTPUT_DIR,
             custom_output_name="advanced_scan_results.json"
         )
         
-        print(f"✅ Advanced processing with default rules completed")
+        print(f"✅ Advanced processing with default rules and entity limit completed")
     
     return results
 
+def example_9_error_handling_and_validation():
+    """
+    Example 9: Error handling and validation for entity limits
+    """
+    print("\n🛡️  Example 9: Error handling and validation")
+    
+    from yanp import APIFormatter, FormatterError
+    
+    # Test invalid entity limits
+    print("🔧 Testing invalid entity limit values:")
+    
+    invalid_limits = [0, -1, -10]
+    for limit in invalid_limits:
+        try:
+            formatter = APIFormatter(entity_limit=limit)
+            print(f"  ❌ Limit {limit}: Should have failed but didn't")
+        except FormatterError as e:
+            print(f"  ✅ Limit {limit}: Correctly rejected - {e}")
+    
+    # Test valid entity limits
+    print("\n🔧 Testing valid entity limit values:")
+    
+    valid_limits = [1, 5, 10, 100, None]
+    for limit in valid_limits:
+        try:
+            formatter = APIFormatter(entity_limit=limit)
+            limit_str = str(limit) if limit is not None else "unlimited"
+            print(f"  ✅ Limit {limit_str}: Valid")
+        except FormatterError as e:
+            print(f"  ❌ Limit {limit}: Unexpected error - {e}")
+    
+    # Test with actual processing
+    print("\n🔧 Testing entity limit in full processing with error handling:")
+    
+    from yanp import process_nessus_file, ConsolidationError, FormatterError
+    
+    try:
+        results = process_nessus_file(
+            nessus_file=NESSUS_FILE,
+            consolidate=True,
+            api_format=True,
+            entity_limit=3
+        )
+        
+        print("✅ Processing with entity limit successful")
+        
+        if results.get('api_ready'):
+            api_data = results['api_ready']
+            csv_references = sum(1 for f in api_data if 'replaceMe' in f['affected_entities'])
+            print(f"📊 Generated {len(api_data)} findings")
+            print(f"🔗 CSV references applied: {csv_references}")
+        
+    except FormatterError as e:
+        print(f"❌ Formatter error: {e}")
+    except ConsolidationError as e:
+        print(f"❌ Consolidation error: {e}")
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+
 def main():
     """Run all examples"""
-    print("🚀 YANP Programmatic Usage Examples\n")
+    print("🚀 YANP Programmatic Usage Examples with Entity Limit\n")
     
     # Create output directory
-    Path(OUTPUT_DIR).mkdir(exist_ok=True)
+    Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
     
     # Run examples
     examples = [
@@ -371,8 +529,10 @@ def main():
         ("Consolidation with file output", example_3_consolidation_with_file_output),
         ("Consolidation in-memory only", example_4_consolidation_in_memory_only),
         ("Full pipeline with file output", example_5_full_pipeline_with_file_output),
-        ("Full pipeline in-memory only", example_6_full_pipeline_in_memory_only)
-        # ("Advanced usage", example_7_custom_rules_and_output_names),
+        ("Full pipeline in-memory only", example_6_full_pipeline_in_memory_only),
+        ("Entity limit functionality", example_7_entity_limit_functionality),
+        ("Error handling and validation", example_9_error_handling_and_validation)
+        # ("Advanced usage", example_8_custom_rules_and_output_names),
     ]
     
     results = {}
@@ -399,10 +559,10 @@ def main():
     # Show output files created
     output_path = Path(OUTPUT_DIR)
     if output_path.exists():
-        files = list(output_path.glob("*.json"))
+        files = list(output_path.glob("**/*.json"))  # Include subdirectories
         print(f"\n📁 Files created in {OUTPUT_DIR}:")
         for file in sorted(files):
-            print(f"  - {file.name}")
+            print(f"  - {file.relative_to(output_path)}")
 
 if __name__ == "__main__":
     main()

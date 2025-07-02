@@ -56,6 +56,7 @@ YANP is a comprehensive solution for parsing Nessus XML files into structured JS
 - [X] New arg -a (--api-output) that uses internal stock id to generate a JSON object to use with my GhostWriter fork (SQL API to insert/attach blank/stock findings to a report)
 - [X] Transform into proper Python library
 - [X] CLI and programmatic interfaces
+- [X] New -el --entity-limit for formatter, which replaces the affected_entities value with '<p>Please refer to external document named 'replaceMe'.csv</p>' if the affected entities for consolidated findings is greater than you limit you provide
 - [ ] Verbose consolidation info (to show what was missed and why)
 - [ ] Ensure proper typing on JSON object 🤓 (priority pls)
 - [ ] Create output module to output to text and xslx files
