@@ -13,11 +13,15 @@ Examples:
         >>> from yanp import process_nessus_file
         >>> results = process_nessus_file('scan.nessus', consolidate=True, api_format=True)
     
+    Complete processing pipeline with entity limit:
+        >>> from yanp import process_nessus_file
+        >>> results = process_nessus_file('scan.nessus', consolidate=True, api_format=True, entity_limit=10)
+    
     Using individual components:
         >>> from yanp import NessusParser, VulnerabilityConsolidator, APIFormatter
         >>> parser = NessusParser('scan.nessus')
         >>> consolidator = VulnerabilityConsolidator()
-        >>> formatter = APIFormatter()
+        >>> formatter = APIFormatter(entity_limit=5)
 """
 
 # Import core classes
@@ -78,6 +82,7 @@ def process_nessus_file(
     consolidate: bool = False,
     api_format: bool = False,
     rules_file: str = None,
+    entity_limit: int = None,
     output_dir: str = None,
     custom_output_name: str = None
 ) -> dict:
@@ -92,6 +97,7 @@ def process_nessus_file(
         consolidate: Whether to apply consolidation rules (default: False)
         api_format: Whether to format for API consumption (requires consolidate=True)
         rules_file: Path to custom consolidation rules file (optional)
+        entity_limit: Maximum number of affected entities per API finding (optional)
         output_dir: If provided, write JSON files to this directory (optional)
         custom_output_name: Custom name for the main parsed output file (optional)
         
@@ -123,6 +129,18 @@ def process_nessus_file(
             ...     output_dir='./results',
             ...     custom_output_name='my_scan_results.json'
             ... )
+        
+        With entity limit:
+            >>> results = process_nessus_file(
+            ...     'scan.nessus', 
+            ...     consolidate=True, 
+            ...     api_format=True,
+            ...     entity_limit=10
+            ... )
+            >>> api_data = results.get('api_ready')
+            >>> if api_data:
+            ...     csv_refs = sum(1 for f in api_data if 'replaceMe' in f['affected_entities'])
+            ...     print(f"Findings with CSV references: {csv_refs}")
     """
     results = {}
     
@@ -139,7 +157,7 @@ def process_nessus_file(
         
         # Optional API formatting
         if api_format and consolidated_data:
-            formatter = APIFormatter()
+            formatter = APIFormatter(entity_limit=entity_limit)
             api_data = formatter.format_for_api(consolidated_data)
             results['api_ready'] = api_data
     
