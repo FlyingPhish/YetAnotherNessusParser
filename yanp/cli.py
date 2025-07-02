@@ -252,7 +252,7 @@ def setup_argparse() -> argparse.ArgumentParser:
     )
     
     parser.add_argument(
-        '--entity-limit',
+        '-el', '--entity-limit',
         type=int,
         help='Maximum number of affected entities per API finding (default: unlimited)'
     )
