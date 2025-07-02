@@ -62,7 +62,8 @@ def process_nessus_file(
     consolidate: bool = False,
     api_format: bool = False,
     rules_file: str = None,
-    output_dir: str = None
+    output_dir: str = None,
+    custom_output_name: str = None
 ) -> dict:
     """
     Complete processing pipeline for Nessus files.
@@ -76,6 +77,7 @@ def process_nessus_file(
         api_format: Whether to format for API consumption (requires consolidate=True)
         rules_file: Path to custom consolidation rules file (optional)
         output_dir: If provided, write JSON files to this directory (optional)
+        custom_output_name: Custom name for the main parsed output file (optional)
         
     Returns:
         dict: Contains 'parsed', 'consolidated' (if requested), and 'api_ready' (if requested) keys
@@ -97,12 +99,13 @@ def process_nessus_file(
             >>> if consolidated:
             ...     print(f"Consolidated into {len(consolidated['consolidated_vulnerabilities'])} categories")
         
-        Full pipeline with file output:
+        Full pipeline with file output and custom name:
             >>> results = process_nessus_file(
             ...     'scan.nessus', 
             ...     consolidate=True, 
             ...     api_format=True,
-            ...     output_dir='./results'
+            ...     output_dir='./results',
+            ...     custom_output_name='my_scan_results.json'
             ... )
     """
     results = {}
@@ -127,7 +130,7 @@ def process_nessus_file(
     # Optional file output
     if output_dir:
         from .utils import write_results_to_files
-        write_results_to_files(results, nessus_file, output_dir)
+        write_results_to_files(results, nessus_file, output_dir, custom_output_name)
     
     return results
 

@@ -329,7 +329,12 @@ def main():
         if not args.no_output:
             output_folder = ensure_output_directory(args.output_folder)
             
-            write_status = write_results_to_files(results, args.nessus_file, output_folder)
+            write_status = write_results_to_files(
+                results, 
+                args.nessus_file, 
+                output_folder,
+                custom_output_name=args.output_name
+            )
             
             # Check if any writes failed
             failed_writes = [file_type for file_type, success in write_status.items() if not success]

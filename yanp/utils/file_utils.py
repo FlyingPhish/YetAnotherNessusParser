@@ -70,7 +70,7 @@ def ensure_output_directory(output_path: Union[str, Path]) -> Path:
     
     return directory
 
-def write_results_to_files(results: Dict[str, Any], nessus_file: Union[str, Path], output_dir: Union[str, Path]) -> Dict[str, bool]:
+def write_results_to_files(results: Dict[str, Any], nessus_file: Union[str, Path], output_dir: Union[str, Path], custom_output_name: str = None) -> Dict[str, bool]:
     """
     Write all processing results to appropriately named files.
     
@@ -78,6 +78,7 @@ def write_results_to_files(results: Dict[str, Any], nessus_file: Union[str, Path
         results: Dictionary containing 'parsed', 'consolidated', and/or 'api_ready' data
         nessus_file: Original Nessus file path (for naming)
         output_dir: Output directory path
+        custom_output_name: Custom name for the main parsed file (optional)
         
     Returns:
         Dictionary indicating success/failure for each file type
@@ -87,21 +88,37 @@ def write_results_to_files(results: Dict[str, Any], nessus_file: Union[str, Path
     output_dir = ensure_output_directory(output_dir)
     write_status = {}
     
+    # Generate base filename (without extension) for custom naming
+    if custom_output_name:
+        # Remove .json extension if present to get base name
+        base_name = Path(custom_output_name).stem
+    else:
+        base_name = None
+    
     # Write main parsed file
     if 'parsed' in results and results['parsed']:
-        parsed_filename = get_default_output_name(nessus_file)
+        if custom_output_name:
+            parsed_filename = custom_output_name
+        else:
+            parsed_filename = get_default_output_name(nessus_file)
         parsed_path = output_dir / parsed_filename
         write_status['parsed'] = write_json_output(results['parsed'], parsed_path)
     
     # Write consolidated file
     if 'consolidated' in results and results['consolidated']:
-        consolidated_filename = get_consolidated_output_name(nessus_file)
+        if base_name:
+            consolidated_filename = f"{base_name}_Consolidated_Findings.json"
+        else:
+            consolidated_filename = get_consolidated_output_name(nessus_file)
         consolidated_path = output_dir / consolidated_filename
         write_status['consolidated'] = write_json_output(results['consolidated'], consolidated_path)
     
     # Write API file
     if 'api_ready' in results and results['api_ready']:
-        api_filename = get_api_output_name(nessus_file)
+        if base_name:
+            api_filename = f"{base_name}_API_Ready.json"
+        else:
+            api_filename = get_api_output_name(nessus_file)
         api_path = output_dir / api_filename
         write_status['api_ready'] = write_json_output(results['api_ready'], api_path)
     
