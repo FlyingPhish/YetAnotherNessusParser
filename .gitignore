@@ -180,10 +180,7 @@ input/*.nessus
 *.csv
 
 ## Config
-# !config/*.json
-
-## Config
-# !config/*.json
+!yanp/config/default_rules.json
 
 ## Dev
 reference/

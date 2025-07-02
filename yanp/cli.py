@@ -1,5 +1,22 @@
 import argparse
+import sys
+from pathlib import Path
 from typing import Dict, Any, List
+
+from .core.nessus_parser import NessusParser
+from .core.consolidator import VulnerabilityConsolidator, ConsolidationError
+from .core.formatter import APIFormatter, FormatterError
+from .utils import setup_logging, write_results_to_files
+from .utils.file_utils import ensure_output_directory
+
+# Get version directly to avoid circular import
+try:
+    from importlib.metadata import version
+    __version__ = version("yanp")
+except ImportError:
+    __version__ = "ERROR"
+except Exception:
+    __version__ = "ERROR"
 
 class Colors:
     MAGENTA = '\033[95m'
@@ -12,7 +29,7 @@ class Colors:
     BRIGHT = '\033[1m'
     RESET = '\033[0m'
 
-def print_banner(v: str):
+def print_banner(version: str):
     """Print YANP ASCII art banner"""
     banner = """
 ▓██   ██▓ ▄▄▄       ███▄    █  ██▓███  
@@ -28,10 +45,10 @@ def print_banner(v: str):
 
     tagline = "Same shit, different parser"
     author = "By @FlyingPhishy"
-    version = f"             v{v}"
+    version_text = f"             v{version}"
 
     print(f"{Colors.GREEN}{Colors.BRIGHT}{banner}{Colors.RESET}")
-    print(f"{Colors.GREEN}{Colors.BRIGHT}{version}{Colors.RESET}\n")
+    print(f"{Colors.GREEN}{Colors.BRIGHT}{version_text}{Colors.RESET}\n")
     print(f"{Colors.YELLOW}{Colors.BRIGHT}{tagline}{Colors.RESET}")
     print(f"{Colors.RED}{Colors.BRIGHT}{author}{Colors.RESET}\n")
 
@@ -189,7 +206,8 @@ def display_api_summary(api_data: List[Dict[str, Any]]):
 def setup_argparse() -> argparse.ArgumentParser:
     """Setup and return argument parser"""
     parser = argparse.ArgumentParser(
-        description='Nessus XML Parser - Converts Nessus XML to JSON format'
+        description='YANP - Yet Another Nessus Parser',
+        prog='yanp'
     )
     
     parser.add_argument(
@@ -220,4 +238,137 @@ def setup_argparse() -> argparse.ArgumentParser:
         action='store_true',
         help='Generate API-ready JSON format (requires --consolidate)'
     )
+    
+    parser.add_argument(
+        '-r', '--rules-file',
+        help='Custom consolidation rules file'
+    )
+    
+    parser.add_argument(
+        '--no-output',
+        action='store_true',
+        help='Skip writing files, only display results'
+    )
+    
+    parser.add_argument(
+        '--version',
+        action='version',
+        version=f'%(prog)s {__version__}'
+    )
+    
     return parser
+
+def process_nessus_file(
+    nessus_file: str,
+    consolidate: bool = False,
+    api_format: bool = False,
+    rules_file: str = None
+) -> Dict[str, Any]:
+    """
+    Process a Nessus file through the complete pipeline.
+    
+    Args:
+        nessus_file: Path to Nessus XML file
+        consolidate: Whether to apply consolidation rules
+        api_format: Whether to format for API consumption (requires consolidate=True)
+        rules_file: Custom consolidation rules file
+        
+    Returns:
+        dict: Contains 'parsed', 'consolidated', and 'api_ready' keys with respective data
+        
+    Raises:
+        Various exceptions from parser, consolidator, or formatter
+    """
+    results = {}
+    
+    # Parse Nessus file
+    parser = NessusParser(nessus_file)
+    parsed_data = parser.parse()
+    results['parsed'] = parsed_data
+    
+    # Optional consolidation
+    if consolidate:
+        consolidator = VulnerabilityConsolidator(rules_file)
+        consolidated_data = consolidator.consolidate(parsed_data)
+        results['consolidated'] = consolidated_data
+        
+        # Optional API formatting
+        if api_format and consolidated_data:
+            formatter = APIFormatter()
+            api_data = formatter.format_for_api(consolidated_data)
+            results['api_ready'] = api_data
+    
+    return results
+
+def main():
+    """Main CLI execution function"""
+    print_banner(__version__)
+    
+    # Setup logging
+    log = setup_logging()
+    
+    # Parse arguments
+    args = setup_argparse().parse_args()
+    
+    # Validate API output requirements
+    if args.api_output and not args.consolidate:
+        log.error("--api-output requires --consolidate flag")
+        return 1
+    
+    try:
+        # Process using library functions
+        results = process_nessus_file(
+            nessus_file=args.nessus_file,
+            consolidate=args.consolidate,
+            api_format=args.api_output,
+            rules_file=args.rules_file
+        )
+        
+        # Display results
+        if 'parsed' in results and results['parsed']:
+            display_summary(results['parsed'])
+        
+        if 'consolidated' in results and results['consolidated']:
+            display_consolidation_summary(results['consolidated'])
+        
+        if 'api_ready' in results and results['api_ready']:
+            display_api_summary(results['api_ready'])
+        
+        # Write output files unless disabled
+        if not args.no_output:
+            output_folder = ensure_output_directory(args.output_folder)
+            
+            write_status = write_results_to_files(
+                results, 
+                args.nessus_file, 
+                output_folder,
+                custom_output_name=args.output_name
+            )
+            
+            # Check if any writes failed
+            failed_writes = [file_type for file_type, success in write_status.items() if not success]
+            if failed_writes:
+                log.warning(f"Failed to write files: {', '.join(failed_writes)}")
+                return 1
+        
+        return 0
+        
+    except FileNotFoundError as e:
+        log.error(f"File not found: {e}")
+        return 1
+    except ConsolidationError as e:
+        log.error(f"Consolidation failed: {e}")
+        return 1
+    except FormatterError as e:
+        log.error(f"API formatting failed: {e}")
+        return 1
+    except Exception as e:
+        log.error(f"Unexpected error: {str(e)}")
+        return 1
+
+def cli_entry_point():
+    """Entry point for console script."""
+    sys.exit(main())
+
+if __name__ == "__main__":
+    cli_entry_point()

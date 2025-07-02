@@ -2,8 +2,8 @@ import logging
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, Any, Optional, Union
-from modules.json_utils import parse_html_encoded_fqdns
 
 logger = logging.getLogger(__name__)
 
@@ -12,23 +12,26 @@ class NessusParser:
     
     def __init__(self, file_path: str):
         """Initialize parser with file path."""
-        self.file_path = file_path
+        self.file_path = Path(file_path)
         self.tree = None
         self.root = None
-        self._host_counter = 0
-        self._service_counts = defaultdict(int)
-        self._family_counts = defaultdict(int)
-        self._total_vulnerabilities = 0
-        self._severity_counts = {
-            "Critical": 0,
-            "High": 0,
-            "Medium": 0,
-            "Low": 0,
-            "None": 0
-        }
+        self._reset_counters()
         
     def parse(self) -> Optional[Dict[str, Any]]:
-        """Parse Nessus XML file and return structured data."""
+        """
+        Parse Nessus XML file and return structured data.
+        
+        Returns:
+            dict: Parsed Nessus data with context, stats, hosts, and vulnerabilities
+            
+        Raises:
+            FileNotFoundError: If the Nessus file doesn't exist
+            ET.ParseError: If the XML is malformed
+            ValueError: If the file is not a valid Nessus file
+        """
+        # Validate input file
+        self._validate_file()
+        
         try:
             self.tree = ET.parse(self.file_path)
             self.root = self.tree.getroot()
@@ -50,10 +53,38 @@ class NessusParser:
             
         except ET.ParseError as e:
             logger.error(f"Error parsing XML file: {str(e)}")
-            return None
+            raise ET.ParseError(f"Invalid XML format in file: {self.file_path}")
         except Exception as e:
             logger.error(f"Unexpected error during parsing: {str(e)}")
-            return None
+            raise
+    
+    def _validate_file(self) -> None:
+        """Validate if the input file is accessible and has correct format."""
+        if not self.file_path.exists():
+            raise FileNotFoundError(f"File not found: {self.file_path}")
+        
+        if self.file_path.suffix.lower() != '.nessus':
+            raise ValueError(f"Invalid file extension: {self.file_path.suffix}. Expected .nessus")
+        
+        # Basic XML validation
+        try:
+            ET.parse(self.file_path)
+        except ET.ParseError as e:
+            raise ET.ParseError(f"Invalid XML format in file: {self.file_path}")
+    
+    def _reset_counters(self):
+        """Reset internal counters for fresh parsing."""
+        self._host_counter = 0
+        self._service_counts = defaultdict(int)
+        self._family_counts = defaultdict(int)
+        self._total_vulnerabilities = 0
+        self._severity_counts = {
+            "Critical": 0,
+            "High": 0,
+            "Medium": 0,
+            "Low": 0,
+            "None": 0
+        }
     
     def _parse_context(self) -> Dict[str, Any]:
         """Parse scan context information."""
@@ -97,7 +128,7 @@ class NessusParser:
             
             # Handle multiple FQDNs
             fqdns_str = self._get_tag_value(properties, 'host-fqdns')
-            fqdns = parse_html_encoded_fqdns(fqdns_str) if fqdns_str else []
+            fqdns = self._parse_html_encoded_fqdns(fqdns_str) if fqdns_str else []
             
             # Fallback to single FQDN if host-fqdns not present
             if not fqdns:
@@ -300,6 +331,29 @@ class NessusParser:
                 "by_family": dict(self._family_counts)
             }
         }
+    
+    def _parse_html_encoded_fqdns(self, fqdns_str: str) -> list[str]:
+        """
+        Parse HTML-encoded JSON string containing FQDN data.
+        
+        Args:
+            fqdns_str: HTML-encoded JSON string with FQDN data
+            
+        Returns:
+            List of FQDN strings
+        """
+        import json
+        
+        try:
+            # Remove HTML encoding and parse JSON
+            cleaned_str = fqdns_str.replace('&quot;', '"')
+            fqdns_data = json.loads(cleaned_str)
+            
+            # Extract all unique FQDNs
+            return [entry['FQDN'] for entry in fqdns_data if 'FQDN' in entry]
+        except (json.JSONDecodeError, TypeError):
+            logger.debug(f"Failed to parse FQDN JSON: {fqdns_str}")
+            return []
     
     # Helper methods
     def _get_host_id(self) -> int:

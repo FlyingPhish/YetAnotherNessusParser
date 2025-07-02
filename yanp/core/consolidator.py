@@ -3,15 +3,30 @@ import json
 import re
 from typing import Dict, Any, Optional, List
 from pathlib import Path
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+class ConsolidationError(Exception):
+    """Raised when consolidation processing fails."""
+    pass
 
 class VulnerabilityConsolidator:
     """Consolidates Nessus vulnerabilities based on configurable rules."""
     
-    def __init__(self, rules_file: str = "config/consolidation_rules.json"):
-        """Initialize consolidator with rules file path."""
-        self.rules_file = Path(rules_file)
+    def __init__(self, rules_file: Optional[str] = None):
+        """
+        Initialize consolidator with rules file path.
+        
+        Args:
+            rules_file: Path to custom consolidation rules file. 
+                       If None, uses default bundled rules.
+        """
+        if rules_file:
+            self.rules_file = Path(rules_file)
+        else:
+            self.rules_file = self._get_default_rules_path()
+            
         self.rules = []
         
     def consolidate(self, parsed_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -22,30 +37,37 @@ class VulnerabilityConsolidator:
             parsed_data: The original parsed Nessus data
             
         Returns:
-            Consolidated findings data or None if consolidation fails
+            Consolidated findings data or None if no rules match
+            
+        Raises:
+            ConsolidationError: If consolidation fails due to invalid rules or processing errors
         """
         logger.debug("Starting vulnerability consolidation")
         
-        # Load consolidation rules
-        if not self._load_rules():
-            logger.warning("No consolidation rules loaded, skipping consolidation")
-            return None
-        
-        logger.debug(f"Processing {len(parsed_data.get('vulnerabilities', {}))} vulnerabilities with {len(self.rules)} rules")
-        
-        # Apply rule matching
-        matched_vulnerabilities = self.match_vulnerabilities(parsed_data)
-        
-        if not matched_vulnerabilities:
-            logger.debug("No vulnerabilities matched consolidation rules")
-            return self._create_basic_consolidated_structure(parsed_data)
-        
-        logger.debug(f"Matched {sum(len(matches) for matches in matched_vulnerabilities.values())} vulnerabilities across {len(matched_vulnerabilities)} rules")
-        
-        # Apply data aggregation
-        consolidated_entries = self.aggregate_vulnerabilities(parsed_data, matched_vulnerabilities)
-        
-        return self._create_final_consolidated_structure(parsed_data, matched_vulnerabilities, consolidated_entries)
+        try:
+            # Load consolidation rules
+            if not self._load_rules():
+                logger.warning("No consolidation rules loaded, skipping consolidation")
+                return None
+            
+            logger.debug(f"Processing {len(parsed_data.get('vulnerabilities', {}))} vulnerabilities with {len(self.rules)} rules")
+            
+            # Apply rule matching
+            matched_vulnerabilities = self.match_vulnerabilities(parsed_data)
+            
+            if not matched_vulnerabilities:
+                logger.debug("No vulnerabilities matched consolidation rules")
+                return self._create_basic_consolidated_structure(parsed_data)
+            
+            logger.debug(f"Matched {sum(len(matches) for matches in matched_vulnerabilities.values())} vulnerabilities across {len(matched_vulnerabilities)} rules")
+            
+            # Apply data aggregation
+            consolidated_entries = self.aggregate_vulnerabilities(parsed_data, matched_vulnerabilities)
+            
+            return self._create_final_consolidated_structure(parsed_data, matched_vulnerabilities, consolidated_entries)
+            
+        except Exception as e:
+            raise ConsolidationError(f"Consolidation failed: {str(e)}")
     
     def aggregate_vulnerabilities(self, parsed_data: Dict[str, Any], matched_vulns: Dict[str, List[str]]) -> Dict[str, Dict[str, Any]]:
         """
@@ -116,6 +138,83 @@ class VulnerabilityConsolidator:
             consolidated_entries[rule_name] = entry
 
         return consolidated_entries
+    
+    def match_vulnerabilities(self, parsed_data: Dict[str, Any]) -> Dict[str, List[str]]:
+        """
+        Match vulnerabilities against consolidation rules.
+        
+        Args:
+            parsed_data: The original parsed Nessus data
+            
+        Returns:
+            Dictionary mapping rule names to lists of matching plugin IDs
+        """
+        vulnerabilities = parsed_data.get('vulnerabilities', {})
+        matched_vulns = {}
+        
+        for rule in self.rules:
+            rule_name = rule['rule_name']
+            logger.debug(f"Applying rule: {rule_name}")
+            
+            matches = self._apply_rule_filters(vulnerabilities, rule)
+            
+            if matches:
+                matched_vulns[rule_name] = matches
+                logger.debug(f"Rule '{rule_name}' matched {len(matches)} vulnerabilities: {matches}")
+            else:
+                logger.debug(f"Rule '{rule_name}' found no matches")
+        
+        return matched_vulns
+    
+    def _get_default_rules_path(self) -> Path:
+        """Get path to default bundled consolidation rules."""
+        # Get the package directory (where this file is located)
+        package_dir = Path(__file__).parent.parent
+        default_rules_path = package_dir / "config" / "default_rules.json"
+        
+        if not default_rules_path.exists():
+            logger.warning(f"Default rules file not found at {default_rules_path}")
+            # Fallback to looking in current working directory for development
+            fallback_path = Path("yanp/config/default_rules.json")
+            if fallback_path.exists():
+                return fallback_path
+            else:
+                # Create an empty rules file path for graceful handling
+                return Path("nonexistent_rules.json")
+        
+        return default_rules_path
+    
+    def _load_rules(self) -> bool:
+        """Load consolidation rules from config file."""
+        try:
+            # Check if rules file exists
+            if not self.rules_file.exists():
+                logger.warning(f"Rules file not found: {self.rules_file}")
+                return False
+            
+            # Load and parse JSON
+            with open(self.rules_file, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+            
+            # Validate config structure
+            if not self._validate_config_structure(config_data):
+                return False
+            
+            # Extract enabled rules only
+            all_rules = config_data.get('consolidation_rules', [])
+            self.rules = [rule for rule in all_rules if rule.get('enabled', True)]
+            
+            logger.debug(f"Loaded {len(self.rules)} enabled consolidation rules from {self.rules_file}")
+            if len(self.rules) == 0:
+                logger.warning("No enabled consolidation rules found")
+                return False
+                
+            return True
+            
+        except json.JSONDecodeError as e:
+            raise ConsolidationError(f"Invalid JSON in rules file {self.rules_file}: {str(e)}")
+        except Exception as e:
+            raise ConsolidationError(f"Error loading rules file {self.rules_file}: {str(e)}")
     
     def _search_plugin_output(self, vuln_data: Dict[str, Any], patterns: List[str], require_all: bool = False) -> bool:
         """
@@ -283,8 +382,6 @@ class VulnerabilityConsolidator:
     
     def _create_final_consolidated_structure(self, parsed_data: Dict[str, Any], matched_vulns: Dict[str, List[str]], consolidated_entries: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         """Create the final consolidated structure."""
-        from datetime import datetime
-        
         rule_names = [rule['rule_name'] for rule in self.rules]
         total_vulns = len(parsed_data.get('vulnerabilities', {}))
         total_matched = sum(len(matches) for matches in matched_vulns.values())
@@ -298,33 +395,6 @@ class VulnerabilityConsolidator:
             },
             "consolidated_vulnerabilities": consolidated_entries
         }
-    
-    def match_vulnerabilities(self, parsed_data: Dict[str, Any]) -> Dict[str, List[str]]:
-        """
-        Match vulnerabilities against consolidation rules.
-        
-        Args:
-            parsed_data: The original parsed Nessus data
-            
-        Returns:
-            Dictionary mapping rule names to lists of matching plugin IDs
-        """
-        vulnerabilities = parsed_data.get('vulnerabilities', {})
-        matched_vulns = {}
-        
-        for rule in self.rules:
-            rule_name = rule['rule_name']
-            logger.debug(f"Applying rule: {rule_name}")
-            
-            matches = self._apply_rule_filters(vulnerabilities, rule)
-            
-            if matches:
-                matched_vulns[rule_name] = matches
-                logger.debug(f"Rule '{rule_name}' matched {len(matches)} vulnerabilities: {matches}")
-            else:
-                logger.debug(f"Rule '{rule_name}' found no matches")
-        
-        return matched_vulns
     
     def _apply_rule_filters(self, vulnerabilities: Dict[str, Any], rule: Dict[str, Any]) -> List[str]:
         """Apply filtering logic for a single rule."""
@@ -379,14 +449,14 @@ class VulnerabilityConsolidator:
                     logger.warning(f"Invalid regex pattern '{pattern}': {str(e)}")
                     continue
         
-        # NEW: Check plugin output patterns (if specified)
+        # Check plugin output patterns (if specified)
         plugin_output_patterns = filters.get('plugin_output_patterns', [])
         if plugin_output_patterns:
             require_all = filters.get('plugin_output_require_all', False)
             if not self._search_plugin_output(vuln_data, plugin_output_patterns, require_all):
                 return False
         
-        # NEW: Check exclude plugin output patterns
+        # Check exclude plugin output patterns
         exclude_plugin_output_patterns = filters.get('exclude_plugin_output_patterns', [])
         if exclude_plugin_output_patterns:
             require_all = filters.get('exclude_plugin_output_require_all', False)
@@ -395,52 +465,16 @@ class VulnerabilityConsolidator:
         
         return True
     
-    def _load_rules(self) -> bool:
-        """Load consolidation rules from config file."""
-        try:
-            # Check if rules file exists
-            if not self.rules_file.exists():
-                logger.warning(f"Rules file not found: {self.rules_file}")
-                return False
-            
-            # Load and parse JSON
-            with open(self.rules_file, 'r') as f:
-                config_data = json.load(f)
-            
-            # Validate config structure
-            if not self._validate_config_structure(config_data):
-                return False
-            
-            # Extract enabled rules only
-            all_rules = config_data.get('consolidation_rules', [])
-            self.rules = [rule for rule in all_rules if rule.get('enabled', True)]
-            
-            logger.debug(f"Loaded {len(self.rules)} enabled consolidation rules")
-            if len(self.rules) == 0:
-                logger.warning("No enabled consolidation rules found")
-                return False
-                
-            return True
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in rules file: {str(e)}")
-            return False
-        except Exception as e:
-            logger.error(f"Error loading rules file: {str(e)}")
-            return False
-    
     def _validate_config_structure(self, config_data: Dict[str, Any]) -> bool:
         """Validate the basic structure of the configuration data."""
         try:
             # Check for required top-level key
             if 'consolidation_rules' not in config_data:
-                logger.error("Config missing 'consolidation_rules' key")
-                return False
+                raise ConsolidationError("Config missing 'consolidation_rules' key")
             
             rules = config_data['consolidation_rules']
             if not isinstance(rules, list):
-                logger.error("'consolidation_rules' must be a list")
-                return False
+                raise ConsolidationError("'consolidation_rules' must be a list")
             
             # Validate each rule structure
             for i, rule in enumerate(rules):
@@ -459,14 +493,12 @@ class VulnerabilityConsolidator:
         
         for field in required_fields:
             if field not in rule:
-                logger.error(f"Rule {index}: Missing required field '{field}'")
-                return False
+                raise ConsolidationError(f"Rule {index}: Missing required field '{field}'")
         
         # Validate filters structure
         filters = rule['filters']
         if not isinstance(filters, dict):
-            logger.error(f"Rule {index}: 'filters' must be a dictionary")
-            return False
+            raise ConsolidationError(f"Rule {index}: 'filters' must be a dictionary")
         
         # Validate filter fields
         if not self._validate_filter_fields(filters, index):
@@ -475,8 +507,7 @@ class VulnerabilityConsolidator:
         # Validate grouping_criteria
         grouping = rule['grouping_criteria']
         if not isinstance(grouping, list):
-            logger.error(f"Rule {index}: 'grouping_criteria' must be a list")
-            return False
+            raise ConsolidationError(f"Rule {index}: 'grouping_criteria' must be a list")
         
         # Validate grouping criteria values
         valid_grouping_options = ['ip', 'port', 'service']
@@ -505,8 +536,7 @@ class VulnerabilityConsolidator:
             if field in filters:
                 value = filters[field]
                 if not isinstance(value, list):
-                    logger.error(f"Rule {rule_index}: '{field}' must be a list, got {type(value).__name__}")
-                    return False
+                    raise ConsolidationError(f"Rule {rule_index}: '{field}' must be a list, got {type(value).__name__}")
                 
                 # Validate regex patterns
                 if 'patterns' in field:
@@ -518,8 +548,7 @@ class VulnerabilityConsolidator:
             if field in filters:
                 value = filters[field]
                 if not isinstance(value, bool):
-                    logger.error(f"Rule {rule_index}: '{field}' must be a boolean, got {type(value).__name__}")
-                    return False
+                    raise ConsolidationError(f"Rule {rule_index}: '{field}' must be a boolean, got {type(value).__name__}")
         
         # Validate plugin families against known families
         if 'plugin_families' in filters:
@@ -541,21 +570,17 @@ class VulnerabilityConsolidator:
         """Validate regex patterns for syntax errors."""
         for pattern in patterns:
             if not isinstance(pattern, str):
-                logger.error(f"Rule {rule_index}: All patterns in '{field_name}' must be strings")
-                return False
+                raise ConsolidationError(f"Rule {rule_index}: All patterns in '{field_name}' must be strings")
             
             try:
                 re.compile(pattern, re.IGNORECASE)
             except re.error as e:
-                logger.error(f"Rule {rule_index}: Invalid regex pattern '{pattern}' in '{field_name}': {str(e)}")
-                return False
+                raise ConsolidationError(f"Rule {rule_index}: Invalid regex pattern '{pattern}' in '{field_name}': {str(e)}")
         
         return True
     
     def _create_basic_consolidated_structure(self, parsed_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create basic consolidated structure showing rules were loaded."""
-        from datetime import datetime
-        
         rule_names = [rule['rule_name'] for rule in self.rules]
         total_vulns = len(parsed_data.get('vulnerabilities', {}))
         
