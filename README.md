@@ -7,7 +7,7 @@
 
 YANP is a comprehensive solution for parsing Nessus XML files into structured JSON, with advanced consolidation capabilities and both programmatic and command-line interfaces. Built with modularity, efficiency, and ease of use in mind.
 
-![YANP CLI Banner](https://github.com/user-attachments/assets/860c69e9-8e13-4dd7-a6e7-6350f54b0cda)
+![YANP CLI Banner](https://github.com/user-attachments/assets/263b181d-d8ae-4ede-b91e-a76537bc8aaf)
 
 ## ✨ Features
 
