@@ -81,7 +81,14 @@ pipx install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git
 pip install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git
 # pip install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git@branch
 ```
+### Upgrading
+```bash
+# When installed using pipx
+pipx upgrade yanp
 
+# When installed using pip
+pip install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git --force-reinstall
+```
 ## 💡 Usage
 
 ### 🖥️ Command Line Interface
