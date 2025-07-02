@@ -7,7 +7,8 @@
 
 YAPP is a comprehensive solution for parsing pentesting tool outputs (Nessus, Nmap, and more) into structured JSON, with advanced consolidation capabilities and both programmatic and command-line interfaces. Built as an extensible framework with modularity, efficiency, and ease of use in mind.
 
-![YAPP CLI Banner](https://github.com/user-attachments/assets/263b181d-d8ae-4ede-b91e-a76537bc8aaf)
+![YAPP CLI Banner](https://github.com/user-attachments/assets/bd35da53-b726-4f4b-b68e-ff7bb8fa11e2)
+
 
 ## ✨ Features
 
@@ -191,10 +192,10 @@ yapp/
 ```
 
 ## 🔬 Nessus Consolidation Engine
-
 The consolidation engine intelligently groups related vulnerabilities, reducing noise and improving vulnerability management efficiency.
 
-![Consolidation Example](https://github.com/user-attachments/assets/2f8a0d80-5de7-414b-8569-de936a92c892)
+![Consolidation Example](https://github.com/user-attachments/assets/8fc1f210-12d3-48ba-a651-dc9c3ee24048)
+
 
 ### Features:
 - **Smart Pattern Matching**: Regex patterns for vulnerability names and plugin output
@@ -210,6 +211,17 @@ The consolidation engine intelligently groups related vulnerabilities, reducing 
 - **Weak Encryption**: Group protocol and cipher vulnerabilities
 - **JavaScript Libraries**: Separate web application library issues
 - **Operating System**: Group OS-specific updates and patches
+
+## 🔬 Nessus Consolidation Engine + API Formatter
+You can use `-a` or `--api-output`, which transforms the results of your consolidation rules into a basic JSON structure that can be used with a reporting engine to turn Nessus results into findings within your pentest report engine. The output has been designed to work with my custom API for [Ghostwriter](https://github.com/GhostManager/Ghostwriter). (DM me on Twatter (x) if you want more info on this)
+
+![API Formatter](https://github.com/user-attachments/assets/e4c66d26-6251-401e-814b-127fdb924ede)
+
+## 🔬 Nmap Parser
+You can see the proper output in the below sections
+
+![Nmap Analysis CLI Output](https://github.com/user-attachments/assets/37bc4dae-85b4-4a7a-80d0-9597e91337dd)
+
 
 ## 📋 Output Formats
 
