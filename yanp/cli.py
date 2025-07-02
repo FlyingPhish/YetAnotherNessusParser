@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, List
 
+from . import __version__  # Import version from main package
 from .core.nessus_parser import NessusParser
 from .core.consolidator import VulnerabilityConsolidator, ConsolidationError
 from .core.formatter import APIFormatter, FormatterError
@@ -244,7 +245,7 @@ def setup_argparse() -> argparse.ArgumentParser:
     parser.add_argument(
         '--version',
         action='version',
-        version='%(prog)s 4.0.0'
+        version=f'%(prog)s {__version__}'
     )
     
     return parser
@@ -293,7 +294,7 @@ def process_nessus_file(
 
 def main():
     """Main CLI execution function"""
-    print_banner("4.0.0")
+    print_banner(__version__)
     
     # Setup logging
     log = setup_logging()

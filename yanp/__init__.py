@@ -31,10 +31,25 @@ from .core import (
 # Import CLI functionality
 from .cli import cli_entry_point
 
-# Version info
-__version__ = "4.0.0"
-__author__ = "FlyingPhishy"
-__description__ = "Yet Another Nessus Parser - A Python library for parsing and processing Nessus XML reports"
+# Version info - dynamically read from package metadata
+try:
+    from importlib.metadata import version, metadata
+    __version__ = version("yanp")
+    
+    # Get other metadata from package info
+    _metadata = metadata("yanp")
+    __author__ = _metadata.get("Author", "FlyingPhishy")
+    __description__ = _metadata.get("Summary", "Yet Another Nessus Parser - A Python library for parsing and processing Nessus XML reports")
+except ImportError:
+    # Fallback for development/editable installs where metadata might not be available
+    __version__ = "4.0.0-dev"
+    __author__ = "FlyingPhishy"
+    __description__ = "Yet Another Nessus Parser - A Python library for parsing and processing Nessus XML reports"
+except Exception:
+    # Fallback if package not installed properly
+    __version__ = "4.0.0-dev"
+    __author__ = "FlyingPhishy" 
+    __description__ = "Yet Another Nessus Parser - A Python library for parsing and processing Nessus XML reports"
 
 # Public API
 __all__ = [
