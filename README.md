@@ -1,49 +1,50 @@
-# YetAnotherNessusParser
+# YANP - Yet Another Nessus Parser
+
 ![No External Dependencies](/.github/badges/no-dependencies.svg)
 ![Py](/.github/badges/python.svg)
 
-Yet another bloody python-based Nessus parser. My intentions are to create one Py-based Nessus parser to rule them all whilst being modular, efficent and easy to contribute to. This tool doesn't use any external libs (looking at you nessus-file-reader)
+**A powerful Python library and CLI tool for parsing and processing Nessus vulnerability scan results.**
 
-This tool parses .Nessus XML files into structured JSON and Py formats. This tool provides a clean, efficient way to process Nessus vulnerability scan results with detailed host and vulnerability information, plus an advanced consolidation engine to group related vulnerabilities intelligently.
+YANP is a comprehensive solution for parsing Nessus XML files into structured JSON, with advanced consolidation capabilities and both programmatic and command-line interfaces. Built with modularity, efficiency, and ease of use in mind.
 
-![image](https://github.com/user-attachments/assets/860c69e9-8e13-4dd7-a6e7-6350f54b0cda)
+![YANP CLI Banner](https://github.com/user-attachments/assets/860c69e9-8e13-4dd7-a6e7-6350f54b0cda)
 
+## ✨ Features
 
-## Features
+### 🔧 **Dual Interface Design**
+- **CLI Tool**: Beautiful command-line interface with colored output
+- **Python Library**: Clean programmatic API for integration into your projects
+- **No External Dependencies**: Pure Python implementation
 
-- Parse Nessus XML files into structured JSON
-- Advanced Consolidation Engine - Group related vulnerabilities using smart rules
-- Plugin Output Filtering - Search and match vulnerabilities based on actual plugin output content
-- Rule-Based Vulnerability Categorization - Configurable rules for outdated software, weak encryption, certificates, etc.
-- Track unique vulnerabilities globally and per host
-- Identify unique hosts in the scan
-- Map discovered ports to hosts
-- Provides high-level stats and info
-- Detailed vulnerability information including CVE, CVSS scores, and affected systems
-- Human-readable consolidated output with plugin names and structured data
-- Modular design for easy extension
-- No external libs needed
-- Py dictionary is the exact same as JSON object
+### 📊 **Advanced Processing**
+- Parse Nessus XML files into structured JSON/Python dictionaries
+- Advanced consolidation engine with smart vulnerability grouping
+- Plugin output pattern matching and filtering
+- Rule-based vulnerability categorization
+- API-ready output formatting for integration
 
-## Performance
+### 🎯 **Intelligence & Analytics**
+- Track vulnerabilities globally and per host
+- Comprehensive statistics and metrics
+- Multiple FQDN support per host
+- Detailed vulnerability information (CVE, CVSS, affected systems)
+- Human-readable output with plugin names
 
-YANP delivers decent performance on large Nessus files:
-
+### ⚡ **Performance**
 **Benchmark Results:**
 - **File Size**: 118 MB Nessus XML (1005 hosts, 214 findings, 17 remediations)
-- **Processing Time**: 5.87 seconds  
-- **Throughput**: ~20 MB/second
+- **Processing Time**: 9.18 seconds total (5.76s processing + 0.45s I/O)
+- **Throughput**: ~13 MB/second (total) / ~20 MB/second (processing only)
 - **Memory Efficient**: Low memory footprint with streaming parser
-- **Includes**: Full parsing + consolidation engine + JSON output
+- **Includes**: Full parsing + consolidation engine + API formatting + JSON output (3 files)
 
-*Tested on: Debian WSL on Windows host*
+*Tested on: WSL2 (Debian) on Windows host*
 
 ## To-Do
 - [X] Create the dammed thing
 - [X] Obligatory ASCII art banner for the haters (it isn't a proper tool without one)
 - [X] Make it pretty 👉👈
-- [X] Capture all vulnerability information such as CWE and etc
-- [X] Capture all scan information (context)
+- [X] Capture all scan (context) & vulnerability information such as CWE and etc
 - [X] Print more stats on the Nessus file
 - [X] Nessus finding consolidation engine
 - [X] Consolidation rule file
@@ -52,141 +53,138 @@ YANP delivers decent performance on large Nessus files:
 - [X] Plugin output pattern matching and filtering
 - [X] Human-readable consolidated output with plugin names
 - [X] Consolidation rules can now have internal_vulnerability_id, which is used to match consolidated rules to findings within your vulnerability stock/reporting software
-- [X] Bit of spring cleaning (code)
 - [X] New arg -a (--api-output) that uses internal stock id to generate a JSON object to use with my GhostWriter fork (SQL API to insert/attach blank/stock findings to a report)
+- [X] Transform into proper Python library
+- [X] CLI and programmatic interfaces
 - [ ] Verbose consolidation info (to show what was missed and why)
 - [ ] Ensure proper typing on JSON object 🤓 (priority pls)
 - [ ] Create output module to output to text and xslx files
 - [ ] Expand XLSX functionality to include tabs for various things such as all vulns, host info, scan info, grouped plugins
-- [ ] Send JSON object to user-specified URL with cookies and headers
 
-## Project Structure
+## 🚀 Installation
 
-```
-.
-├── config/           # Configuration files
-│   ├── consolidation_rules.json    # Consolidation rules configuration
-│   └── consolidation_README.md     # Consolidation guide and documentation
-├── input/            # Input directory for Nessus files
-├── modules/          # Core functionality modules
-│   ├── __init__.py
-│   ├── cli.py        # CLI argument handling and display
-│   ├── consolidation.py  # Vulnerability consolidation engine
-│   ├── file_utils.py # File operations
-│   ├── json_utils.py # JSON operations
-│   ├── logger.py     # Logging configuration
-│   └── nessus.py     # Nessus parsing logic
-├── output/           # Output directory for JSON files
-├── yanp.py           # Main script
-├── README.md
-└── requirements.txt
-```
-
-## Installation
-
-1. Clone the repository:
+### For CLI Usage Only
 ```bash
+# Install globally with pipx (recommended for CLI-only usage)
 git clone https://github.com/FlyingPhish/YetAnotherNessusParser && cd YetAnotherNessusParser
+pipx install .
 ```
-2. Rename consolidation_rules.json.example -> consolidation_rules.json
-3. Done! No external libs needed.
-
-## Usage
-
-### Basic parsing:
+OR
 ```bash
-python yanp.py -n input/your_scan.nessus
+pipx install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git
+# pipx install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git@branch
 ```
-
-### Parse with vulnerability consolidation:
+### For Programmatic Usage (using within your py projects)
 ```bash
-python yanp.py -n input/your_scan.nessus -c
+# activate your virtual env
+pip install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git
+# pip install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git@branch
 ```
 
-### Custom output location:
+## 💡 Usage
+
+### 🖥️ Command Line Interface
+
+**CLI Arguments:**
+- `-n, --nessus-file`: Path to Nessus XML file (required)
+- `-of, --output-folder`: Output directory (default: ./output)
+- `-on, --output-name`: Custom output filename
+- `-c, --consolidate`: Enable vulnerability consolidation
+- `-a, --api-output`: Generate API-ready format (requires -c)
+- `-r, --rules-file`: Custom consolidation rules file
+- `--no-output`: Display results only, don't write files
+- `--version`: Show version information
+
+#### Basic parsing:
 ```bash
-python yanp.py -n input/your_scan.nessus -of ./reports -on my_scan_results.json -c
+yanp -n input/scan.nessus
 ```
 
-### All available options:
+#### With consolidation:
 ```bash
-python yanp.py -h
+yanp -n input/scan.nessus -c
 ```
 
-**Arguments:**
-- `-n, --nessus-file`: Path to input Nessus XML file (required)
-- `-of, --output-folder`: Output folder path (default: ./output)
-- `-on, --output-name`: Output file name (default: timestamp_<original-name>_Parsed_Nessus.json)
-- `-c, --consolidate`: Generate consolidated findings file based on rules
+#### Full pipeline with custom naming:
+```bash
+yanp -n input/scan.nessus -of ./reports -on my_results.json -c -a
+```
 
-## Consolidation Engine
+#### Display results without saving files:
+```bash
+yanp -n input/scan.nessus --no-output -c
+```
 
-The consolidation engine groups related vulnerabilities into meaningful categories, reducing noise and making vulnerability management more efficient.
+### 🐍 Python Library
+Checkout `examples/library_usage.py` and `examples/README.md`
 
-### Example Consolidation Output:
-![image](https://github.com/user-attachments/assets/2f8a0d80-5de7-414b-8569-de936a92c892)
+## 🏗️ Project Structure
 
+```
+yanp/
+├── __init__.py              # Main package API
+├── cli.py                   # CLI interface
+├── core/                    # Core processing modules
+│   ├── __init__.py
+│   ├── nessus_parser.py     # Nessus XML parsing
+│   ├── consolidator.py      # Vulnerability consolidation
+│   └── formatter.py         # API output formatting
+├── utils/                   # Utility modules
+│   ├── __init__.py
+│   ├── file_utils.py        # File operations
+│   ├── json_utils.py        # JSON handling
+│   └── logger.py            # Logging utilities
+└── config/                  # Configuration
+    ├── __init__.py
+    ├── default_rules.json    # Default consolidation rules
+    └── consolidation_README.md
+```
 
-### Consolidation Features:
-- **Smart Pattern Matching**: Uses regex patterns to match vulnerability names and plugin output content
-- **Plugin Output Filtering**: Search inside actual Nessus plugin output for version information, error messages, etc.
+## 🔬 Consolidation Engine
+
+The consolidation engine intelligently groups related vulnerabilities, reducing noise and improving vulnerability management efficiency.
+
+![Consolidation Example](https://github.com/user-attachments/assets/2f8a0d80-5de7-414b-8569-de936a92c892)
+
+### Features:
+- **Smart Pattern Matching**: Regex patterns for vulnerability names and plugin output
+- **Plugin Output Filtering**: Search actual Nessus plugin output content
 - **Flexible Grouping**: Group by IP, port, service, or custom criteria
-- **Rule-Based**: Configurable JSON rules for different vulnerability types
-- **Human-Readable Output**: Plugin names included alongside IDs for better readability
-- **Advanced Logic**: AND/OR pattern matching, exclusion rules, family filtering
+- **Rule-Based Configuration**: JSON rules for different vulnerability types
+- **Advanced Logic**: AND/OR pattern matching, exclusion rules
 
-### Common Use Cases:
-- **Outdated Software**: Group all software with "Installed version...Fixed version" patterns
-- **Certificate Issues**: Consolidate expired, invalid, and self-signed certificate findings
-- **Weak Encryption**: Group TLS/SSL protocol and cipher vulnerabilities
-- **JavaScript Libraries**: Separate web application library vulnerabilities
-- **Operating System Issues**: Group OS-specific updates and patches
+### Common Consolidation Rules:
+- **Outdated Software**: Group software with version update patterns
+- **Certificate Issues**: Consolidate SSL/TLS certificate problems
+- **Weak Encryption**: Group protocol and cipher vulnerabilities
+- **JavaScript Libraries**: Separate web application library issues
+- **Operating System**: Group OS-specific updates and patches
 
-For detailed consolidation rule configuration, see `config/consolidation_README.md`.
-
-## Output Format
+## 📋 Output Formats
 
 ### Standard Parsed Output
-The tool generates a JSON file with the following structure:
-
 ```json
 {
   "context": {
     "scan_id": "string",
-    "scan_name": "string", 
-    "policy_name": "string",
-    "scan_start": "string",
-    "scan_end": "string",
-    "scan_duration": "string"
+    "scan_start": "DD-MM-YYYY HH:MM:SS",
+    "scan_duration": "H:MM:SS",
+    "policy_name": "string"
   },
   "stats": {
     "hosts": {
-      "total": int,
-      "total_ips": int,
-      "total_fqdns": int,
-      "multi_fqdn_hosts": int,
-      "credentialed_checks": int
-    },
-    "ports": {
-      "total_discovered": int,
-      "list": ["string"],
-      "services": {
-        "www": int,
-        "general": int
-      }
+      "total": 100,
+      "credentialed_checks": 95,
+      "multi_fqdn_hosts": 10
     },
     "vulnerabilities": {
-      "total": int,
+      "total": 500,
       "by_severity": {
-        "Critical": int,
-        "High": int,
-        "Medium": int,
-        "Low": int,
-        "None": int
-      },
-      "by_family": {
-        "General": int,
-        "Service detection": int
+        "Critical": 5,
+        "High": 25,
+        "Medium": 150,
+        "Low": 200,
+        "None": 120
       }
     }
   },
@@ -297,58 +295,50 @@ When using the `-c` flag, an additional consolidated findings file is generated:
 }
 ```
 
-## Configuration
-
-### Consolidation Rules
-Create custom consolidation rules in `config/consolidation_rules.json`:
-
+### API-Ready Output (with API formatting)
 ```json
-{
-  "consolidation_rules": [
-    {
-      "rule_name": "my_custom_rule",
-      "title": "My Custom Vulnerability Group",
-      "enabled": true,
-      "filters": {
-        "name_patterns": ["Adobe.*", "Flash.*"],
-        "plugin_output_patterns": ["Installed version.*Fixed version"],
-        "plugin_output_require_all": false,
-        "exclude_plugin_output_patterns": [".*Detection only.*"]
-      },
-      "grouping_criteria": ["ip", "port"]
-    }
-  ]
-}
+[
+  {
+    "type": "stock",
+    "finding_id": 999,
+    "affected_entities": "<p>192.168.1.100:443<br />server.example.com</p>"
+  }
+]
 ```
 
-## Development
 
-The project follows a modular structure for easy maintenance and extension. Key components:
 
-- `yanp.py`: Main entry point and orchestration
-- `modules/nessus.py`: Core parsing logic
-- `modules/consolidation.py`: Vulnerability consolidation engine with plugin output filtering
-- `modules/cli.py`: Command line interface handling and display formatting
-- `modules/file_utils.py`: File operations
-- `modules/json_utils.py`: JSON handling
-- `modules/logger.py`: Logging configuration
-
-### Key Design Principles:
-- **KISS (Keep It Simple, Stupid)**: Clean, readable code without over-engineering
-- **DRY (Don't Repeat Yourself)**: Modular, reusable components
-- **No External Dependencies**: Pure Python implementation
-- **Extensible**: Easy to add new consolidation rules and features
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes following the project structure
+4. Add tests for new functionality
+5. Update documentation
+6. Submit a Pull Request
+
+### Key Design Principles:
+- **KISS**: Keep implementations simple and readable
+- **DRY**: Modular, reusable components
+- **No External Dependencies**: Pure Python implementation
+- **Extensible**: Easy to add new features and rules
 
 ### Contributing Guidelines:
-- Follow the existing code style and structure
-- Add tests for new functionality
-- Update documentation for new features
-- Ensure all existing functionality continues to work
+- Follow existing code style (Black + isort)
+- Add type hints for new functions
+- Update documentation
+- Ensure backward compatibility
+- Keep the "no external dependencies" principle
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built for the security community
+- Inspired by the need for a clean, dependency-free Nessus parser
+
+---
+
+**YANP**: *Same shit, different parser* - but now as a proper Python library! 🐍✨

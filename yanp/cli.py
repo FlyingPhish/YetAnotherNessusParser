@@ -3,12 +3,20 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, List
 
-from . import __version__  # Import version from main package
 from .core.nessus_parser import NessusParser
 from .core.consolidator import VulnerabilityConsolidator, ConsolidationError
 from .core.formatter import APIFormatter, FormatterError
 from .utils import setup_logging, write_results_to_files
 from .utils.file_utils import ensure_output_directory
+
+# Get version directly to avoid circular import
+try:
+    from importlib.metadata import version
+    __version__ = version("yanp")
+except ImportError:
+    __version__ = "ERROR"
+except Exception:
+    __version__ = "ERROR"
 
 class Colors:
     MAGENTA = '\033[95m'

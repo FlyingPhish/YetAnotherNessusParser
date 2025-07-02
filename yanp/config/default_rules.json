@@ -1,0 +1,303 @@
+{
+  "consolidation_rules": [
+    {
+      "rule_name": "ssl_tls_protocol_weaknesses",
+      "title": "SSL/TLS Protocol Weaknesses",
+      "internal_vulnerability_id": 999,
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "SSL.*TLS.*Versions.*Supported",
+          "TLS.*Version.*1\\.0.*Protocol.*Detection",
+          "TLS.*Version.*1\\.1.*Deprecated.*Protocol",
+          "TLS.*Version.*1\\.1.*Protocol.*Detection"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [
+          "TLSv1\\.1",
+          "TLSv1\\.0",
+          "SSLv3",
+          "SSLv2"
+        ],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "certificate_issues",
+      "title": "SSL Certificate Issues",
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "SSL Certificate Chain Contains Certificates Expiring Soon",
+          "SSL Certificate with no Common Name",
+          "SSL Certificate with no Subject",
+          "SSL Certificate Chain Contains RSA Keys Less Than 2048 bits",
+          "SSL Certificate Cannot Be Trusted",
+          "SSL Certificate Chain Contains Weak RSA Keys",
+          "SSL Certificate Signed Using Weak Hashing Algorithm",
+          "SSL Certificate with Wrong Hostname",
+          "SSL Self-Signed Certificate",
+          "SSL.*Certificate.*",
+          ".*Certificate.*SSL.*",
+          ".*Certificate.*TLS.*",
+          ".*Certificate.*Expir.*",
+          ".*Certificate.*Invalid.*",
+          ".*Certificate.*Trust.*",
+          ".*Certificate.*Chain.*",
+          ".*Certificate.*Validation.*"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "ssl_tls_algorithm_issues", 
+      "title": "SSL/TLS Cipher and Algorithm Weaknesses",
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          ".*SSL.*Cipher.*",
+          ".*TLS.*Cipher.*", 
+          ".*SSL.*Algorithm.*",
+          ".*TLS.*Algorithm.*",
+          ".*SSL.*Hash.*",
+          ".*TLS.*Hash.*",
+          "SSL RC4 Cipher Suites Supported.*",
+          "SSL.*Strength Cipher Suites Supported.*",
+          "SSL Cipher Block Chaining.*",
+          "SSL.*Diffie-Hellman.*",
+          "TLS.*Diffie-Hellman.*"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [
+          ".*Protocol.*Detection.*",
+          ".*Version.*Supported.*"
+        ],
+        "plugin_output_patterns": [
+          "weak.*cipher",
+          "cipher.*suite",
+          "algorithm.*weak",
+          "deprecated.*cipher",
+          "RC4.*cipher",
+          "DES.*cipher", 
+          "MD5.*hash",
+          "SHA-1.*hash",
+          "diffie.*hellman.*weak",
+          "cipher.*strength.*low",
+          ".*weak*",
+          ".*insecure*"
+        ],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": ["ip", "port"]
+    },
+    {
+      "rule_name": "ssh_weaknesses",
+      "title": "SSH Weaknesses",
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "SSH Password Authentication Accepted",
+          "SSH Protocol Versions Supported",
+          "SSH Weak Algorithms Supported",
+          "SSH Weak Key Exchange Algorithms Enabled",
+          "SSH Server CBC Mode Ciphers Enabled",
+          "SSH Weak MAC Algorithms Enabled",
+          "SSH Terrapin Prefix Truncation Weakness \\(CVE-2023-48795\\)"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "cleartext_services",
+      "title": "Cleartext Services",
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "vsftpd.*Detection",
+          "FTP.*Server.*Detection",
+          "TFTP.*Daemon.*Detection",
+          "Unencrypted.*Telnet.*Server"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "outdated_unsupported_software",
+      "title": "Outdated and Unsupported Third-Party Software", 
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          ".*Supported version.*",
+          ".*Supported versions.*",
+          ".*installation is unsupported.*",
+          ".*unsupported.*",
+          ".*Unsupported*",
+          ".*end of life.*",
+          ".*obsolete.*",
+          ".*End-of-Life.*",
+          ".*EOL.*"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [
+          ".*Operating System.*",
+          ".*Windows OS.*",
+          ".*Linux.*",
+          ".*Unix.*"
+        ],
+        "plugin_output_patterns": [
+          "Supported version",
+          "Supported versions", 
+          "installation is unsupported",
+          "unsupported",
+          "end of life",
+          "obsolete",
+          ".*unsupported*",
+          ".*end of life*",
+          ".*obsolete*",
+          ".*Supported version.*",
+          ".*is prior to.*",
+          "Fixed version.*Installed version",
+          "Installed version.*Fixed version",
+          "Current version.*Latest version",
+          "EOL",
+          "End-of-Life",
+          "no longer supported",
+          "support.*ended",
+          "deprecated.*version"
+        ],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [
+          "Operating System",
+          "Windows.*OS",
+          "Linux.*kernel",
+          "Unix.*version"
+        ],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": ["ip", "port"]
+    },
+    {
+      "rule_name": "outdated_unsupported_operating_system",
+      "title": "Outdated and Unsupported Operating Systems",
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "Operating System Unsupported Version.*",
+          "Unsupported Windows OS.*", 
+          ".*Unsupported.*OS.*",
+          ".*Unsupported.*Operating System.*",
+          ".*OS.*Unsupported.*",
+          ".*Operating System.*Unsupported.*",
+          ".*Windows.*Unsupported.*",
+          ".*Linux.*Unsupported.*",
+          ".*Unix.*Unsupported.*"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": ["ip"]
+    },
+    {
+      "rule_name": "outdated_javascript_libraries",
+      "title": "Outdated and Unsupported JavaScript Libraries",
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [],
+        "exclude_families": [],
+        "exclude_name_patterns": [
+          ".*Operating System.*",
+          ".*Windows OS.*",
+          ".*Linux.*",
+          ".*Unix.*"
+        ],
+        "plugin_output_patterns": [
+          "\\.js\\n.*Installed version",
+          "\\.js.*Installed version",
+          "\\.js\\n.*Fixed version",
+          "\\.js.*Fixed version",
+          "JavaScript.*Installed version",
+          "JavaScript.*Fixed version",
+          "jQuery.*version.*[0-9]+",
+          "Angular.*version.*[0-9]+",
+          "React.*version.*[0-9]+",
+          "Bootstrap.*version.*[0-9]+",
+          "\\.min\\.js.*version"
+        ],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "example_disabled_rule",
+      "title": "Example Template Rule (Disabled)",
+      "enabled": false,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    }
+  ]
+}
