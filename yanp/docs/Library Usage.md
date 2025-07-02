@@ -228,3 +228,42 @@ write_status = write_results_to_files(
 
 for file_type, success in write_status.items():
     print(f"{file_type}: {'✅ Success' if success else '❌ Failed'}")
+
+
+# TO SORT
+## Modular & Extensible
+```python
+### Adding a new parser is simple:
+from yanp import process_file
+results = process_file('any_supported_file.ext')  # Auto-detects type
+```
+
+### Consistent Interface
+```python
+### Same pattern for all file types:
+results = process_file('scan.nessus', consolidate=True, api_format=True)
+results = process_file('scan.xml', port_status='open')
+results = process_file('future_tool.json', custom_option='value')
+```
+
+## Backward Compat
+```python
+### Existing Nessus code still works:
+from yanp import process_nessus_file
+results = process_nessus_file('scan.nessus', consolidate=True)
+```
+
+## Library Usage
+```python
+### Auto-detect and process
+from yanp import process_file
+results = process_file('scan.xml')  # Auto-detects as Nmap
+
+### Nmap with filtering
+results = process_file('scan.xml', port_status='open')
+nmap_data = results['parsed']
+print(f"Found {nmap_data['stats']['services']['total']} services")
+
+### Nessus with full pipeline
+results = process_file('scan.nessus', consolidate=True, api_format=True, entity_limit=10)
+```

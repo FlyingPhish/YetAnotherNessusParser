@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 from .core.nessus_parser import NessusParser
+from .core.nmap_parser import NmapParser
 from .core.consolidator import VulnerabilityConsolidator, ConsolidationError
 from .core.formatter import APIFormatter, FormatterError
 from .utils import setup_logging, write_results_to_files
-from .utils.file_utils import ensure_output_directory
+from .utils.file_utils import ensure_output_directory, detect_file_type
 
 # Get version directly to avoid circular import
 try:
@@ -43,7 +44,7 @@ def print_banner(version: str):
  ░ ░           ░  ░         ░          
  ░ ░                                   """
 
-    tagline = "Same shit, different parser"
+    tagline = "Swiss Army Knife for Pentester File Processing"
     author = "By @FlyingPhishy"
     version_text = f"             v{version}"
 
@@ -52,8 +53,15 @@ def print_banner(version: str):
     print(f"{Colors.YELLOW}{Colors.BRIGHT}{tagline}{Colors.RESET}")
     print(f"{Colors.RED}{Colors.BRIGHT}{author}{Colors.RESET}\n")
 
-def display_summary(parsed_data: dict):
+def display_summary(parsed_data: dict, file_type: str):
     """Display formatted summary of scan results"""
+    if file_type == "nessus":
+        display_nessus_summary(parsed_data)
+    elif file_type == "nmap":
+        display_nmap_summary(parsed_data)
+
+def display_nessus_summary(parsed_data: dict):
+    """Display formatted summary of Nessus scan results"""
     stats = parsed_data['stats']
     context = parsed_data['context']
 
@@ -68,7 +76,7 @@ def display_summary(parsed_data: dict):
 
     # Print Summary
     print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}")
-    print(f"{Colors.WHITE}{Colors.BRIGHT}SCAN SUMMARY{Colors.RESET}")
+    print(f"{Colors.WHITE}{Colors.BRIGHT}NESSUS SCAN SUMMARY{Colors.RESET}")
     print(f"{Colors.CYAN}{'-' * 50}{Colors.RESET}")
     
     # Scan Context
@@ -92,7 +100,6 @@ def display_summary(parsed_data: dict):
     risk_order = ['Critical', 'High', 'Medium', 'Low', 'None']
     
     for risk in risk_order:
-        # Safely get count with default of 0
         count = stats['vulnerabilities']['by_severity'].get(risk, 0)
         bullet = "•"
         print(f"  {bullet} {risk_colors[risk]}{risk}: {count}{Colors.RESET}")
@@ -102,6 +109,56 @@ def display_summary(parsed_data: dict):
         print(f"\n{Colors.WHITE}{Colors.BRIGHT}Service Information:{Colors.RESET}")
         for service, count in stats['ports']['services'].items():
             print(f"  • {service}: {Colors.GREEN}{count}{Colors.RESET}")
+    
+    print(f"{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
+
+def display_nmap_summary(parsed_data: dict):
+    """Display formatted summary of Nmap scan results"""
+    stats = parsed_data['stats']
+    context = parsed_data['context']
+
+    # Print Summary
+    print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}")
+    print(f"{Colors.WHITE}{Colors.BRIGHT}NMAP SCAN SUMMARY{Colors.RESET}")
+    print(f"{Colors.CYAN}{'-' * 50}{Colors.RESET}")
+    
+    # Scan Context
+    print(f"{Colors.WHITE}{Colors.BRIGHT}Scan Context:{Colors.RESET}")
+    print(f"  • Scanner: {Colors.GREEN}Nmap {context['scanner_version']}{Colors.RESET}")
+    print(f"  • Start Time: {Colors.GREEN}{context['scan_start']}{Colors.RESET}")
+    print(f"  • End Time: {Colors.GREEN}{context['scan_end']}{Colors.RESET}")
+    print(f"  • Duration: {Colors.GREEN}{context['scan_duration']}{Colors.RESET}")
+    print(f"  • Scan Type: {Colors.GREEN}{context['scan_type']}{Colors.RESET}")
+    
+    # Host Information
+    print(f"\n{Colors.WHITE}{Colors.BRIGHT}Host Information:{Colors.RESET}")
+    print(f"  • Total Hosts: {Colors.GREEN}{stats['hosts']['total']}{Colors.RESET}")
+    print(f"  • Unique IPs: {Colors.GREEN}{stats['hosts']['unique_ips']}{Colors.RESET}")
+    print(f"  • Unique Hostnames: {Colors.GREEN}{stats['hosts']['unique_hostnames']}{Colors.RESET}")
+    
+    # Host Status Breakdown
+    if stats['hosts']['by_status']:
+        print(f"  • Host Status:")
+        for status, count in stats['hosts']['by_status'].items():
+            status_color = Colors.GREEN if status == 'up' else Colors.YELLOW
+            print(f"    └─ {status_color}{status.title()}: {count}{Colors.RESET}")
+    
+    # Port Information
+    print(f"\n{Colors.WHITE}{Colors.BRIGHT}Port Information:{Colors.RESET}")
+    if stats['ports']['by_status']:
+        for status, count in stats['ports']['by_status'].items():
+            status_color = Colors.GREEN if status == 'open' else Colors.YELLOW if status == 'filtered' else Colors.RED
+            print(f"  • {status_color}{status.title()} Ports: {count}{Colors.RESET}")
+    
+    # Service Information
+    print(f"\n{Colors.WHITE}{Colors.BRIGHT}Service Information:{Colors.RESET}")
+    print(f"  • Total Services: {Colors.GREEN}{stats['services']['total']}{Colors.RESET}")
+    
+    if stats['services']['by_service']:
+        top_services = sorted(stats['services']['by_service'].items(), key=lambda x: x[1], reverse=True)[:10]
+        print(f"  • Top Services:")
+        for service, count in top_services:
+            print(f"    └─ {Colors.GREEN}{service}: {count}{Colors.RESET}")
     
     print(f"{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
 
@@ -213,14 +270,21 @@ def display_api_summary(api_data: List[Dict[str, Any]]):
 def setup_argparse() -> argparse.ArgumentParser:
     """Setup and return argument parser"""
     parser = argparse.ArgumentParser(
-        description='YANP - Yet Another Nessus Parser',
+        description='YANP - Swiss Army Knife for Pentester File Processing',
         prog='yanp'
     )
     
     parser.add_argument(
-        '-n', '--nessus-file',
+        '-i', '--input-file',
         required=True,
-        help='Path to input Nessus XML file'
+        help='Path to input file (Nessus .nessus, Nmap .xml)'
+    )
+    
+    parser.add_argument(
+        '-t', '--file-type',
+        choices=['auto', 'nessus', 'nmap'],
+        default='auto',
+        help='Input file type (default: auto-detect)'
     )
     
     parser.add_argument(
@@ -231,30 +295,41 @@ def setup_argparse() -> argparse.ArgumentParser:
     
     parser.add_argument(
         '-on', '--output-name',
-        help='Output file name (default: timestamp_<original-name>_Parsed_Nessus.json)'
+        help='Output file name (default: timestamp_<original-name>_Parsed.json)'
     )
     
-    parser.add_argument(
+    # Nessus-specific options
+    nessus_group = parser.add_argument_group('Nessus options')
+    nessus_group.add_argument(
         '-c', '--consolidate',
         action='store_true',
-        help='Generate consolidated findings file based on rules'
+        help='Generate consolidated findings file based on rules (Nessus only)'
     )
     
-    parser.add_argument(
+    nessus_group.add_argument(
         '-a', '--api-output',
         action='store_true',
-        help='Generate API-ready JSON format (requires --consolidate)'
+        help='Generate API-ready JSON format (requires --consolidate, Nessus only)'
     )
     
-    parser.add_argument(
+    nessus_group.add_argument(
         '-r', '--rules-file',
-        help='Custom consolidation rules file'
+        help='Custom consolidation rules file (Nessus only)'
     )
     
-    parser.add_argument(
+    nessus_group.add_argument(
         '-el', '--entity-limit',
         type=int,
-        help='Maximum number of affected entities per API finding (default: unlimited)'
+        help='Maximum number of affected entities per API finding (Nessus only)'
+    )
+    
+    # Nmap-specific options
+    nmap_group = parser.add_argument_group('Nmap options')
+    nmap_group.add_argument(
+        '-s', '--port-status',
+        choices=['all', 'open', 'closed', 'filtered'],
+        default='all',
+        help='Filter by port status (Nmap only, default: all)'
     )
     
     parser.add_argument(
@@ -271,47 +346,67 @@ def setup_argparse() -> argparse.ArgumentParser:
     
     return parser
 
-def process_nessus_file(
-    nessus_file: str,
+def process_file(
+    input_file: str,
+    file_type: str = "auto",
+    port_status: str = "all",
     consolidate: bool = False,
     api_format: bool = False,
     rules_file: str = None,
     entity_limit: int = None
 ) -> Dict[str, Any]:
     """
-    Process a Nessus file through the complete pipeline.
+    Process input file through the appropriate parser pipeline.
     
     Args:
-        nessus_file: Path to Nessus XML file
-        consolidate: Whether to apply consolidation rules
-        api_format: Whether to format for API consumption (requires consolidate=True)
-        rules_file: Custom consolidation rules file
-        entity_limit: Maximum number of affected entities per API finding
+        input_file: Path to input file
+        file_type: File type ('auto', 'nessus', 'nmap')
+        port_status: Port status filter for Nmap (all, open, closed, filtered)
+        consolidate: Whether to apply consolidation rules (Nessus only)
+        api_format: Whether to format for API consumption (Nessus only)
+        rules_file: Custom consolidation rules file (Nessus only)
+        entity_limit: Maximum number of affected entities per API finding (Nessus only)
         
     Returns:
-        dict: Contains 'parsed', 'consolidated', and 'api_ready' keys with respective data
+        dict: Contains parsed data and optional consolidated/API data
         
     Raises:
-        Various exceptions from parser, consolidator, or formatter
+        Various exceptions from parsers, consolidator, or formatter
     """
     results = {}
     
-    # Parse Nessus file
-    parser = NessusParser(nessus_file)
-    parsed_data = parser.parse()
-    results['parsed'] = parsed_data
+    # Auto-detect file type if needed
+    if file_type == "auto":
+        file_type = detect_file_type(input_file)
+        print(f"{Colors.CYAN}Auto-detected file type: {Colors.GREEN}{file_type.upper()}{Colors.RESET}")
     
-    # Optional consolidation
-    if consolidate:
-        consolidator = VulnerabilityConsolidator(rules_file)
-        consolidated_data = consolidator.consolidate(parsed_data)
-        results['consolidated'] = consolidated_data
+    # Parse based on file type
+    if file_type == "nessus":
+        parser = NessusParser(input_file)
+        parsed_data = parser.parse()
+        results['parsed'] = parsed_data
+        results['file_type'] = 'nessus'
         
-        # Optional API formatting
-        if api_format and consolidated_data:
-            formatter = APIFormatter(entity_limit=entity_limit)
-            api_data = formatter.format_for_api(consolidated_data)
-            results['api_ready'] = api_data
+        # Optional consolidation (Nessus only)
+        if consolidate:
+            consolidator = VulnerabilityConsolidator(rules_file)
+            consolidated_data = consolidator.consolidate(parsed_data)
+            results['consolidated'] = consolidated_data
+            
+            # Optional API formatting (Nessus only)
+            if api_format and consolidated_data:
+                formatter = APIFormatter(entity_limit=entity_limit)
+                api_data = formatter.format_for_api(consolidated_data)
+                results['api_ready'] = api_data
+                
+    elif file_type == "nmap":
+        parser = NmapParser(input_file)
+        parsed_data = parser.parse(port_status_filter=port_status)
+        results['parsed'] = parsed_data
+        results['file_type'] = 'nmap'
+        
+    else:
+        raise ValueError(f"Unsupported file type: {file_type}")
     
     return results
 
@@ -325,20 +420,36 @@ def main():
     # Parse arguments
     args = setup_argparse().parse_args()
     
-    # Validate API output requirements
+    # Validate arguments
     if args.api_output and not args.consolidate:
         log.error("--api-output requires --consolidate flag")
         return 1
     
-    # Validate entity limit
     if args.entity_limit is not None and args.entity_limit < 1:
         log.error("--entity-limit must be a positive integer")
         return 1
     
+    # Check for Nessus-only options with other file types
+    if args.file_type in ['nmap'] or (args.file_type == 'auto' and Path(args.input_file).suffix.lower() == '.xml'):
+        nessus_only_options = []
+        if args.consolidate:
+            nessus_only_options.append("--consolidate")
+        if args.api_output:
+            nessus_only_options.append("--api-output")
+        if args.rules_file:
+            nessus_only_options.append("--rules-file")
+        if args.entity_limit:
+            nessus_only_options.append("--entity-limit")
+        
+        if nessus_only_options and args.file_type == 'nmap':
+            log.warning(f"Ignoring Nessus-only options for Nmap file: {', '.join(nessus_only_options)}")
+    
     try:
-        # Process using library functions
-        results = process_nessus_file(
-            nessus_file=args.nessus_file,
+        # Process using the appropriate parser
+        results = process_file(
+            input_file=args.input_file,
+            file_type=args.file_type,
+            port_status=args.port_status,
             consolidate=args.consolidate,
             api_format=args.api_output,
             rules_file=args.rules_file,
@@ -347,7 +458,7 @@ def main():
         
         # Display results
         if 'parsed' in results and results['parsed']:
-            display_summary(results['parsed'])
+            display_summary(results['parsed'], results['file_type'])
         
         if 'consolidated' in results and results['consolidated']:
             display_consolidation_summary(results['consolidated'])
@@ -361,7 +472,7 @@ def main():
             
             write_status = write_results_to_files(
                 results, 
-                args.nessus_file, 
+                args.input_file, 
                 output_folder,
                 custom_output_name=args.output_name
             )

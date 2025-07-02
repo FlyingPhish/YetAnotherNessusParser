@@ -1,25 +1,31 @@
 """
 yanp/__init__.py
-YANP - Yet Another Nessus Parser
-A Python library for parsing and processing Nessus XML reports.
+YANP - Swiss Army Knife for Pentester File Processing
+A Python library for parsing and processing various pentesting tool outputs.
+
+Supported formats:
+- Nessus .nessus XML files (with consolidation and API formatting)
+- Nmap .xml XML files
 
 Examples:
-    Basic parsing:
-        >>> from yanp import NessusParser
-        >>> parser = NessusParser('scan.nessus')
-        >>> data = parser.parse()
+    Basic parsing (auto-detect):
+        >>> from yanp import process_file
+        >>> results = process_file('scan.nessus')
+        >>> # or
+        >>> results = process_file('scan.xml')
     
-    Complete processing pipeline:
-        >>> from yanp import process_nessus_file
-        >>> results = process_nessus_file('scan.nessus', consolidate=True, api_format=True)
+    Nessus with consolidation and API output:
+        >>> from yanp import process_file
+        >>> results = process_file('scan.nessus', consolidate=True, api_format=True, entity_limit=10)
     
-    Complete processing pipeline with entity limit:
-        >>> from yanp import process_nessus_file
-        >>> results = process_nessus_file('scan.nessus', consolidate=True, api_format=True, entity_limit=10)
+    Nmap with port filtering:
+        >>> from yanp import process_file
+        >>> results = process_file('scan.xml', port_status='open')
     
     Using individual components:
-        >>> from yanp import NessusParser, VulnerabilityConsolidator, APIFormatter
-        >>> parser = NessusParser('scan.nessus')
+        >>> from yanp import NessusParser, NmapParser, VulnerabilityConsolidator, APIFormatter
+        >>> nessus_parser = NessusParser('scan.nessus')
+        >>> nmap_parser = NmapParser('scan.xml')
         >>> consolidator = VulnerabilityConsolidator()
         >>> formatter = APIFormatter(entity_limit=5)
 """
@@ -27,6 +33,7 @@ Examples:
 # Import core classes
 from .core import (
     NessusParser,
+    NmapParser,
     VulnerabilityConsolidator, 
     APIFormatter,
     ConsolidationError,
@@ -36,6 +43,9 @@ from .core import (
 # Import CLI functionality
 from .cli import cli_entry_point
 
+# Import utilities
+from .utils.file_utils import detect_file_type
+
 # Version info - dynamically read from package metadata
 try:
     from importlib.metadata import version, metadata
@@ -44,22 +54,25 @@ try:
     # Get other metadata from package info
     _metadata = metadata("yanp")
     __author__ = _metadata.get("Author", "FlyingPhishy")
-    __description__ = _metadata.get("Summary", "Yet Another Nessus Parser - A Python library for parsing and processing Nessus XML reports")
+    __description__ = _metadata.get("Summary", "Swiss Army Knife for Pentester File Processing")
 except ImportError:
     # Fallback for development/editable installs where metadata might not be available
     __version__ = "4.0.0-dev"
     __author__ = "FlyingPhishy"
-    __description__ = "Yet Another Nessus Parser - A Python library for parsing and processing Nessus XML reports"
+    __description__ = "Swiss Army Knife for Pentester File Processing"
 except Exception:
     # Fallback if package not installed properly
     __version__ = "4.0.0-dev"
     __author__ = "FlyingPhishy" 
-    __description__ = "Yet Another Nessus Parser - A Python library for parsing and processing Nessus XML reports"
+    __description__ = "Swiss Army Knife for Pentester File Processing"
 
 # Public API
 __all__ = [
-    # Core classes
+    # Core parsers
     "NessusParser",
+    "NmapParser",
+    
+    # Processing classes
     "VulnerabilityConsolidator", 
     "APIFormatter",
     
@@ -68,7 +81,11 @@ __all__ = [
     "FormatterError",
     
     # Convenience functions
-    "process_nessus_file",
+    "process_file",
+    "process_nessus_file",  # Backward compatibility
+    
+    # Utilities
+    "detect_file_type",
     
     # CLI entry point
     "cli_entry_point",
@@ -76,6 +93,106 @@ __all__ = [
     # Package info
     "__version__"
 ]
+
+def process_file(
+    input_file: str,
+    file_type: str = "auto",
+    port_status: str = "all",
+    consolidate: bool = False,
+    api_format: bool = False,
+    rules_file: str = None,
+    entity_limit: int = None,
+    output_dir: str = None,
+    custom_output_name: str = None
+) -> dict:
+    """
+    Complete processing pipeline for supported file types.
+    
+    This is the main convenience function that handles the complete workflow:
+    parsing, optional consolidation (Nessus only), and optional API formatting (Nessus only).
+    
+    Args:
+        input_file: Path to input file
+        file_type: File type ('auto', 'nessus', 'nmap')
+        port_status: Port status filter for Nmap ('all', 'open', 'closed', 'filtered')
+        consolidate: Whether to apply consolidation rules (Nessus only)
+        api_format: Whether to format for API consumption (Nessus only, requires consolidate=True)
+        rules_file: Path to custom consolidation rules file (Nessus only)
+        entity_limit: Maximum number of affected entities per API finding (Nessus only)
+        output_dir: If provided, write JSON files to this directory
+        custom_output_name: Custom name for the main parsed output file
+        
+    Returns:
+        dict: Contains 'parsed', 'file_type', and optional 'consolidated'/'api_ready' keys
+        
+    Raises:
+        FileNotFoundError: If the input file doesn't exist
+        ValueError: If the file type is unsupported or cannot be determined
+        ConsolidationError: If consolidation fails (Nessus only)
+        FormatterError: If API formatting fails (Nessus only)
+        
+    Examples:
+        Auto-detect and parse any supported file:
+            >>> results = process_file('scan.nessus')
+            >>> results = process_file('scan.xml')
+        
+        Nessus with full pipeline:
+            >>> results = process_file(
+            ...     'scan.nessus',
+            ...     consolidate=True,
+            ...     api_format=True,
+            ...     entity_limit=10,
+            ...     output_dir='./results'
+            ... )
+        
+        Nmap with port filtering:
+            >>> results = process_file('scan.xml', port_status='open')
+            >>> nmap_data = results['parsed']
+            >>> print(f"Found {nmap_data['stats']['services']['total']} services")
+    """
+    results = {}
+    
+    # Auto-detect file type if needed
+    if file_type == "auto":
+        file_type = detect_file_type(input_file)
+    
+    # Parse based on file type
+    if file_type == "nessus":
+        parser = NessusParser(input_file)
+        parsed_data = parser.parse()
+        results['parsed'] = parsed_data
+        results['file_type'] = 'nessus'
+        
+        # Optional consolidation (Nessus only)
+        if consolidate:
+            consolidator = VulnerabilityConsolidator(rules_file)
+            consolidated_data = consolidator.consolidate(parsed_data)
+            results['consolidated'] = consolidated_data
+            
+            # Optional API formatting (Nessus only)
+            if api_format and consolidated_data:
+                formatter = APIFormatter(entity_limit=entity_limit)
+                api_data = formatter.format_for_api(consolidated_data)
+                results['api_ready'] = api_data
+                
+    elif file_type == "nmap":
+        parser = NmapParser(input_file)
+        parsed_data = parser.parse(port_status_filter=port_status)
+        results['parsed'] = parsed_data
+        results['file_type'] = 'nmap'
+        
+        # Note: Nmap doesn't support consolidation/API formatting yet
+        # Future enhancement could add Nmap-specific processing here
+        
+    else:
+        raise ValueError(f"Unsupported file type: {file_type}")
+    
+    # Optional file output
+    if output_dir:
+        from .utils import write_results_to_files
+        write_results_to_files(results, input_file, output_dir, custom_output_name)
+    
+    return results
 
 def process_nessus_file(
     nessus_file: str,
@@ -87,86 +204,55 @@ def process_nessus_file(
     custom_output_name: str = None
 ) -> dict:
     """
-    Complete processing pipeline for Nessus files.
+    Legacy convenience function for Nessus file processing.
     
-    This is a convenience function that handles the complete workflow:
-    parsing, optional consolidation, and optional API formatting.
+    This function is maintained for backward compatibility.
+    New code should use process_file() instead.
     
     Args:
         nessus_file: Path to Nessus XML file
-        consolidate: Whether to apply consolidation rules (default: False)
+        consolidate: Whether to apply consolidation rules
         api_format: Whether to format for API consumption (requires consolidate=True)
-        rules_file: Path to custom consolidation rules file (optional)
-        entity_limit: Maximum number of affected entities per API finding (optional)
-        output_dir: If provided, write JSON files to this directory (optional)
-        custom_output_name: Custom name for the main parsed output file (optional)
+        rules_file: Path to custom consolidation rules file
+        entity_limit: Maximum number of affected entities per API finding
+        output_dir: If provided, write JSON files to this directory
+        custom_output_name: Custom name for the main parsed output file
         
     Returns:
         dict: Contains 'parsed', 'consolidated' (if requested), and 'api_ready' (if requested) keys
-        
-    Raises:
-        FileNotFoundError: If the Nessus file doesn't exist
-        ValueError: If the file is not a valid Nessus file
-        ConsolidationError: If consolidation fails
-        FormatterError: If API formatting fails
-        
-    Examples:
-        Basic parsing:
-            >>> results = process_nessus_file('scan.nessus')
-            >>> print(f"Found {len(results['parsed']['vulnerabilities'])} vulnerabilities")
-        
-        With consolidation:
-            >>> results = process_nessus_file('scan.nessus', consolidate=True)
-            >>> consolidated = results.get('consolidated')
-            >>> if consolidated:
-            ...     print(f"Consolidated into {len(consolidated['consolidated_vulnerabilities'])} categories")
-        
-        Full pipeline with file output and custom name:
-            >>> results = process_nessus_file(
-            ...     'scan.nessus', 
-            ...     consolidate=True, 
-            ...     api_format=True,
-            ...     output_dir='./results',
-            ...     custom_output_name='my_scan_results.json'
-            ... )
-        
-        With entity limit:
-            >>> results = process_nessus_file(
-            ...     'scan.nessus', 
-            ...     consolidate=True, 
-            ...     api_format=True,
-            ...     entity_limit=10
-            ... )
-            >>> api_data = results.get('api_ready')
-            >>> if api_data:
-            ...     csv_refs = sum(1 for f in api_data if 'replaceMe' in f['affected_entities'])
-            ...     print(f"Findings with CSV references: {csv_refs}")
     """
-    results = {}
+    return process_file(
+        input_file=nessus_file,
+        file_type="nessus",
+        consolidate=consolidate,
+        api_format=api_format,
+        rules_file=rules_file,
+        entity_limit=entity_limit,
+        output_dir=output_dir,
+        custom_output_name=custom_output_name
+    )
+
+def get_supported_file_types() -> dict:
+    """
+    Get information about supported file types and their capabilities.
     
-    # Parse Nessus file
-    parser = NessusParser(nessus_file)
-    parsed_data = parser.parse()
-    results['parsed'] = parsed_data
-    
-    # Optional consolidation
-    if consolidate:
-        consolidator = VulnerabilityConsolidator(rules_file)
-        consolidated_data = consolidator.consolidate(parsed_data)
-        results['consolidated'] = consolidated_data
-        
-        # Optional API formatting
-        if api_format and consolidated_data:
-            formatter = APIFormatter(entity_limit=entity_limit)
-            api_data = formatter.format_for_api(consolidated_data)
-            results['api_ready'] = api_data
-    
-    # Optional file output
-    if output_dir:
-        from .utils import write_results_to_files
-        write_results_to_files(results, nessus_file, output_dir, custom_output_name)
-    
-    return results
+    Returns:
+        dict: File type information including supported features
+    """
+    return {
+        "nessus": {
+            "description": "Nessus vulnerability scanner XML files",
+            "extensions": [".nessus"],
+            "features": ["parsing", "consolidation", "api_formatting", "entity_limiting"],
+            "parser_class": "NessusParser"
+        },
+        "nmap": {
+            "description": "Nmap network scanner XML files", 
+            "extensions": [".xml"],
+            "features": ["parsing", "port_filtering"],
+            "parser_class": "NmapParser"
+        }
+    }
 
 def get_version_info() -> dict:
     """
@@ -179,5 +265,6 @@ def get_version_info() -> dict:
         "version": __version__,
         "author": __author__, 
         "description": __description__,
-        "package": "yanp"
+        "package": "yanp",
+        "supported_formats": list(get_supported_file_types().keys())
     }
