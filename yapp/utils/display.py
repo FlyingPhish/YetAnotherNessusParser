@@ -1,24 +1,7 @@
-import argparse
-import sys
-from pathlib import Path
 from typing import Dict, Any, List
 
-from .core.nessus_parser import NessusParser
-from .core.consolidator import VulnerabilityConsolidator, ConsolidationError
-from .core.formatter import APIFormatter, FormatterError
-from .utils import setup_logging, write_results_to_files
-from .utils.file_utils import ensure_output_directory
-
-# Get version directly to avoid circular import
-try:
-    from importlib.metadata import version
-    __version__ = version("yanp")
-except ImportError:
-    __version__ = "ERROR"
-except Exception:
-    __version__ = "ERROR"
-
 class Colors:
+    """ANSI color codes for terminal output."""
     MAGENTA = '\033[95m'
     RED = '\033[91m'
     YELLOW = '\033[93m'
@@ -30,30 +13,37 @@ class Colors:
     RESET = '\033[0m'
 
 def print_banner(version: str):
-    """Print YANP ASCII art banner"""
+    """Print YAPP ASCII art banner"""
     banner = """
-▓██   ██▓ ▄▄▄       ███▄    █  ██▓███  
- ▒██  ██▒▒████▄     ██ ▀█   █ ▓██░  ██▒
-  ▒██ ██░▒██  ▀█▄  ▓██  ▀█ ██▒▓██░ ██▓▒
-  ░ ▐██▓░░██▄▄▄▄██ ▓██▒  ▐▌██▒▒██▄█▓▒ ▒
-  ░ ██▒▓░ ▓█   ▓██▒▒██░   ▓██░▒██▒ ░  ░
-   ██▒▒▒  ▒▒   ▓▒█░░ ▒░   ▒ ▒ ▒▓▒░ ░  ░
- ▓██ ░▒░   ▒   ▒▒ ░░ ░░   ░ ▒░░▒ ░     
- ▒ ▒ ░░    ░   ▒      ░   ░ ░ ░░       
- ░ ░           ░  ░         ░          
- ░ ░                                   """
+▓██   ██▓ ▄▄▄       ██▓███   ██▓███  
+ ▒██  ██▒▒████▄    ▓██░  ██▒▓██░  ██▒
+  ▒██ ██░▒██  ▀█▄  ▓██░ ██▓▒▓██░ ██▓▒
+  ░ ▐██▓░░██▄▄▄▄██ ▒██▄█▓▒ ▒▒██▄█▓▒ ▒
+  ░ ██▒▓░ ▓█   ▓██▒▒██▒ ░  ░▒██▒ ░  ░
+   ██▒▒▒  ▒▒   ▓▒█░▒▓▒░ ░  ░▒▓▒░ ░  ░
+ ▓██ ░▒░   ▒   ▒▒ ░░▒ ░     ░▒ ░     
+ ▒ ▒ ░░    ░   ▒   ░░       ░░       
+ ░ ░           ░  ░                  
+ ░ ░                                 """
 
-    tagline = "Same shit, different parser"
+    tagline = "Swiss Army Knife for Pentester File Processing"
     author = "By @FlyingPhishy"
-    version_text = f"             v{version}"
+    version_text = f"        v{version}"
 
     print(f"{Colors.GREEN}{Colors.BRIGHT}{banner}{Colors.RESET}")
     print(f"{Colors.GREEN}{Colors.BRIGHT}{version_text}{Colors.RESET}\n")
     print(f"{Colors.YELLOW}{Colors.BRIGHT}{tagline}{Colors.RESET}")
     print(f"{Colors.RED}{Colors.BRIGHT}{author}{Colors.RESET}\n")
 
-def display_summary(parsed_data: dict):
+def display_summary(parsed_data: dict, file_type: str):
     """Display formatted summary of scan results"""
+    if file_type == "nessus":
+        display_nessus_summary(parsed_data)
+    elif file_type == "nmap":
+        display_nmap_summary(parsed_data)
+
+def display_nessus_summary(parsed_data: dict):
+    """Display formatted summary of Nessus scan results"""
     stats = parsed_data['stats']
     context = parsed_data['context']
 
@@ -68,7 +58,7 @@ def display_summary(parsed_data: dict):
 
     # Print Summary
     print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}")
-    print(f"{Colors.WHITE}{Colors.BRIGHT}SCAN SUMMARY{Colors.RESET}")
+    print(f"{Colors.WHITE}{Colors.BRIGHT}NESSUS SCAN SUMMARY{Colors.RESET}")
     print(f"{Colors.CYAN}{'-' * 50}{Colors.RESET}")
     
     # Scan Context
@@ -92,7 +82,6 @@ def display_summary(parsed_data: dict):
     risk_order = ['Critical', 'High', 'Medium', 'Low', 'None']
     
     for risk in risk_order:
-        # Safely get count with default of 0
         count = stats['vulnerabilities']['by_severity'].get(risk, 0)
         bullet = "•"
         print(f"  {bullet} {risk_colors[risk]}{risk}: {count}{Colors.RESET}")
@@ -105,8 +94,58 @@ def display_summary(parsed_data: dict):
     
     print(f"{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
 
+def display_nmap_summary(parsed_data: dict):
+    """Display formatted summary of Nmap scan results"""
+    stats = parsed_data['stats']
+    context = parsed_data['context']
+
+    # Print Summary
+    print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}")
+    print(f"{Colors.WHITE}{Colors.BRIGHT}NMAP SCAN SUMMARY{Colors.RESET}")
+    print(f"{Colors.CYAN}{'-' * 50}{Colors.RESET}")
+    
+    # Scan Context
+    print(f"{Colors.WHITE}{Colors.BRIGHT}Scan Context:{Colors.RESET}")
+    print(f"  • Scanner: {Colors.GREEN}Nmap {context['scanner_version']}{Colors.RESET}")
+    print(f"  • Start Time: {Colors.GREEN}{context['scan_start']}{Colors.RESET}")
+    print(f"  • End Time: {Colors.GREEN}{context['scan_end']}{Colors.RESET}")
+    print(f"  • Duration: {Colors.GREEN}{context['scan_duration']}{Colors.RESET}")
+    print(f"  • Scan Type: {Colors.GREEN}{context['scan_type']}{Colors.RESET}")
+    
+    # Host Information
+    print(f"\n{Colors.WHITE}{Colors.BRIGHT}Host Information:{Colors.RESET}")
+    print(f"  • Total Hosts: {Colors.GREEN}{stats['hosts']['total']}{Colors.RESET}")
+    print(f"  • Unique IPs: {Colors.GREEN}{stats['hosts']['unique_ips']}{Colors.RESET}")
+    print(f"  • Unique Hostnames: {Colors.GREEN}{stats['hosts']['unique_hostnames']}{Colors.RESET}")
+    
+    # Host Status Breakdown
+    if stats['hosts']['by_status']:
+        print(f"  • Host Status:")
+        for status, count in stats['hosts']['by_status'].items():
+            status_color = Colors.GREEN if status == 'up' else Colors.YELLOW
+            print(f"    └─ {status_color}{status.title()}: {count}{Colors.RESET}")
+    
+    # Port Information
+    print(f"\n{Colors.WHITE}{Colors.BRIGHT}Port Information:{Colors.RESET}")
+    if stats['ports']['by_status']:
+        for status, count in stats['ports']['by_status'].items():
+            status_color = Colors.GREEN if status == 'open' else Colors.YELLOW if status == 'filtered' else Colors.RED
+            print(f"  • {status_color}{status.title()} Ports: {count}{Colors.RESET}")
+    
+    # Service Information
+    print(f"\n{Colors.WHITE}{Colors.BRIGHT}Service Information:{Colors.RESET}")
+    print(f"  • Total Services: {Colors.GREEN}{stats['services']['total']}{Colors.RESET}")
+    
+    if stats['services']['by_service']:
+        top_services = sorted(stats['services']['by_service'].items(), key=lambda x: x[1], reverse=True)[:10]
+        print(f"  • Top Services:")
+        for service, count in top_services:
+            print(f"    └─ {Colors.GREEN}{service}: {count}{Colors.RESET}")
+    
+    print(f"{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
+
 def display_consolidation_summary(consolidated_data: dict):
-    """Display formatted consolidation summary matching YANP aesthetic"""
+    """Display formatted consolidation summary matching YAPP aesthetic"""
     if not consolidated_data or not consolidated_data.get('consolidated_vulnerabilities'):
         return
     
@@ -161,7 +200,7 @@ def display_consolidation_summary(consolidated_data: dict):
     print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
 
 def display_api_summary(api_data: List[Dict[str, Any]]):
-    """Display formatted API output summary matching YANP aesthetic"""
+    """Display formatted API output summary matching YAPP aesthetic"""
     if not api_data:
         return
     
@@ -209,187 +248,3 @@ def display_api_summary(api_data: List[Dict[str, Any]]):
                 print(f"  • Finding ID {Colors.GREEN}{finding_id}{Colors.RESET}")
     
     print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
-
-def setup_argparse() -> argparse.ArgumentParser:
-    """Setup and return argument parser"""
-    parser = argparse.ArgumentParser(
-        description='YANP - Yet Another Nessus Parser',
-        prog='yanp'
-    )
-    
-    parser.add_argument(
-        '-n', '--nessus-file',
-        required=True,
-        help='Path to input Nessus XML file'
-    )
-    
-    parser.add_argument(
-        '-of', '--output-folder',
-        default='./output',
-        help='Output folder path (default: ./output)'
-    )
-    
-    parser.add_argument(
-        '-on', '--output-name',
-        help='Output file name (default: timestamp_<original-name>_Parsed_Nessus.json)'
-    )
-    
-    parser.add_argument(
-        '-c', '--consolidate',
-        action='store_true',
-        help='Generate consolidated findings file based on rules'
-    )
-    
-    parser.add_argument(
-        '-a', '--api-output',
-        action='store_true',
-        help='Generate API-ready JSON format (requires --consolidate)'
-    )
-    
-    parser.add_argument(
-        '-r', '--rules-file',
-        help='Custom consolidation rules file'
-    )
-    
-    parser.add_argument(
-        '-el', '--entity-limit',
-        type=int,
-        help='Maximum number of affected entities per API finding (default: unlimited)'
-    )
-    
-    parser.add_argument(
-        '--no-output',
-        action='store_true',
-        help='Skip writing files, only display results'
-    )
-    
-    parser.add_argument(
-        '--version',
-        action='version',
-        version=f'%(prog)s {__version__}'
-    )
-    
-    return parser
-
-def process_nessus_file(
-    nessus_file: str,
-    consolidate: bool = False,
-    api_format: bool = False,
-    rules_file: str = None,
-    entity_limit: int = None
-) -> Dict[str, Any]:
-    """
-    Process a Nessus file through the complete pipeline.
-    
-    Args:
-        nessus_file: Path to Nessus XML file
-        consolidate: Whether to apply consolidation rules
-        api_format: Whether to format for API consumption (requires consolidate=True)
-        rules_file: Custom consolidation rules file
-        entity_limit: Maximum number of affected entities per API finding
-        
-    Returns:
-        dict: Contains 'parsed', 'consolidated', and 'api_ready' keys with respective data
-        
-    Raises:
-        Various exceptions from parser, consolidator, or formatter
-    """
-    results = {}
-    
-    # Parse Nessus file
-    parser = NessusParser(nessus_file)
-    parsed_data = parser.parse()
-    results['parsed'] = parsed_data
-    
-    # Optional consolidation
-    if consolidate:
-        consolidator = VulnerabilityConsolidator(rules_file)
-        consolidated_data = consolidator.consolidate(parsed_data)
-        results['consolidated'] = consolidated_data
-        
-        # Optional API formatting
-        if api_format and consolidated_data:
-            formatter = APIFormatter(entity_limit=entity_limit)
-            api_data = formatter.format_for_api(consolidated_data)
-            results['api_ready'] = api_data
-    
-    return results
-
-def main():
-    """Main CLI execution function"""
-    print_banner(__version__)
-    
-    # Setup logging
-    log = setup_logging()
-    
-    # Parse arguments
-    args = setup_argparse().parse_args()
-    
-    # Validate API output requirements
-    if args.api_output and not args.consolidate:
-        log.error("--api-output requires --consolidate flag")
-        return 1
-    
-    # Validate entity limit
-    if args.entity_limit is not None and args.entity_limit < 1:
-        log.error("--entity-limit must be a positive integer")
-        return 1
-    
-    try:
-        # Process using library functions
-        results = process_nessus_file(
-            nessus_file=args.nessus_file,
-            consolidate=args.consolidate,
-            api_format=args.api_output,
-            rules_file=args.rules_file,
-            entity_limit=args.entity_limit
-        )
-        
-        # Display results
-        if 'parsed' in results and results['parsed']:
-            display_summary(results['parsed'])
-        
-        if 'consolidated' in results and results['consolidated']:
-            display_consolidation_summary(results['consolidated'])
-        
-        if 'api_ready' in results and results['api_ready']:
-            display_api_summary(results['api_ready'])
-        
-        # Write output files unless disabled
-        if not args.no_output:
-            output_folder = ensure_output_directory(args.output_folder)
-            
-            write_status = write_results_to_files(
-                results, 
-                args.nessus_file, 
-                output_folder,
-                custom_output_name=args.output_name
-            )
-            
-            # Check if any writes failed
-            failed_writes = [file_type for file_type, success in write_status.items() if not success]
-            if failed_writes:
-                log.warning(f"Failed to write files: {', '.join(failed_writes)}")
-                return 1
-        
-        return 0
-        
-    except FileNotFoundError as e:
-        log.error(f"File not found: {e}")
-        return 1
-    except ConsolidationError as e:
-        log.error(f"Consolidation failed: {e}")
-        return 1
-    except FormatterError as e:
-        log.error(f"API formatting failed: {e}")
-        return 1
-    except Exception as e:
-        log.error(f"Unexpected error: {str(e)}")
-        return 1
-
-def cli_entry_point():
-    """Entry point for console script."""
-    sys.exit(main())
-
-if __name__ == "__main__":
-    cli_entry_point()

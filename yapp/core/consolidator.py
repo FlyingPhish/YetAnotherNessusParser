@@ -175,7 +175,7 @@ class VulnerabilityConsolidator:
         if not default_rules_path.exists():
             logger.warning(f"Default rules file not found at {default_rules_path}")
             # Fallback to looking in current working directory for development
-            fallback_path = Path("yanp/config/default_rules.json")
+            fallback_path = Path("yapp/config/default_rules.json")
             if fallback_path.exists():
                 return fallback_path
             else:
