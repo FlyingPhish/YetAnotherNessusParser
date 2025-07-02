@@ -16,6 +16,7 @@ from .nessus_parser import NessusParser
 from .nmap_parser import NmapParser
 from .consolidator import VulnerabilityConsolidator, ConsolidationError
 from .formatter import APIFormatter, FormatterError
+from .processor import process_file
 
 __all__ = [
     # Core parsers
@@ -25,6 +26,9 @@ __all__ = [
     # Processing classes
     'VulnerabilityConsolidator', 
     'APIFormatter',
+    
+    # Main processing function
+    'process_file',
     
     # Exceptions
     'ConsolidationError',

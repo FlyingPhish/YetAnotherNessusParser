@@ -19,6 +19,15 @@ from .file_utils import (
     find_input_files,
     sanitize_filename
 )
+from .display import (
+    print_banner,
+    display_summary,
+    display_nessus_summary,
+    display_nmap_summary,
+    display_consolidation_summary,
+    display_api_summary,
+    Colors
+)
 
 __all__ = [
     # Logger functions
@@ -40,5 +49,14 @@ __all__ = [
     'ensure_output_directory',
     'write_results_to_files',
     'find_input_files',
-    'sanitize_filename'
+    'sanitize_filename',
+    
+    # Display utilities
+    'print_banner',
+    'display_summary',
+    'display_nessus_summary',
+    'display_nmap_summary',
+    'display_consolidation_summary',
+    'display_api_summary',
+    'Colors'
 ]
