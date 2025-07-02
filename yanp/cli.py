@@ -170,14 +170,18 @@ def display_api_summary(api_data: List[Dict[str, Any]]):
     finding_ids = [finding['finding_id'] for finding in api_data]
     unique_finding_ids = list(set(finding_ids))
     
-    # Count total affected entities across all findings
+    # Count total affected entities and check for truncated findings
     total_entities = 0
+    truncated_findings = 0
     for finding in api_data:
         affected_entities = finding.get('affected_entities', '')
         if affected_entities:
-            # Count <br /> occurrences + 1 for total entities
-            entity_count = affected_entities.count('<br />') + 1
-            total_entities += entity_count
+            if 'external document' in affected_entities and 'replaceMe' in affected_entities:
+                truncated_findings += 1
+            else:
+                # Count <br /> occurrences + 1 for total entities
+                entity_count = affected_entities.count('<br />') + 1
+                total_entities += entity_count
     
     # Print API Summary
     print(f"{Colors.CYAN}{'=' * 50}{Colors.RESET}")
@@ -189,6 +193,9 @@ def display_api_summary(api_data: List[Dict[str, Any]]):
     print(f"  • API Findings Generated: {Colors.GREEN}{total_findings}{Colors.RESET}")
     print(f"  • Unique Stock Finding IDs: {Colors.GREEN}{len(unique_finding_ids)}{Colors.RESET}")
     print(f"  • Total Affected Entities: {Colors.GREEN}{total_entities}{Colors.RESET}")
+    
+    if truncated_findings > 0:
+        print(f"  • Findings with Entity Limit Applied: {Colors.ORANGE}{truncated_findings}{Colors.RESET}")
     
     # Stock Finding IDs Used
     if unique_finding_ids:
@@ -245,6 +252,12 @@ def setup_argparse() -> argparse.ArgumentParser:
     )
     
     parser.add_argument(
+        '--entity-limit',
+        type=int,
+        help='Maximum number of affected entities per API finding (default: unlimited)'
+    )
+    
+    parser.add_argument(
         '--no-output',
         action='store_true',
         help='Skip writing files, only display results'
@@ -262,7 +275,8 @@ def process_nessus_file(
     nessus_file: str,
     consolidate: bool = False,
     api_format: bool = False,
-    rules_file: str = None
+    rules_file: str = None,
+    entity_limit: int = None
 ) -> Dict[str, Any]:
     """
     Process a Nessus file through the complete pipeline.
@@ -272,6 +286,7 @@ def process_nessus_file(
         consolidate: Whether to apply consolidation rules
         api_format: Whether to format for API consumption (requires consolidate=True)
         rules_file: Custom consolidation rules file
+        entity_limit: Maximum number of affected entities per API finding
         
     Returns:
         dict: Contains 'parsed', 'consolidated', and 'api_ready' keys with respective data
@@ -294,7 +309,7 @@ def process_nessus_file(
         
         # Optional API formatting
         if api_format and consolidated_data:
-            formatter = APIFormatter()
+            formatter = APIFormatter(entity_limit=entity_limit)
             api_data = formatter.format_for_api(consolidated_data)
             results['api_ready'] = api_data
     
@@ -315,13 +330,19 @@ def main():
         log.error("--api-output requires --consolidate flag")
         return 1
     
+    # Validate entity limit
+    if args.entity_limit is not None and args.entity_limit < 1:
+        log.error("--entity-limit must be a positive integer")
+        return 1
+    
     try:
         # Process using library functions
         results = process_nessus_file(
             nessus_file=args.nessus_file,
             consolidate=args.consolidate,
             api_format=args.api_output,
-            rules_file=args.rules_file
+            rules_file=args.rules_file,
+            entity_limit=args.entity_limit
         )
         
         # Display results

@@ -10,9 +10,17 @@ class FormatterError(Exception):
 class APIFormatter:
     """Formats consolidated vulnerability findings for internal API consumption."""
     
-    def __init__(self):
-        """Initialize API formatter."""
-        pass
+    def __init__(self, entity_limit: Optional[int] = None):
+        """
+        Initialize API formatter.
+        
+        Args:
+            entity_limit: Maximum number of affected entities per finding.
+                         If None, no limit is applied.
+        """
+        self.entity_limit = entity_limit
+        if self.entity_limit is not None and self.entity_limit < 1:
+            raise FormatterError("Entity limit must be a positive integer")
     
     def format_for_api(self, consolidated_data: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
         """
@@ -45,7 +53,7 @@ class APIFormatter:
                 finding_id = rule_data['internal_vulnerability_id']
                 affected_services = rule_data.get('affected_services', {})
                 
-                # Format affected entities
+                # Format affected entities with limit check
                 affected_entities_html = self._format_affected_entities(affected_services)
                 
                 if not affected_entities_html:
@@ -189,12 +197,13 @@ class APIFormatter:
     def _format_affected_entities(self, affected_services: Dict[str, Any]) -> str:
         """
         Format affected services into HTML string for API consumption.
+        Applies entity limit if configured.
         
         Args:
             affected_services: Dictionary of affected services from consolidated data
             
         Returns:
-            HTML-formatted string with affected entities
+            HTML-formatted string with affected entities or CSV reference if limit exceeded
         """
         if not affected_services:
             return ""
@@ -227,6 +236,11 @@ class APIFormatter:
         
         if not unique_entities:
             return ""
+        
+        # Check entity limit if configured
+        if self.entity_limit is not None and len(unique_entities) > self.entity_limit:
+            logger.debug(f"Entity count ({len(unique_entities)}) exceeds limit ({self.entity_limit}), using CSV reference")
+            return "<p>Please refer to external document named 'replaceMe'.csv</p>"
         
         # Format as HTML with line breaks
         entities_html = "<br />".join(unique_entities)
