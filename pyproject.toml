@@ -33,11 +33,7 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0",
-    "black>=22.0",
-    "isort>=5.0",
-]
+dev = []
 
 [project.urls]
 Homepage = "https://github.com/FlyingPhish/YetAnotherPentestParser"

@@ -33,20 +33,20 @@ class Colors:
 def print_banner(version: str):
     """Print YAPP ASCII art banner"""
     banner = """
-▓██   ██▓ ▄▄▄       ███▄    █  ██▓███  
- ▒██  ██▒▒████▄     ██ ▀█   █ ▓██░  ██▒
-  ▒██ ██░▒██  ▀█▄  ▓██  ▀█ ██▒▓██░ ██▓▒
-  ░ ▐██▓░░██▄▄▄▄██ ▓██▒  ▐▌██▒▒██▄█▓▒ ▒
-  ░ ██▒▓░ ▓█   ▓██▒▒██░   ▓██░▒██▒ ░  ░
-   ██▒▒▒  ▒▒   ▓▒█░░ ▒░   ▒ ▒ ▒▓▒░ ░  ░
- ▓██ ░▒░   ▒   ▒▒ ░░ ░░   ░ ▒░░▒ ░     
- ▒ ▒ ░░    ░   ▒      ░   ░ ░ ░░       
- ░ ░           ░  ░         ░          
- ░ ░                                   """
+▓██   ██▓ ▄▄▄       ██▓███   ██▓███  
+ ▒██  ██▒▒████▄    ▓██░  ██▒▓██░  ██▒
+  ▒██ ██░▒██  ▀█▄  ▓██░ ██▓▒▓██░ ██▓▒
+  ░ ▐██▓░░██▄▄▄▄██ ▒██▄█▓▒ ▒▒██▄█▓▒ ▒
+  ░ ██▒▓░ ▓█   ▓██▒▒██▒ ░  ░▒██▒ ░  ░
+   ██▒▒▒  ▒▒   ▓▒█░▒▓▒░ ░  ░▒▓▒░ ░  ░
+ ▓██ ░▒░   ▒   ▒▒ ░░▒ ░     ░▒ ░     
+ ▒ ▒ ░░    ░   ▒   ░░       ░░       
+ ░ ░           ░  ░                  
+ ░ ░                                 """
 
     tagline = "Swiss Army Knife for Pentester File Processing"
     author = "By @FlyingPhishy"
-    version_text = f"             v{version}"
+    version_text = f"        v{version}"
 
     print(f"{Colors.GREEN}{Colors.BRIGHT}{banner}{Colors.RESET}")
     print(f"{Colors.GREEN}{Colors.BRIGHT}{version_text}{Colors.RESET}\n")
