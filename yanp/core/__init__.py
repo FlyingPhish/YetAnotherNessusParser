@@ -1,6 +1,6 @@
 """
-yanp/core/__init__.py
-YANP core processing modules.
+yapp/core/__init__.py
+YAPP core processing modules.
 
 This package contains the core functionality for parsing, consolidating,
 and formatting data from various pentesting tools.

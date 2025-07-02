@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-YANP Programmatic Usage Examples
+YAPP Programmatic Usage Examples
 Comprehensive examples for all use cases including entity limit functionality
 """
 
@@ -18,7 +18,7 @@ def example_1_parsing_with_file_output():
     print("🔧 Example 1: Basic parsing with file output")
     
     # Method A: Using convenience function
-    from yanp import process_nessus_file
+    from yapp import process_nessus_file
     
     results = process_nessus_file(
         nessus_file=NESSUS_FILE,
@@ -30,8 +30,8 @@ def example_1_parsing_with_file_output():
     print(f"📁 Files written to: {OUTPUT_DIR}")
     
     # Method B: Using individual classes + manual file writing
-    from yanp import NessusParser
-    from yanp.utils import write_json_output
+    from yapp import NessusParser
+    from yapp.utils import write_json_output
     
     parser = NessusParser(NESSUS_FILE)
     parsed_data = parser.parse()
@@ -50,7 +50,7 @@ def example_2_parsing_in_memory_only():
     print("\n🧠 Example 2: Basic parsing in-memory only")
     
     # Method A: Using convenience function (no output_dir)
-    from yanp import process_nessus_file
+    from yapp import process_nessus_file
     
     results = process_nessus_file(nessus_file=NESSUS_FILE)
     parsed_data = results['parsed']
@@ -60,7 +60,7 @@ def example_2_parsing_in_memory_only():
     print(f"📊 Severity breakdown: {parsed_data['stats']['vulnerabilities']['by_severity']}")
     
     # Method B: Using individual classes
-    from yanp import NessusParser
+    from yapp import NessusParser
     
     parser = NessusParser(NESSUS_FILE)
     parsed_data_direct = parser.parse()
@@ -84,7 +84,7 @@ def example_3_consolidation_with_file_output():
     print("\n🔧 Example 3: Parsing + consolidation with file output")
     
     # Method A: Using convenience function
-    from yanp import process_nessus_file
+    from yapp import process_nessus_file
     
     results = process_nessus_file(
         nessus_file=NESSUS_FILE,
@@ -109,8 +109,8 @@ def example_3_consolidation_with_file_output():
         print("⚠️  No consolidation occurred (no matching rules)")
     
     # Method B: Using individual classes
-    from yanp import NessusParser, VulnerabilityConsolidator
-    from yanp.utils import write_results_to_files
+    from yapp import NessusParser, VulnerabilityConsolidator
+    from yapp.utils import write_results_to_files
     
     parser = NessusParser(NESSUS_FILE)
     parsed_data = parser.parse()
@@ -136,7 +136,7 @@ def example_4_consolidation_in_memory_only():
     print("\n🧠 Example 4: Parsing + consolidation in-memory only")
     
     # Method A: Using convenience function
-    from yanp import process_nessus_file
+    from yapp import process_nessus_file
     
     results = process_nessus_file(
         nessus_file=NESSUS_FILE,
@@ -164,7 +164,7 @@ def example_4_consolidation_in_memory_only():
         print("⚠️  No consolidation occurred")
     
     # Method B: Using individual classes with custom rules
-    from yanp import NessusParser, VulnerabilityConsolidator
+    from yapp import NessusParser, VulnerabilityConsolidator
     
     parser = NessusParser(NESSUS_FILE)
     parsed_data = parser.parse()
@@ -186,7 +186,7 @@ def example_5_full_pipeline_with_file_output():
     print("\n🔧 Example 5: Full pipeline with file output")
     
     # Method A: Using convenience function
-    from yanp import process_nessus_file
+    from yapp import process_nessus_file
     
     results = process_nessus_file(
         nessus_file=NESSUS_FILE,
@@ -217,8 +217,8 @@ def example_5_full_pipeline_with_file_output():
         print("⚠️  No API data generated (requires rules with internal_vulnerability_id)")
     
     # Method B: Using individual classes
-    from yanp import NessusParser, VulnerabilityConsolidator, APIFormatter
-    from yanp.utils import write_results_to_files
+    from yapp import NessusParser, VulnerabilityConsolidator, APIFormatter
+    from yapp.utils import write_results_to_files
     
     # Step-by-step processing
     parser = NessusParser(NESSUS_FILE)
@@ -251,7 +251,7 @@ def example_6_full_pipeline_in_memory_only():
     print("\n🧠 Example 6: Full pipeline in-memory only")
     
     # Method A: Using convenience function
-    from yanp import process_nessus_file
+    from yapp import process_nessus_file
     
     results = process_nessus_file(
         nessus_file=NESSUS_FILE,
@@ -282,8 +282,8 @@ def example_6_full_pipeline_in_memory_only():
             print(f"  🎯 Finding {finding['finding_id']}: {entity_count} affected entities")
     
     # Method B: Using individual classes with error handling
-    from yanp import NessusParser, VulnerabilityConsolidator, APIFormatter
-    from yanp import ConsolidationError, FormatterError
+    from yapp import NessusParser, VulnerabilityConsolidator, APIFormatter
+    from yapp import ConsolidationError, FormatterError
     
     try:
         parser = NessusParser(NESSUS_FILE)
@@ -322,7 +322,7 @@ def example_7_entity_limit_functionality():
     print("\n🎯 Example 7: Entity limit functionality")
     
     # Method A: Using convenience function with entity limit
-    from yanp import process_nessus_file
+    from yapp import process_nessus_file
     
     print("🔧 Testing without entity limit (unlimited):")
     results_unlimited = process_nessus_file(
@@ -372,7 +372,7 @@ def example_7_entity_limit_functionality():
         print(f"🎯 Findings with CSV reference due to limit: {csv_references}")
     
     # Method B: Using individual classes with different limits
-    from yanp import NessusParser, VulnerabilityConsolidator, APIFormatter
+    from yapp import NessusParser, VulnerabilityConsolidator, APIFormatter
     
     print("\n🔧 Testing with individual classes and different entity limits:")
     
@@ -417,7 +417,7 @@ def example_8_custom_rules_and_output_names():
     """
     print("\n🔧 Example 8: Advanced usage with custom rules and output names")
     
-    from yanp import process_nessus_file
+    from yapp import process_nessus_file
     
     # Using custom rules file (if you have one)
     custom_rules_file = "path/to/my_custom_rules.json"  # Update this path
@@ -462,7 +462,7 @@ def example_9_error_handling_and_validation():
     """
     print("\n🛡️  Example 9: Error handling and validation")
     
-    from yanp import APIFormatter, FormatterError
+    from yapp import APIFormatter, FormatterError
     
     # Test invalid entity limits
     print("🔧 Testing invalid entity limit values:")
@@ -490,7 +490,7 @@ def example_9_error_handling_and_validation():
     # Test with actual processing
     print("\n🔧 Testing entity limit in full processing with error handling:")
     
-    from yanp import process_nessus_file, ConsolidationError, FormatterError
+    from yapp import process_nessus_file, ConsolidationError, FormatterError
     
     try:
         results = process_nessus_file(
@@ -517,7 +517,7 @@ def example_9_error_handling_and_validation():
 
 def main():
     """Run all examples"""
-    print("🚀 YANP Programmatic Usage Examples with Entity Limit\n")
+    print("🚀 YAPP Programmatic Usage Examples with Entity Limit\n")
     
     # Create output directory
     Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)

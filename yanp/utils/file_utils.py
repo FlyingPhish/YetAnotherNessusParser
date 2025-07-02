@@ -278,7 +278,7 @@ def write_results_to_files(results: Dict[str, Any], input_file: Union[str, Path]
 
 def get_package_resource_path(resource_path: str) -> Path:
     """
-    Get path to a resource within the YANP package.
+    Get path to a resource within the YAPP package.
     
     Args:
         resource_path: Relative path to resource (e.g., 'config/default_rules.json')

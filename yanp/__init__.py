@@ -1,6 +1,6 @@
 """
-yanp/__init__.py
-YANP - Swiss Army Knife for Pentester File Processing
+yapp/__init__.py
+YAPP - Swiss Army Knife for Pentester File Processing
 A Python library for parsing and processing various pentesting tool outputs.
 
 Supported formats:
@@ -9,21 +9,21 @@ Supported formats:
 
 Examples:
     Basic parsing (auto-detect):
-        >>> from yanp import process_file
+        >>> from yapp import process_file
         >>> results = process_file('scan.nessus')
         >>> # or
         >>> results = process_file('scan.xml')
     
     Nessus with consolidation and API output:
-        >>> from yanp import process_file
+        >>> from yapp import process_file
         >>> results = process_file('scan.nessus', consolidate=True, api_format=True, entity_limit=10)
     
     Nmap with port filtering:
-        >>> from yanp import process_file
+        >>> from yapp import process_file
         >>> results = process_file('scan.xml', port_status='open')
     
     Using individual components:
-        >>> from yanp import NessusParser, NmapParser, VulnerabilityConsolidator, APIFormatter
+        >>> from yapp import NessusParser, NmapParser, VulnerabilityConsolidator, APIFormatter
         >>> nessus_parser = NessusParser('scan.nessus')
         >>> nmap_parser = NmapParser('scan.xml')
         >>> consolidator = VulnerabilityConsolidator()
@@ -49,10 +49,10 @@ from .utils.file_utils import detect_file_type
 # Version info - dynamically read from package metadata
 try:
     from importlib.metadata import version, metadata
-    __version__ = version("yanp")
+    __version__ = version("yapp")
     
     # Get other metadata from package info
-    _metadata = metadata("yanp")
+    _metadata = metadata("yapp")
     __author__ = _metadata.get("Author", "FlyingPhishy")
     __description__ = _metadata.get("Summary", "Swiss Army Knife for Pentester File Processing")
 except ImportError:
@@ -265,6 +265,6 @@ def get_version_info() -> dict:
         "version": __version__,
         "author": __author__, 
         "description": __description__,
-        "package": "yanp",
+        "package": "yapp",
         "supported_formats": list(get_supported_file_types().keys())
     }

@@ -181,7 +181,7 @@ input/*.nessus
 *.xml
 
 ## Config
-!yanp/config/default_rules.json
+!yapp/config/default_rules.json
 
 ## Dev
 reference/

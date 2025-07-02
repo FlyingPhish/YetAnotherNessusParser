@@ -4,9 +4,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "yanp"
+name = "yapp"
 version = "5.0.0"
-description = "Yet Another Nessus Parser - A Python library for parsing and processing Nessus XML reports"
+description = "Yet Another Pentest Parser - A Swiss Army Knife parser for pentesters. Comes with library and CLI usage."
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "AGPL-3.0"}
@@ -40,18 +40,18 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/FlyingPhish/YetAnotherNessusParser"
-Repository = "https://github.com/FlyingPhish/YetAnotherNessusParser"
-"Bug Tracker" = "https://github.com/FlyingPhish/YetAnotherNessusParser/issues"
+Homepage = "https://github.com/FlyingPhish/YetAnotherPentestParser"
+Repository = "https://github.com/FlyingPhish/YetAnotherPentestParser"
+"Bug Tracker" = "https://github.com/FlyingPhish/YetAnotherPentestParser/issues"
 
 [project.scripts]
-yanp = "yanp.cli:cli_entry_point"
+yapp = "yapp.cli:cli_entry_point"
 
 [tool.setuptools.packages.find]
-include = ["yanp*"]
+include = ["yapp*"]
 
 [tool.setuptools.package-data]
-yanp = ["config/*.json"]
+yapp = ["config/*.json"]
 
 [tool.black]
 line-length = 88

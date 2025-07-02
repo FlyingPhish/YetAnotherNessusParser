@@ -3,7 +3,7 @@ from typing import Optional
 
 def setup_logging(level: int = logging.INFO, format_string: Optional[str] = None) -> logging.Logger:
     """
-    Configure and return logger instance for YANP.
+    Configure and return logger instance for YAPP.
     
     Args:
         level: Logging level (default: logging.INFO)
@@ -21,7 +21,7 @@ def setup_logging(level: int = logging.INFO, format_string: Optional[str] = None
         datefmt='%d-%m-%y %H:%M:%S'
     )
     
-    return logging.getLogger('yanp')
+    return logging.getLogger('yapp')
 
 def get_logger(name: str) -> logging.Logger:
     """
@@ -37,17 +37,17 @@ def get_logger(name: str) -> logging.Logger:
 
 def set_log_level(level: int) -> None:
     """
-    Set the logging level for all YANP loggers.
+    Set the logging level for all YAPP loggers.
     
     Args:
         level: New logging level
     """
-    logging.getLogger('yanp').setLevel(level)
+    logging.getLogger('yapp').setLevel(level)
     
 def disable_logging() -> None:
-    """Disable all YANP logging."""
-    logging.getLogger('yanp').disabled = True
+    """Disable all YAPP logging."""
+    logging.getLogger('yapp').disabled = True
     
 def enable_logging() -> None:
-    """Re-enable YANP logging."""
-    logging.getLogger('yanp').disabled = False
+    """Re-enable YAPP logging."""
+    logging.getLogger('yapp').disabled = False

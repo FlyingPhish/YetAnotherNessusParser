@@ -1,9 +1,9 @@
 """
-yanp/config/__init__.py
-YANP configuration package.
+yapp/config/__init__.py
+YAPP configuration package.
 
 This package contains default configuration files and utilities
-for managing YANP settings.
+for managing YAPP settings.
 """
 
 from pathlib import Path

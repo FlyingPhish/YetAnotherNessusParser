@@ -1,4 +1,4 @@
-# YANP Consolidation Rules Guide
+# YAPP Consolidation Rules Guide
 
 **Transform vulnerability chaos into organized intelligence**
 
@@ -56,7 +56,7 @@ Look at your Nessus results and identify patterns:
 ```
 
 ### Step 3: Test Your Rule
-Run YANP with `-c` flag and check if your rule catches the right vulnerabilities.
+Run YAPP with `-c` flag and check if your rule catches the right vulnerabilities.
 
 ## Rule Components Explained
 
@@ -109,7 +109,7 @@ Exclude vulnerabilities containing these patterns in their plugin output.
 - `["ip", "service"]` - Group by application type
 
 ### 🔄 **Aggregation** (How to Combine)
-**Current Version:** YANP uses smart defaults for combining vulnerability data:
+**Current Version:** YAPP uses smart defaults for combining vulnerability data:
 
 - **Severity**: Always takes the **highest** severity level
 - **CVSS Scores**: Always takes the **highest** CVSS score  
@@ -232,7 +232,7 @@ Consolidated Categories:
 ### 3. **Debug Plugin Output Matching**
 Enable debug logging to see exactly what plugin output is being searched:
 ```bash
-python yanp.py -n your_file.nessus -c --debug
+python yapp.py -n your_file.nessus -c --debug
 ```
 
 ### 4. **Refine as Needed**

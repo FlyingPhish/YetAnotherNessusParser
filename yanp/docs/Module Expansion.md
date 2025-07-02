@@ -1,11 +1,11 @@
-# YANP Parser Extension Guide
-How to add new file type parsers to the YANP framework
+# YAPP Parser Extension Guide
+How to add new file type parsers to the YAPP framework
 
-This guide shows how to extend YANP with new parsers while maintaining
+This guide shows how to extend YAPP with new parsers while maintaining
 the existing clean architecture and following KISS/DRY principles.
 
 ## STEP 1: CREATE THE NEW PARSER CLASS
-Create a new parser in yanp/core/your_parser.py following this template:
+Create a new parser in yapp/core/your_parser.py following this template:
 
 ```python
 import logging
@@ -84,7 +84,7 @@ class YourToolParser:
 ```
 ---
 ## STEP 2: UPDATE FILE TYPE DETECTION
-Update yanp/utils/file_utils.py to detect your new file type:
+Update yapp/utils/file_utils.py to detect your new file type:
 
 Add to detect_file_type():
 ```python
@@ -128,7 +128,7 @@ def _analyze_file_content(file_path: Path) -> Optional[str]:
 ```
 ---
 ## STEP 3: UPDATE CORE MODULE
-Update yanp/core/__init__.py to include your parser:
+Update yapp/core/__init__.py to include your parser:
 
 ```python
 from .nessus_parser import NessusParser
@@ -148,7 +148,7 @@ __all__ = [
 ```
 ---
 # STEP 4: UPDATE CLI SUPPORT
-Update yanp/cli.py to support your new file type:
+Update yapp/cli.py to support your new file type:
 
 1. Add to setup_argparse():
 ```python
@@ -194,7 +194,7 @@ def display_yourtool_summary(parsed_data: dict):
 ```
 ---
 ## STEP 5: UPDATE MAIN MODULE
-Update yanp/__init__.py to include your parser:
+Update yapp/__init__.py to include your parser:
 
 1. Add import:
 ```python
@@ -250,7 +250,7 @@ def get_supported_file_types() -> dict:
 ```
 ---
 ## STEP 6: UPDATE UTILITIES (OPTIONAL)
-If your tool needs special output handling, update yanp/utils/file_utils.py:
+If your tool needs special output handling, update yapp/utils/file_utils.py:
 
 ```python
 def get_default_output_name(input_file: Union[str, Path], file_type: str = None) -> str:
@@ -273,10 +273,10 @@ def find_input_files(directory: Union[str, Path], file_types: list = None, recur
 After implementing your parser, users can use it like this:
 
 ### CLI usage
-yanp -i scan.yourtool -t yourtool --yourtool-option value
+yapp -i scan.yourtool -t yourtool --yourtool-option value
 
 ### Library usage
-from yanp import process_file, YourToolParser
+from yapp import process_file, YourToolParser
 
 ### Auto-detect
 results = process_file('scan.yourtool')
@@ -292,7 +292,7 @@ data = parser.parse(yourtool_option='value')
 ## CONSOLIDATION AND API FORMATTING (ADVANCED)
 If your tool finds vulnerabilities that could benefit from consolidation:
 
-1. Create tool-specific consolidation rules in yanp/config/
+1. Create tool-specific consolidation rules in yapp/config/
 2. Extend VulnerabilityConsolidator to handle your data format
 3. Create tool-specific API formatter if needed
 
@@ -302,17 +302,17 @@ This requires more extensive changes but follows the same modular approach.
 ### EXAMPLE: ADDING MASSCAN SUPPORT
 Here's a concrete example of adding Masscan JSON support:
 
-1. Create yanp/core/masscan_parser.py
+1. Create yapp/core/masscan_parser.py
 2. Update file detection for .json with masscan signatures
 3. Add CLI support with --rate-limit option
 4. Update all imports and __all__ lists
 5. Users can then run:
-   yanp -i scan.json -t masscan --rate-limit 1000
+   yapp -i scan.json -t masscan --rate-limit 1000
 
 The framework handles everything else automatically!
 
 
 if __name__ == "__main__":
     print("This is a guide file - see comments for implementation details")
-    print("Follow the steps above to add new parsers to YANP")
+    print("Follow the steps above to add new parsers to YAPP")
     print("Maintain the same interface patterns for consistency")

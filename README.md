@@ -1,13 +1,13 @@
-# YANP - Yet Another Nessus Parser
+# YAPP - Yet Another Pentest Parser
 
 ![No External Dependencies](/.github/badges/no-dependencies.svg)
 ![Py](/.github/badges/python.svg)
 
 **A powerful Python library and CLI tool for parsing and processing Nessus vulnerability scan results.**
 
-YANP is a comprehensive solution for parsing Nessus XML files into structured JSON, with advanced consolidation capabilities and both programmatic and command-line interfaces. Built with modularity, efficiency, and ease of use in mind.
+YAPP is a comprehensive solution for parsing Nessus XML files into structured JSON, with advanced consolidation capabilities and both programmatic and command-line interfaces. Built with modularity, efficiency, and ease of use in mind.
 
-![YANP CLI Banner](https://github.com/user-attachments/assets/263b181d-d8ae-4ede-b91e-a76537bc8aaf)
+![YAPP CLI Banner](https://github.com/user-attachments/assets/263b181d-d8ae-4ede-b91e-a76537bc8aaf)
 
 ## ✨ Features
 
@@ -67,27 +67,27 @@ YANP is a comprehensive solution for parsing Nessus XML files into structured JS
 ### For CLI Usage Only
 ```bash
 # Install globally with pipx (recommended for CLI-only usage)
-git clone https://github.com/FlyingPhish/YetAnotherNessusParser && cd YetAnotherNessusParser
+git clone https://github.com/FlyingPhish/YetAnotherPentestParser && cd YetAnotherPentestParser
 pipx install .
 ```
 OR
 ```bash
-pipx install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git
-# pipx install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git@branch
+pipx install git+https://github.com/FlyingPhish/YetAnotherPentestParser.git
+# pipx install git+https://github.com/FlyingPhish/YetAnotherPentestParser.git@branch
 ```
 ### For Programmatic Usage (using within your py projects)
 ```bash
 # activate your virtual env
-pip install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git
-# pip install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git@branch
+pip install git+https://github.com/FlyingPhish/YetAnotherPentestParser.git
+# pip install git+https://github.com/FlyingPhish/YetAnotherPentestParser.git@branch
 ```
 ### Upgrading
 ```bash
 # When installed using pipx
-pipx upgrade yanp
+pipx upgrade yapp
 
 # When installed using pip
-pip install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git --force-reinstall
+pip install git+https://github.com/FlyingPhish/YetAnotherPentestParser.git --force-reinstall
 ```
 ## 💡 Usage
 
@@ -105,22 +105,22 @@ pip install git+https://github.com/FlyingPhish/YetAnotherNessusParser.git --forc
 
 #### Basic parsing:
 ```bash
-yanp -n input/scan.nessus
+yapp -n input/scan.nessus
 ```
 
 #### With consolidation:
 ```bash
-yanp -n input/scan.nessus -c
+yapp -n input/scan.nessus -c
 ```
 
 #### Full pipeline with custom naming:
 ```bash
-yanp -n input/scan.nessus -of ./reports -on my_results.json -c -a
+yapp -n input/scan.nessus -of ./reports -on my_results.json -c -a
 ```
 
 #### Display results without saving files:
 ```bash
-yanp -n input/scan.nessus --no-output -c
+yapp -n input/scan.nessus --no-output -c
 ```
 
 ### 🐍 Python Library
@@ -129,7 +129,7 @@ Checkout [Library Usage Examples](examples/library_usage.py) and [Library README
 ## 🏗️ Project Structure
 
 ```
-yanp/
+yapp/
 ├── __init__.py              # Main package API
 ├── cli.py                   # CLI interface
 ├── core/                    # Core processing modules
@@ -349,4 +349,4 @@ This project is licensed under the GNU Affero General Public License v3.0 - see 
 
 ---
 
-**YANP**: *Same shit, different parser* - but now as a proper Python library! 🐍✨
+**YAPP**: *Same shit, different parser* - but now as a proper Python library! 🐍✨

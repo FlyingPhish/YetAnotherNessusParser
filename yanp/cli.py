@@ -13,7 +13,7 @@ from .utils.file_utils import ensure_output_directory, detect_file_type
 # Get version directly to avoid circular import
 try:
     from importlib.metadata import version
-    __version__ = version("yanp")
+    __version__ = version("yapp")
 except ImportError:
     __version__ = "ERROR"
 except Exception:
@@ -31,7 +31,7 @@ class Colors:
     RESET = '\033[0m'
 
 def print_banner(version: str):
-    """Print YANP ASCII art banner"""
+    """Print YAPP ASCII art banner"""
     banner = """
 ▓██   ██▓ ▄▄▄       ███▄    █  ██▓███  
  ▒██  ██▒▒████▄     ██ ▀█   █ ▓██░  ██▒
@@ -163,7 +163,7 @@ def display_nmap_summary(parsed_data: dict):
     print(f"{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
 
 def display_consolidation_summary(consolidated_data: dict):
-    """Display formatted consolidation summary matching YANP aesthetic"""
+    """Display formatted consolidation summary matching YAPP aesthetic"""
     if not consolidated_data or not consolidated_data.get('consolidated_vulnerabilities'):
         return
     
@@ -218,7 +218,7 @@ def display_consolidation_summary(consolidated_data: dict):
     print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
 
 def display_api_summary(api_data: List[Dict[str, Any]]):
-    """Display formatted API output summary matching YANP aesthetic"""
+    """Display formatted API output summary matching YAPP aesthetic"""
     if not api_data:
         return
     
@@ -270,8 +270,8 @@ def display_api_summary(api_data: List[Dict[str, Any]]):
 def setup_argparse() -> argparse.ArgumentParser:
     """Setup and return argument parser"""
     parser = argparse.ArgumentParser(
-        description='YANP - Swiss Army Knife for Pentester File Processing',
-        prog='yanp'
+        description='YAPP - Swiss Army Knife for Pentester File Processing',
+        prog='yapp'
     )
     
     parser.add_argument(
