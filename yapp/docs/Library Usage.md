@@ -1,269 +1,309 @@
-#!/usr/bin/env python3
-"""
-YAPP Quick Reference - Common Use Cases
-Copy and paste these examples for quick implementation
-"""
+# YAPP Library Usage Guide
 
-# =============================================================================
-# BASIC PARSING
-# =============================================================================
+Quick reference for common YAPP use cases. Copy and paste these examples for immediate implementation.
 
-# 📄 Parse to file
-from yapp import process_nessus_file
-results = process_nessus_file("scan.nessus", output_dir="./output")
-parsed_data = results['parsed']
+## Basic Parsing
 
-# 🧠 Parse to memory only
-from yapp import process_nessus_file
-results = process_nessus_file("scan.nessus")
+### Auto-detect file type
+```python
+from yapp import process_file
+
+# Automatically detects Nessus or Nmap
+results = process_file("scan.nessus")
+results = process_file("scan.xml")
+
+# Access parsed data
+data = results['parsed']
+print(f"File type: {results['file_type']}")
+```
+
+### Parse to memory only
+```python
+from yapp import process_file
+
+results = process_file("scan.nessus")
 parsed_data = results['parsed']
 print(f"Found {len(parsed_data['vulnerabilities'])} vulnerabilities")
+```
 
-# 🔧 Parse with individual classes
-from yapp import NessusParser
-parser = NessusParser("scan.nessus")
-parsed_data = parser.parse()
+### Parse with file output
+```python
+from yapp import process_file
 
-# =============================================================================
-# PARSING + CONSOLIDATION
-# =============================================================================
+results = process_file("scan.nessus", output_dir="./output")
+# Creates timestamped JSON files in ./output/
+```
 
-# 📄 Parse + consolidate to files
-from yapp import process_nessus_file
-results = process_nessus_file("scan.nessus", consolidate=True, output_dir="./output")
-parsed_data = results['parsed']
-consolidated_data = results.get('consolidated')
+## Nessus Processing
 
-# 🧠 Parse + consolidate to memory only
-from yapp import process_nessus_file
-results = process_nessus_file("scan.nessus", consolidate=True)
-consolidated_data = results.get('consolidated')
-if consolidated_data:
-    categories = len(consolidated_data['consolidated_vulnerabilities'])
-    print(f"Consolidated into {categories} categories")
+### Basic Nessus parsing
+```python
+from yapp import process_file
 
-# 🔧 Parse + consolidate with individual classes
-from yapp import NessusParser, VulnerabilityConsolidator
-parser = NessusParser("scan.nessus")
-parsed_data = parser.parse()
-
-consolidator = VulnerabilityConsolidator()  # Default rules
-consolidated_data = consolidator.consolidate(parsed_data)
-
-# =============================================================================
-# FULL PIPELINE (PARSE + CONSOLIDATE + API FORMAT)
-# =============================================================================
-
-# 📄 Full pipeline to files
-from yapp import process_nessus_file
-results = process_nessus_file(
-    "scan.nessus", 
-    consolidate=True, 
-    api_format=True, 
-    output_dir="./output"
-)
-api_data = results.get('api_ready')
-
-# 🧠 Full pipeline to memory only
-from yapp import process_nessus_file
-results = process_nessus_file("scan.nessus", consolidate=True, api_format=True)
-api_data = results.get('api_ready')
-if api_data:
-    print(f"Generated {len(api_data)} API findings")
-
-# 🔧 Full pipeline with individual classes
-from yapp import NessusParser, VulnerabilityConsolidator, APIFormatter
-
-parser = NessusParser("scan.nessus")
-parsed_data = parser.parse()
-
-consolidator = VulnerabilityConsolidator()
-consolidated_data = consolidator.consolidate(parsed_data)
-
-if consolidated_data:
-    formatter = APIFormatter()
-    api_data = formatter.format_for_api(consolidated_data)
-
-# =============================================================================
-# ADVANCED USAGE
-# =============================================================================
-
-# 🎛️ Custom rules file
-from yapp import process_nessus_file
-results = process_nessus_file(
-    "scan.nessus", 
-    consolidate=True, 
-    rules_file="my_custom_rules.json"
-)
-
-# 📝 Custom output names
-from yapp import process_nessus_file
-results = process_nessus_file(
-    "scan.nessus", 
-    consolidate=True, 
-    api_format=True,
-    output_dir="./output",
-    custom_output_name="my_scan_results.json"
-)
-# Creates:
-# - my_scan_results.json
-# - my_scan_results_Consolidated_Findings.json  
-# - my_scan_results_API_Ready.json
-
-# 🛡️ Error handling
-from yapp import process_nessus_file, ConsolidationError, FormatterError
-
-try:
-    results = process_nessus_file("scan.nessus", consolidate=True, api_format=True)
-except FileNotFoundError:
-    print("Nessus file not found")
-except ConsolidationError as e:
-    print(f"Consolidation failed: {e}")
-except FormatterError as e:
-    print(f"API formatting failed: {e}")
-
-# =============================================================================
-# WORKING WITH THE DATA
-# =============================================================================
-
-# 📊 Access parsed data
-from yapp import process_nessus_file
-results = process_nessus_file("scan.nessus")
+results = process_file("scan.nessus")
 data = results['parsed']
 
-# Get statistics
+# Access statistics
 stats = data['stats']
 print(f"Hosts: {stats['hosts']['total']}")
 print(f"Vulnerabilities: {stats['vulnerabilities']['total']}")
-print(f"Severity breakdown: {stats['vulnerabilities']['by_severity']}")
+print(f"Critical: {stats['vulnerabilities']['by_severity']['Critical']}")
+```
 
-# Get vulnerabilities
+### Nessus with consolidation
+```python
+from yapp import process_file
+
+results = process_file("scan.nessus", consolidate=True)
+consolidated = results.get('consolidated')
+
+if consolidated:
+    metadata = consolidated['consolidation_metadata']
+    print(f"Reduced {metadata['consolidated_count']} vulnerabilities")
+```
+
+### Full Nessus pipeline (parse + consolidate + API format)
+```python
+from yapp import process_file
+
+results = process_file(
+    "scan.nessus", 
+    consolidate=True, 
+    api_format=True,
+    entity_limit=10,
+    output_dir="./output"
+)
+
+api_data = results.get('api_ready')
+if api_data:
+    print(f"Generated {len(api_data)} API findings")
+```
+
+### Custom consolidation rules
+```python
+from yapp import process_file
+
+results = process_file(
+    "scan.nessus", 
+    consolidate=True,
+    rules_file="custom_rules.json"
+)
+```
+
+## Nmap Processing
+
+### Basic Nmap parsing
+```python
+from yapp import process_file
+
+results = process_file("scan.xml")
+data = results['parsed']
+
+# Access statistics
+stats = data['stats']
+print(f"Hosts: {stats['hosts']['total']}")
+print(f"Services: {stats['services']['total']}")
+```
+
+### Nmap with port filtering
+```python
+from yapp import process_file
+
+# Only process open ports
+results = process_file("scan.xml", port_status="open")
+data = results['parsed']
+print(f"Open ports found: {stats['ports']['by_status']['open']}")
+```
+
+### Nmap with flat JSON output (legacy compatibility)
+```python
+from yapp import process_file
+
+results = process_file("scan.xml", flat_json=True)
+flat_data = results['flat_json']
+
+# Each record is one port on one host
+for record in flat_data:
+    print(f"{record['ip']}:{record['port']} - {record['service']}")
+```
+
+## Working with Individual Classes
+
+### Direct parser usage
+```python
+from yapp import NessusParser, NmapParser
+
+# Nessus
+nessus_parser = NessusParser("scan.nessus")
+nessus_data = nessus_parser.parse()
+
+# Nmap
+nmap_parser = NmapParser("scan.xml")
+nmap_data = nmap_parser.parse(port_status_filter="open")
+```
+
+### Manual consolidation and formatting
+```python
+from yapp import NessusParser, VulnerabilityConsolidator, APIFormatter
+
+# Parse
+parser = NessusParser("scan.nessus")
+parsed_data = parser.parse()
+
+# Consolidate
+consolidator = VulnerabilityConsolidator()
+consolidated_data = consolidator.consolidate(parsed_data)
+
+# Format for API
+if consolidated_data:
+    formatter = APIFormatter(entity_limit=5)
+    api_data = formatter.format_for_api(consolidated_data)
+```
+
+## Data Access Patterns
+
+### Nessus data structure
+```python
+results = process_file("scan.nessus")
+data = results['parsed']
+
+# Context information
+context = data['context']
+print(f"Scan duration: {context['scan_duration']}")
+
+# Host information
+hosts = data['hosts']
+for host_id, host_info in hosts.items():
+    print(f"Host {host_info['ip']}: {len(host_info['ports'])} ports")
+
+# Vulnerability information
 vulnerabilities = data['vulnerabilities']
 for plugin_id, vuln in vulnerabilities.items():
     if vuln['severity'] >= 4:  # Critical
         print(f"Critical: {vuln['name']}")
+        for host_id, host_data in vuln['affected_hosts'].items():
+            print(f"  Affects: {host_data['ip']}")
+```
 
-# 📋 Access consolidated data
-results = process_nessus_file("scan.nessus", consolidate=True)
-if results.get('consolidated'):
-    consolidated = results['consolidated']
-    
-    # Get metadata
-    metadata = consolidated['consolidation_metadata']
-    print(f"Original plugins: {metadata['original_plugins_count']}")
-    print(f"Consolidated: {metadata['consolidated_count']}")
-    
-    # Get consolidated vulnerabilities
-    vulns = consolidated['consolidated_vulnerabilities']
-    for rule_name, rule_data in vulns.items():
-        print(f"Category: {rule_data['title']}")
-        print(f"Severity: {rule_data['severity']}")
-        print(f"Affected services: {len(rule_data['affected_services'])}")
+### Nmap data structure
+```python
+results = process_file("scan.xml")
+data = results['parsed']
 
-# 🎯 Access API data
-results = process_nessus_file("scan.nessus", consolidate=True, api_format=True)
-if results.get('api_ready'):
-    api_data = results['api_ready']
-    
-    for finding in api_data:
-        finding_id = finding['finding_id']
-        entities = finding['affected_entities']
-        entity_count = entities.count('<br />') + 1 if entities else 0
-        print(f"Finding {finding_id}: {entity_count} affected entities")
+# Context information
+context = data['context']
+print(f"Scanner: {context['scanner']} {context['scanner_version']}")
 
-# =============================================================================
-# BATCH PROCESSING
-# =============================================================================
+# Host information
+hosts = data['hosts']
+for host_id, host_info in hosts.items():
+    print(f"Host {host_info['ip']}: {host_info['status']}")
 
-# 🔄 Process multiple files
-from yapp import process_nessus_file
-from yapp.utils import find_nessus_files
+# Service information
+services = data['services']
+for service_id, service_info in services.items():
+    print(f"Service: {service_info['service_name']} on {service_info['host_ip']}")
+```
 
-nessus_files = find_nessus_files("./scans", recursive=True)
-all_results = {}
+## Error Handling
 
-for nessus_file in nessus_files:
+```python
+from yapp import process_file, ConsolidationError, FormatterError
+
+try:
+    results = process_file("scan.nessus", consolidate=True, api_format=True)
+except FileNotFoundError:
+    print("File not found")
+except ConsolidationError as e:
+    print(f"Consolidation failed: {e}")
+except FormatterError as e:
+    print(f"API formatting failed: {e}")
+except ValueError as e:
+    print(f"Unsupported file type: {e}")
+```
+
+## Batch Processing
+
+```python
+from yapp import process_file
+from pathlib import Path
+
+# Process all files in a directory
+scan_dir = Path("./scans")
+results = {}
+
+for scan_file in scan_dir.glob("*.nessus"):
     try:
-        results = process_nessus_file(str(nessus_file), consolidate=True)
-        all_results[nessus_file.name] = results
-        print(f"✅ Processed {nessus_file.name}")
+        result = process_file(str(scan_file), consolidate=True)
+        results[scan_file.name] = result
+        print(f"✅ Processed {scan_file.name}")
     except Exception as e:
-        print(f"❌ Failed to process {nessus_file.name}: {e}")
+        print(f"❌ Failed {scan_file.name}: {e}")
 
-# 📈 Aggregate statistics from multiple scans
-total_vulns = 0
-for filename, results in all_results.items():
-    if results and 'parsed' in results:
-        vuln_count = len(results['parsed']['vulnerabilities'])
-        total_vulns += vuln_count
-        print(f"{filename}: {vuln_count} vulnerabilities")
+# Aggregate statistics
+total_vulns = sum(
+    len(result['parsed']['vulnerabilities']) 
+    for result in results.values()
+)
+print(f"Total vulnerabilities: {total_vulns}")
+```
 
-print(f"Total vulnerabilities across all scans: {total_vulns}")
+## File I/O Utilities
 
-# =============================================================================
-# FILE I/O UTILITIES
-# =============================================================================
-
-# 💾 Manual file writing
-from yapp import NessusParser
+### Manual JSON output
+```python
 from yapp.utils import write_json_output
 
-parser = NessusParser("scan.nessus")
-data = parser.parse()
+results = process_file("scan.nessus")
+success = write_json_output(results['parsed'], "./custom/output.json")
+print(f"Write {'successful' if success else 'failed'}")
+```
 
-# Write to custom location
-success = write_json_output(data, "./custom/output/scan_data.json")
-print(f"File write: {'✅ Success' if success else '❌ Failed'}")
+### Custom file naming
+```python
+from yapp import process_file
 
-# 📂 Manual file output for all types
-from yapp.utils import write_results_to_files
-
-results = process_nessus_file("scan.nessus", consolidate=True, api_format=True)
-write_status = write_results_to_files(
-    results, 
-    "scan.nessus", 
-    "./output",
-    custom_output_name="custom_name.json"
+results = process_file(
+    "scan.nessus",
+    consolidate=True,
+    api_format=True,
+    output_dir="./output",
+    custom_output_name="my_scan.json"
 )
+# Creates:
+# - my_scan.json (main parsed data)
+# - my_scan_Consolidated_Findings.json
+# - my_scan_API_Ready.json
+```
 
-for file_type, success in write_status.items():
-    print(f"{file_type}: {'✅ Success' if success else '❌ Failed'}")
+## Advanced Usage
 
-
-# TO SORT
-## Modular & Extensible
+### Custom entity limits for API output
 ```python
-### Adding a new parser is simple:
 from yapp import process_file
-results = process_file('any_supported_file.ext')  # Auto-detects type
+
+# Limit affected entities per finding to prevent large outputs
+results = process_file(
+    "scan.nessus",
+    consolidate=True,
+    api_format=True,
+    entity_limit=20
+)
 ```
 
-### Consistent Interface
+### Memory-only processing with multiple outputs
 ```python
-### Same pattern for all file types:
-results = process_file('scan.nessus', consolidate=True, api_format=True)
-results = process_file('scan.xml', port_status='open')
-results = process_file('future_tool.json', custom_option='value')
-```
-
-## Backward Compat
-```python
-### Existing Nessus code still works:
-from yapp import process_nessus_file
-results = process_nessus_file('scan.nessus', consolidate=True)
-```
-
-## Library Usage
-```python
-### Auto-detect and process
 from yapp import process_file
-results = process_file('scan.xml')  # Auto-detects as Nmap
 
-### Nmap with filtering
-results = process_file('scan.xml', port_status='open')
-nmap_data = results['parsed']
-print(f"Found {nmap_data['stats']['services']['total']} services")
+results = process_file("scan.nessus", consolidate=True, api_format=True)
 
-### Nessus with full pipeline
-results = process_file('scan.nessus', consolidate=True, api_format=True, entity_limit=10)
+# Access all output types
+parsed_data = results['parsed']          # Raw parsed data
+consolidated = results['consolidated']    # Consolidated findings
+api_ready = results['api_ready']         # API-formatted data
+
+# Process each as needed
+print(f"Original vulnerabilities: {len(parsed_data['vulnerabilities'])}")
+print(f"Consolidated categories: {len(consolidated['consolidated_vulnerabilities'])}")
+print(f"API findings: {len(api_ready)}")
 ```

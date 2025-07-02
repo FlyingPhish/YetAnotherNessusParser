@@ -87,9 +87,8 @@ __all__ = [
     "ConsolidationError",
     "FormatterError",
     
-    # Convenience functions
+    # Main processing function
     "process_file",
-    "process_nessus_file",  # Backward compatibility
     
     # Utilities
     "detect_file_type",
@@ -101,43 +100,7 @@ __all__ = [
     "__version__"
 ]
 
-def process_nessus_file(
-    nessus_file: str,
-    consolidate: bool = False,
-    api_format: bool = False,
-    rules_file: str = None,
-    entity_limit: int = None,
-    output_dir: str = None,
-    custom_output_name: str = None
-) -> dict:
-    """
-    Legacy convenience function for Nessus file processing.
-    
-    This function is maintained for backward compatibility.
-    New code should use process_file() instead.
-    
-    Args:
-        nessus_file: Path to Nessus XML file
-        consolidate: Whether to apply consolidation rules
-        api_format: Whether to format for API consumption (requires consolidate=True)
-        rules_file: Path to custom consolidation rules file
-        entity_limit: Maximum number of affected entities per API finding
-        output_dir: If provided, write JSON files to this directory
-        custom_output_name: Custom name for the main parsed output file
-        
-    Returns:
-        dict: Contains 'parsed', 'consolidated' (if requested), and 'api_ready' (if requested) keys
-    """
-    return process_file(
-        input_file=nessus_file,
-        file_type="nessus",
-        consolidate=consolidate,
-        api_format=api_format,
-        rules_file=rules_file,
-        entity_limit=entity_limit,
-        output_dir=output_dir,
-        custom_output_name=custom_output_name
-    )
+
 
 def get_supported_file_types() -> dict:
     """

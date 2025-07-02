@@ -1,43 +1,53 @@
 # YAPP Parser Extension Guide
-How to add new file type parsers to the YAPP framework
 
-This guide shows how to extend YAPP with new parsers while maintaining
-the existing clean architecture and following KISS/DRY principles.
+How to add new file type parsers to YAPP while maintaining clean architecture and KISS/DRY principles.
 
-## STEP 1: CREATE THE NEW PARSER CLASS
-Create a new parser in yapp/core/your_parser.py following this template:
+## Current Architecture
+
+```
+yapp/
+├── __init__.py              # Public API exports
+├── cli.py                   # Command-line interface
+├── core/
+│   ├── processor.py         # Main processing pipeline
+│   ├── nessus_parser.py     # Nessus XML parser
+│   ├── nmap_parser.py       # Nmap XML parser
+│   ├── consolidator.py      # Vulnerability consolidation
+│   ├── formatter.py         # API formatting
+│   └── __init__.py          # Core exports
+└── utils/
+    ├── file_utils.py        # File operations & detection
+    ├── display.py           # CLI output formatting
+    └── ...
+```
+
+## Step 1: Create Parser Class
+
+Create `yapp/core/yourtool_parser.py`:
 
 ```python
 import logging
-import xml.etree.ElementTree as ET  # or json, csv, etc.
 from pathlib import Path
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
 class YourToolParser:
-    '''Parser for YourTool output files with structured output format.'''
+    """Parser for YourTool output files."""
     
     def __init__(self, file_path: str):
-        '''Initialize parser with file path.'''
         self.file_path = Path(file_path)
-        # Add your initialization here
         
     def parse(self, **kwargs) -> Optional[Dict[str, Any]]:
-        '''
+        """
         Parse YourTool file and return structured data.
-        
-        Args:
-            **kwargs: Tool-specific parsing options
         
         Returns:
             dict: Parsed data with context, stats, and main data sections
-        '''
-        # Validate input file
+        """
         self._validate_file()
         
         try:
-            # Your parsing logic here
             context = self._parse_context()
             main_data = self._parse_main_data(**kwargs)
             stats = self._generate_statistics(main_data)
@@ -45,158 +55,162 @@ class YourToolParser:
             return {
                 "context": context,
                 "stats": stats,
-                "main_data": main_data  # Use appropriate name
+                "main_data": main_data
             }
-            
         except Exception as e:
-            logger.error(f"Unexpected error during parsing: {str(e)}")
+            logger.error(f"Parsing failed: {str(e)}")
             raise
     
     def _validate_file(self) -> None:
-        '''Validate if the input file is accessible and has correct format.'''
+        """Validate file exists and has correct format."""
         if not self.file_path.exists():
             raise FileNotFoundError(f"File not found: {self.file_path}")
         
         # Add format-specific validation
-        # Check extension, content headers, etc.
-        
+        if self.file_path.suffix.lower() != '.yourtool':
+            raise ValueError(f"Invalid file extension")
+    
     def _parse_context(self) -> Dict[str, Any]:
-        '''Parse scan/tool context information.'''
+        """Parse tool context information."""
         return {
             "tool": "yourtool",
             "tool_version": "",
             "scan_start": "",
-            "scan_end": "",
-            # Add tool-specific context
+            "scan_end": ""
         }
     
-    def _parse_main_data(self, **kwargs) -> Dict[str, Dict[str, Any]]:
-        '''Parse the main data from the file.'''
-        # Your main parsing logic here
+    def _parse_main_data(self, **kwargs) -> Dict[str, Any]:
+        """Parse main data from file."""
+        # Your parsing logic here
         return {}
     
     def _generate_statistics(self, main_data: Dict) -> Dict[str, Any]:
-        '''Generate comprehensive statistics.'''
+        """Generate statistics from parsed data."""
         return {
-            "total_items": len(main_data),
-            # Add relevant statistics
+            "total_items": len(main_data)
         }
 ```
----
-## STEP 2: UPDATE FILE TYPE DETECTION
-Update yapp/utils/file_utils.py to detect your new file type:
 
-Add to detect_file_type():
+## Step 2: Update File Detection
+
+Update `yapp/utils/file_utils.py`:
+
 ```python
 def detect_file_type(file_path: Union[str, Path]) -> str:
-    # ... existing code ...
-    
+    # Add to extension check
     elif extension == '.yourtool':
         if _verify_yourtool_file(file_path):
             return 'yourtool'
     
-    # ... rest of function ...
-
+    # Add content analysis if needed
+    
 def _verify_yourtool_file(file_path: Path) -> bool:
-    '''Verify that a file is actually a valid YourTool file.'''
+    """Verify file is valid YourTool format."""
     try:
-        # Add your validation logic
-        # Check file headers, required fields, etc.
+        # Add validation logic
         return True
     except Exception:
         return False
 ```
 
-Add to _analyze_xml_content() if it's XML-based:
-```python
-def _analyze_xml_content(file_path: Path) -> Optional[str]:
-    # ... existing code ...
-    
-    # Check for YourTool XML
-    if root.tag == "yourtoolrun":
-        return 'yourtool'
-```
+## Step 3: Update Core Processor
 
-Add to _analyze_file_content() for other formats:
-```python
-def _analyze_file_content(file_path: Path) -> Optional[str]:
-    # ... existing code ...
-    
-    # Check for YourTool JSON format
-    if content.strip().startswith('{') and '"yourtool_version"' in content:
-        return 'yourtool'
-```
----
-## STEP 3: UPDATE CORE MODULE
-Update yapp/core/__init__.py to include your parser:
+Update `yapp/core/processor.py`:
 
 ```python
-from .nessus_parser import NessusParser
-from .nmap_parser import NmapParser
-from .yourtool_parser import YourToolParser  # Add this
-from .consolidator import VulnerabilityConsolidator, ConsolidationError
-from .formatter import APIFormatter, FormatterError
+from .yourtool_parser import YourToolParser
 
-__all__ = [
-    # Core parsers
-    'NessusParser',
-    'NmapParser',
-    'YourToolParser',  # Add this
-    
-    # ... rest unchanged
-]
-```
----
-# STEP 4: UPDATE CLI SUPPORT
-Update yapp/cli.py to support your new file type:
-
-1. Add to setup_argparse():
-```python
-parser.add_argument(
-    '-t', '--file-type',
-    choices=['auto', 'nessus', 'nmap', 'yourtool'],  # Add yourtool
-    default='auto',
-    help='Input file type (default: auto-detect)'
-)
-
-# Add tool-specific argument group
-yourtool_group = parser.add_argument_group('YourTool options')
-yourtool_group.add_argument(
-    '--yourtool-option',
-    help='Your tool specific option'
-)
-```
-
-2. Add to process_file():
-```python
 def process_file(
-    # ... existing args ...
-    yourtool_option: str = None,  # Add tool-specific args
+    input_file: str,
+    file_type: str = "auto",
+    # ... existing params ...
+    yourtool_option: str = None,  # Add tool-specific params
+    **kwargs
 ) -> Dict[str, Any]:
     
-    # ... existing code ...
-    
+    # Add to file type handling
     elif file_type == "yourtool":
-        from .core.yourtool_parser import YourToolParser
         parser = YourToolParser(input_file)
         parsed_data = parser.parse(yourtool_option=yourtool_option)
         results['parsed'] = parsed_data
         results['file_type'] = 'yourtool'
         
         # Add tool-specific processing if needed
+    
+    # ... rest unchanged
 ```
 
-3. Add display function:
+## Step 4: Update Core Exports
+
+Update `yapp/core/__init__.py`:
+
+```python
+from .yourtool_parser import YourToolParser
+
+__all__ = [
+    'NessusParser',
+    'NmapParser',
+    'YourToolParser',  # Add this
+    # ... rest unchanged
+]
+```
+
+## Step 5: Update CLI Support
+
+Update `yapp/cli.py`:
+
+### Add argument parsing:
+```python
+def setup_argparse() -> argparse.ArgumentParser:
+    parser.add_argument(
+        '-t', '--file-type',
+        choices=['auto', 'nessus', 'nmap', 'yourtool'],  # Add yourtool
+        default='auto'
+    )
+    
+    # Add tool-specific options
+    yourtool_group = parser.add_argument_group('YourTool options')
+    yourtool_group.add_argument(
+        '--yourtool-option',
+        help='YourTool specific option'
+    )
+```
+
+### Add display function in `yapp/utils/display.py`:
 ```python
 def display_yourtool_summary(parsed_data: dict):
-    '''Display formatted summary of YourTool results'''
-    # Implement tool-specific summary display
+    """Display YourTool scan results."""
+    stats = parsed_data['stats']
+    context = parsed_data['context']
+    
+    print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}")
+    print(f"{Colors.WHITE}{Colors.BRIGHT}YOURTOOL SCAN SUMMARY{Colors.RESET}")
+    print(f"{Colors.CYAN}{'-' * 50}{Colors.RESET}")
+    
+    print(f"{Colors.WHITE}{Colors.BRIGHT}Scan Context:{Colors.RESET}")
+    print(f"  • Tool: {Colors.GREEN}{context['tool']}{Colors.RESET}")
+    # Add more context display
+    
+    print(f"\n{Colors.WHITE}{Colors.BRIGHT}Statistics:{Colors.RESET}")
+    print(f"  • Total Items: {Colors.GREEN}{stats['total_items']}{Colors.RESET}")
+    # Add more stats display
 ```
----
-## STEP 5: UPDATE MAIN MODULE
-Update yapp/__init__.py to include your parser:
 
-1. Add import:
+### Update display dispatcher:
+```python
+def display_summary(parsed_data: dict, file_type: str):
+    if file_type == "nessus":
+        display_nessus_summary(parsed_data)
+    elif file_type == "nmap":
+        display_nmap_summary(parsed_data)
+    elif file_type == "yourtool":
+        display_yourtool_summary(parsed_data)
+```
+
+## Step 6: Update Main Module
+
+Update `yapp/__init__.py`:
+
 ```python
 from .core import (
     NessusParser,
@@ -204,115 +218,121 @@ from .core import (
     YourToolParser,  # Add this
     # ... rest
 )
-```
 
-2. Add to __all__:
-```python
 __all__ = [
-    # Core parsers
     "NessusParser",
     "NmapParser", 
     "YourToolParser",  # Add this
     # ... rest
 ]
-```
 
-3. Update process_file():
-```python
-def process_file(
-    # ... existing args ...
-    yourtool_option: str = None,  # Add tool-specific args
-) -> dict:
-    
-    # ... existing code ...
-    
-    elif file_type == "yourtool":
-        parser = YourToolParser(input_file)
-        parsed_data = parser.parse(yourtool_option=yourtool_option)
-        results['parsed'] = parsed_data
-        results['file_type'] = 'yourtool'
-        
-        # Add any tool-specific processing
-```
-
-4. Update get_supported_file_types():
-```python
 def get_supported_file_types() -> dict:
     return {
         # ... existing entries ...
         "yourtool": {
             "description": "YourTool scanner output files",
-            "extensions": [".yourtool", ".xml"],
+            "extensions": [".yourtool"],
             "features": ["parsing", "your_feature"],
             "parser_class": "YourToolParser"
         }
     }
 ```
----
-## STEP 6: UPDATE UTILITIES (OPTIONAL)
-If your tool needs special output handling, update yapp/utils/file_utils.py:
+
+## Step 7: Update File Utils (Optional)
+
+If your tool needs special file handling, update `yapp/utils/file_utils.py`:
 
 ```python
-def get_default_output_name(input_file: Union[str, Path], file_type: str = None) -> str:
-    # ... existing code handles this automatically with file_type parameter
-    # No changes needed unless you need special naming
-```
-
-Add find patterns if needed:
-```python
-def find_input_files(directory: Union[str, Path], file_types: list = None, recursive: bool = False) -> Dict[str, list[Path]]:
-    # Add to patterns dict:
+def find_input_files(directory, file_types=None, recursive=False):
     patterns = {
         'nessus': ['*.nessus'],
         'nmap': ['*.xml'],
-        'yourtool': ['*.yourtool', '*.yt'],  # Add your patterns
+        'yourtool': ['*.yourtool'],  # Add patterns
     }
 ```
----
-## STEP 7: USAGE EXAMPLES
-After implementing your parser, users can use it like this:
 
-### CLI usage
+## Usage Examples
+
+After implementation, users can:
+
+### CLI usage:
+```bash
 yapp -i scan.yourtool -t yourtool --yourtool-option value
+```
 
-### Library usage
+### Library usage:
+```python
 from yapp import process_file, YourToolParser
 
-### Auto-detect
+# Auto-detect
 results = process_file('scan.yourtool')
 
-### Explicit type
-results = process_file('scan.yourtool', file_type='yourtool', yourtool_option='value')
+# Explicit type with options
+results = process_file(
+    'scan.yourtool', 
+    file_type='yourtool',
+    yourtool_option='value'
+)
 
-### Direct parser usage
+# Direct parser usage
 parser = YourToolParser('scan.yourtool')
 data = parser.parse(yourtool_option='value')
+```
 
----
-## CONSOLIDATION AND API FORMATTING (ADVANCED)
-If your tool finds vulnerabilities that could benefit from consolidation:
+## Key Principles
 
-1. Create tool-specific consolidation rules in yapp/config/
-2. Extend VulnerabilityConsolidator to handle your data format
-3. Create tool-specific API formatter if needed
+### Follow Existing Patterns
+- Same return structure: `{"context": {}, "stats": {}, "main_data": {}}`
+- Same error handling approach
+- Same logging patterns
 
-This requires more extensive changes but follows the same modular approach.
+### Maintain Modularity
+- Parser class is self-contained
+- Processing options passed as parameters
+- No dependencies between parsers
 
+### Keep It Simple
+- One parser per file type
+- Clear, descriptive method names
+- Minimal required methods
 
-### EXAMPLE: ADDING MASSCAN SUPPORT
-Here's a concrete example of adding Masscan JSON support:
+## Testing Your Parser
 
-1. Create yapp/core/masscan_parser.py
-2. Update file detection for .json with masscan signatures
-3. Add CLI support with --rate-limit option
-4. Update all imports and __all__ lists
-5. Users can then run:
-   yapp -i scan.json -t masscan --rate-limit 1000
+```python
+# Basic functionality test
+from yapp import process_file
 
-The framework handles everything else automatically!
+try:
+    results = process_file('test.yourtool')
+    print("✅ Parser working")
+    print(f"File type: {results['file_type']}")
+    print(f"Items found: {results['parsed']['stats']['total_items']}")
+except Exception as e:
+    print(f"❌ Parser failed: {e}")
+```
 
+## Advanced: Adding Consolidation Support
 
-if __name__ == "__main__":
-    print("This is a guide file - see comments for implementation details")
-    print("Follow the steps above to add new parsers to YAPP")
-    print("Maintain the same interface patterns for consistency")
+If your tool finds vulnerabilities that need consolidation:
+
+1. Extend the data structure to match vulnerability format
+2. Create tool-specific rules in `yapp/config/`
+3. Update consolidator to handle your data format
+
+This requires deeper integration but follows the same modular approach.
+
+## Example: Masscan JSON Support
+
+Complete example for adding Masscan support:
+
+1. **Parser**: `yapp/core/masscan_parser.py` - Parse JSON output
+2. **Detection**: Check for JSON with `"masscan"` signature  
+3. **CLI**: Add `--rate-limit` option for Masscan-specific filtering
+4. **Display**: Show discovered hosts and ports
+
+Users can then run:
+```bash
+yapp -i scan.json -t masscan --rate-limit 1000
+```
+
+The framework handles file I/O, argument parsing, and output formatting automatically.
