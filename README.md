@@ -124,7 +124,7 @@ yapp -n input/scan.nessus --no-output -c
 ```
 
 ### 🐍 Python Library
-Checkout [Library Usage Examples](examples/library_usage.py) and [Library README](examples/README_Library.md)
+Checkout [Library Usage Examples](examples/library_usage.py) and [Library README](yapp/docs/Library%20Usage.md.md)
 
 ## 🏗️ Project Structure
 
@@ -317,7 +317,7 @@ When using the `-c` flag, an additional consolidated findings file is generated:
 
 
 ## 🤝 Contributing
-
+Read [Module Expansion Guide](yapp/docs/Module%20Expansion.md) 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes following the project structure
