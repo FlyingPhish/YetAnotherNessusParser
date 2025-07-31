@@ -53,7 +53,7 @@ def display_nessus_summary(parsed_data: dict):
         'High': Colors.RED + Colors.BRIGHT,
         'Medium': '\033[38;5;214m' + Colors.BRIGHT,
         'Low': Colors.YELLOW + Colors.BRIGHT,
-        'Info': Colors.GREEN
+        'None': Colors.GREEN
     }
 
     # Print Summary

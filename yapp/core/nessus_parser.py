@@ -308,8 +308,7 @@ class NessusParser:
             # Process FQDNs and count hosts with multiple valid FQDNs
             fqdns = host_data.get('fqdns', [])
             if fqdns:
-                # Filter out IP-based FQDNs
-                valid_fqdns = [fqdn for fqdn in fqdns if ip not in fqdn]
+                valid_fqdns = fqdns
                 unique_fqdns.update(valid_fqdns)
                 
                 # If we have more than one valid FQDN, increment counter
