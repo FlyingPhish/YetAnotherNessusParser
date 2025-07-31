@@ -75,9 +75,12 @@ class NessusParser:
     def _reset_counters(self):
         """Reset internal counters for fresh parsing."""
         self._host_counter = 0
-        self._service_counts = defaultdict(int)
-        self._family_counts = defaultdict(int)
-        self._total_vulnerabilities = 0
+        
+        # Service tracking - separate unique instances from findings
+        self._unique_service_instances = set()  # Track unique (host_id, port, service) combinations
+        self._service_findings_counts = defaultdict(int)  # Track findings per service type (crit-low only)
+        
+        # Vulnerability tracking
         self._severity_counts = {
             "Critical": 0,
             "High": 0,
@@ -85,6 +88,8 @@ class NessusParser:
             "Low": 0,
             "None": 0
         }
+        self._family_counts = defaultdict(int)
+        self._total_vulnerabilities = 0
     
     def _parse_context(self) -> Dict[str, Any]:
         """Parse scan context information."""
@@ -168,18 +173,29 @@ class NessusParser:
                 severity = self._get_severity_label(item.get('severity', '0'))
                 severity_plugin_ids[severity].add(plugin_id)
                 
-                # Process port information
+                # Process port and service information for statistics
                 port = item.get('port', '')
                 protocol = item.get('protocol', '')
+                service = item.get('svc_name', '')
+                
                 if port and protocol:
                     port_key = f"{port}/{protocol}"
                     if port_key not in ports:
                         ports[port_key] = {
-                            "service": item.get('svc_name', ''),
+                            "service": service,
                             "vulnerabilities": []
                         }
                     if plugin_id not in ports[port_key]["vulnerabilities"]:
                         ports[port_key]["vulnerabilities"].append(plugin_id)
+                    
+                    # Track unique service instances
+                    if service:
+                        service_instance = f"{host_id}_{port}_{protocol}_{service}"
+                        self._unique_service_instances.add(service_instance)
+                        
+                        # Track findings per service type (Critical-Low only, exclude None/Info)
+                        if severity in ['Critical', 'High', 'Medium', 'Low']:
+                            self._service_findings_counts[service] += 1
             
             # Convert sets to counts
             vuln_counts = {
@@ -218,7 +234,7 @@ class NessusParser:
             for item in host_elem.findall('ReportItem'):
                 plugin_id = item.get('pluginID')
                 
-                # Process new vulnerabilities
+                # Process new vulnerabilities - count each plugin_id only once globally
                 if plugin_id not in vulnerabilities:
                     vulnerabilities[plugin_id] = {
                         "name": item.get('pluginName', ''),
@@ -245,7 +261,7 @@ class NessusParser:
                         "affected_hosts": {}
                     }
                     
-                    # Update statistics
+                    # Update global statistics - count each unique plugin_id once
                     self._family_counts[item.get('pluginFamily', '')] += 1
                     self._total_vulnerabilities += 1
                     severity = self._get_severity_label(item.get('severity', '0'))
@@ -266,11 +282,6 @@ class NessusParser:
                     }
                     
                     processed_plugins.add(host_plugin_key)
-                    
-                    # Update service statistics
-                    service = item.get('svc_name', '')
-                    if service:
-                        self._service_counts[service] += 1
         
         return vulnerabilities
     
@@ -284,18 +295,15 @@ class NessusParser:
         discovered_ports = set()
         multi_fqdn_hosts = 0  # Counter for hosts with multiple FQDNs
         
-        # Check for credentialed scans from the XML
-        for host_elem in self.root.findall('.//ReportHost'):
-            props = host_elem.find('HostProperties')
-            if props is not None:
-                cred_scan = self._get_tag_value(props, 'Credentialed_Scan')
-                if cred_scan.lower() == 'true':
-                    credentialed_hosts += 1
-        
+        # Process host data and count credentialed hosts efficiently
         for host_data in hosts.values():
             ip = host_data.get('ip', '')
             if ip:
                 unique_ips.add(ip)
+            
+            # Count credentialed hosts from parsed data
+            if host_data.get('credentialed_scan', False):
+                credentialed_hosts += 1
             
             # Process FQDNs and count hosts with multiple valid FQDNs
             fqdns = host_data.get('fqdns', [])
@@ -312,6 +320,15 @@ class NessusParser:
             for port in host_data.get('ports', {}).keys():
                 discovered_ports.add(port)
         
+        # Generate service statistics
+        unique_services = {}
+        for service_instance in self._unique_service_instances:
+            # Extract service name from instance (format: host_id_port_protocol_service)
+            parts = service_instance.split('_')
+            if len(parts) >= 4:
+                service_name = '_'.join(parts[3:])  # Handle service names with underscores
+                unique_services[service_name] = unique_services.get(service_name, 0) + 1
+        
         return {
             "hosts": {
                 "total": total_hosts,
@@ -322,8 +339,11 @@ class NessusParser:
             },
             "ports": {
                 "total_discovered": len(discovered_ports),
-                "list": sorted(list(discovered_ports)),
-                "services": dict(self._service_counts)
+                "list": sorted(list(discovered_ports))
+            },
+            "services": {
+                "unique_counts": dict(unique_services),
+                "findings_counts": dict(self._service_findings_counts)
             },
             "vulnerabilities": {
                 "total": self._total_vulnerabilities,

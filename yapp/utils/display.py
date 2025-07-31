@@ -53,7 +53,7 @@ def display_nessus_summary(parsed_data: dict):
         'High': Colors.RED + Colors.BRIGHT,
         'Medium': '\033[38;5;214m' + Colors.BRIGHT,
         'Low': Colors.YELLOW + Colors.BRIGHT,
-        'None': Colors.GREEN
+        'Info': Colors.GREEN
     }
 
     # Print Summary
@@ -86,13 +86,27 @@ def display_nessus_summary(parsed_data: dict):
         bullet = "•"
         print(f"  {bullet} {risk_colors[risk]}{risk}: {count}{Colors.RESET}")
 
-    # Service Information (only if services exist)
-    if stats['ports']['services']:
-        print(f"\n{Colors.WHITE}{Colors.BRIGHT}Service Information:{Colors.RESET}")
-        for service, count in stats['ports']['services'].items():
+    # Unique Service Information
+    unique_services = stats['services']['unique_counts']
+    if unique_services:
+        print(f"\n{Colors.WHITE}{Colors.BRIGHT}Unique Service Count:{Colors.RESET}")
+        # Sort services by count (descending) then alphabetically
+        sorted_services = sorted(unique_services.items(), key=lambda x: (-x[1], x[0]))
+        for service, count in sorted_services:
             print(f"  • {service}: {Colors.GREEN}{count}{Colors.RESET}")
     
-    print(f"{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
+    # Most Affected Services (Critical-Low findings only)
+    service_findings = stats['services']['findings_counts']
+    if service_findings:
+        print(f"\n{Colors.WHITE}{Colors.BRIGHT}Most Affected Services:{Colors.RESET}")
+        # Sort by finding count (descending) then alphabetically
+        sorted_findings = sorted(service_findings.items(), key=lambda x: (-x[1], x[0]))
+        # Show top 10 most affected services
+        top_services = sorted_findings[:10]
+        for service, count in top_services:
+            print(f"  • {service}: {Colors.RED}{count}{Colors.RESET} findings")
+    
+    print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
 
 def display_nmap_summary(parsed_data: dict):
     """Display formatted summary of Nmap scan results"""

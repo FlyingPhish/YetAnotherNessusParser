@@ -8,7 +8,6 @@
       "filters": {
         "plugin_families": [],
         "name_patterns": [
-          "SSL.*TLS.*Versions.*Supported",
           "TLS.*Version.*1\\.0.*Protocol.*Detection",
           "TLS.*Version.*1\\.1.*Deprecated.*Protocol",
           "TLS.*Version.*1\\.1.*Protocol.*Detection"
@@ -16,6 +15,7 @@
         "exclude_families": [],
         "exclude_name_patterns": [],
         "plugin_output_patterns": [
+          "TLSv1",
           "TLSv1\\.1",
           "TLSv1\\.0",
           "SSLv3",
@@ -33,6 +33,7 @@
     {
       "rule_name": "certificate_issues",
       "title": "SSL Certificate Issues",
+      "internal_vulnerability_id": 998,
       "enabled": true,
       "filters": {
         "plugin_families": [],
@@ -56,7 +57,11 @@
           ".*Certificate.*Validation.*"
         ],
         "exclude_families": [],
-        "exclude_name_patterns": [],
+        "exclude_name_patterns": [
+          "SSL Certificate Information",
+          "SSL Certificate Signed Using Weak Hashing Algorithm (Known CA)",
+          "SSL Root Certification Authority Certificate Information"
+        ],
         "plugin_output_patterns": [],
         "plugin_output_require_all": false,
         "exclude_plugin_output_patterns": [],
@@ -70,6 +75,7 @@
     {
       "rule_name": "ssl_tls_algorithm_issues", 
       "title": "SSL/TLS Cipher and Algorithm Weaknesses",
+      "internal_vulnerability_id": 997,
       "enabled": true,
       "filters": {
         "plugin_families": [],
@@ -84,12 +90,15 @@
           "SSL.*Strength Cipher Suites Supported.*",
           "SSL Cipher Block Chaining.*",
           "SSL.*Diffie-Hellman.*",
-          "TLS.*Diffie-Hellman.*"
+          "TLS.*Diffie-Hellman.*",
+          "SSL Medium Strength Cipher Suites Supported (SWEET32)"
         ],
         "exclude_families": [],
         "exclude_name_patterns": [
           ".*Protocol.*Detection.*",
-          ".*Version.*Supported.*"
+          ".*Version.*Supported.*",
+          "SSL Cipher Suites Supported",
+          "SSL Cipher Block Chaining Cipher Suites Supported"
         ],
         "plugin_output_patterns": [
           "weak.*cipher",
@@ -103,7 +112,8 @@
           "diffie.*hellman.*weak",
           "cipher.*strength.*low",
           ".*weak*",
-          ".*insecure*"
+          ".*insecure*",
+          ".*Medium Strength Ciphers*"
         ],
         "plugin_output_require_all": false,
         "exclude_plugin_output_patterns": [],
@@ -114,6 +124,7 @@
     {
       "rule_name": "ssh_weaknesses",
       "title": "SSH Weaknesses",
+      "internal_vulnerability_id": 996,
       "enabled": true,
       "filters": {
         "plugin_families": [],
@@ -141,6 +152,7 @@
     {
       "rule_name": "cleartext_services",
       "title": "Cleartext Services",
+      "internal_vulnerability_id": 995,
       "enabled": true,
       "filters": {
         "plugin_families": [],
@@ -165,6 +177,7 @@
     {
       "rule_name": "outdated_unsupported_software",
       "title": "Outdated and Unsupported Third-Party Software", 
+      "internal_vulnerability_id": 994,
       "enabled": true,
       "filters": {
         "plugin_families": [],
@@ -177,7 +190,8 @@
           ".*end of life.*",
           ".*obsolete.*",
           ".*End-of-Life.*",
-          ".*EOL.*"
+          ".*EOL.*",
+          ".*<.*"
         ],
         "exclude_families": [],
         "exclude_name_patterns": [
@@ -205,7 +219,8 @@
           "End-of-Life",
           "no longer supported",
           "support.*ended",
-          "deprecated.*version"
+          "deprecated.*version",
+          ".*Fixed version.*"
         ],
         "plugin_output_require_all": false,
         "exclude_plugin_output_patterns": [
@@ -221,6 +236,7 @@
     {
       "rule_name": "outdated_unsupported_operating_system",
       "title": "Outdated and Unsupported Operating Systems",
+      "internal_vulnerability_id": 993,
       "enabled": true,
       "filters": {
         "plugin_families": [],
@@ -247,6 +263,7 @@
     {
       "rule_name": "outdated_javascript_libraries",
       "title": "Outdated and Unsupported JavaScript Libraries",
+      "internal_vulnerability_id": 992,
       "enabled": true,
       "filters": {
         "plugin_families": [],
