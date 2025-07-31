@@ -28,6 +28,7 @@ class VulnerabilityConsolidator:
             self.rules_file = self._get_default_rules_path()
             
         self.rules = []
+        self.exclusion_logger = None
         
     def consolidate(self, parsed_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -45,6 +46,9 @@ class VulnerabilityConsolidator:
         logger.debug("Starting vulnerability consolidation")
         
         try:
+            # Setup exclusion logging
+            self._setup_exclusion_logging()
+            
             # Load consolidation rules
             if not self._load_rules():
                 logger.warning("No consolidation rules loaded, skipping consolidation")
@@ -68,6 +72,39 @@ class VulnerabilityConsolidator:
             
         except Exception as e:
             raise ConsolidationError(f"Consolidation failed: {str(e)}")
+    
+    def _setup_exclusion_logging(self):
+        """Setup file-only logging for exclusion tracking."""
+        # Create exclusion logger that only logs to file
+        self.exclusion_logger = logging.getLogger('yapp.consolidation.exclusions')
+        
+        # Clear any existing handlers to prevent CLI output
+        self.exclusion_logger.handlers.clear()
+        self.exclusion_logger.propagate = False
+        
+        # Set log level
+        self.exclusion_logger.setLevel(logging.INFO)
+        
+        # Create file handler with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = Path(f"consolidation_exclusions_{timestamp}.log")
+        
+        file_handler = logging.FileHandler(log_file, mode='w', encoding='utf-8')
+        file_handler.setLevel(logging.INFO)
+        
+        # Create formatter
+        formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(formatter)
+        
+        # Add handler to exclusion logger
+        self.exclusion_logger.addHandler(file_handler)
+        
+        # Log session start
+        self.exclusion_logger.info("=== Consolidation Exclusion Tracking Session Started ===")
+        self.exclusion_logger.info(f"Rules file: {self.rules_file}")
     
     def aggregate_vulnerabilities(self, parsed_data: Dict[str, Any], matched_vulns: Dict[str, List[str]]) -> Dict[str, Dict[str, Any]]:
         """
@@ -399,44 +436,59 @@ class VulnerabilityConsolidator:
     def _apply_rule_filters(self, vulnerabilities: Dict[str, Any], rule: Dict[str, Any]) -> List[str]:
         """Apply filtering logic for a single rule."""
         matches = []
+        rule_name = rule['rule_name']
         filters = rule['filters']
         
         for plugin_id, vuln_data in vulnerabilities.items():
-            if self._matches_filter_criteria(vuln_data, filters):
+            if self._matches_filter_criteria(vuln_data, filters, rule_name, plugin_id):
                 matches.append(plugin_id)
         
         return matches
     
-    def _matches_filter_criteria(self, vuln_data: Dict[str, Any], filters: Dict[str, Any]) -> bool:
-        """Check if a vulnerability matches the filter criteria."""
+    def _matches_filter_criteria(self, vuln_data: Dict[str, Any], filters: Dict[str, Any], rule_name: str, plugin_id: str) -> bool:
+        """Check if a vulnerability matches the filter criteria with exclusion logging."""
         # Get vulnerability properties
         family = vuln_data.get('family', '')
         name = vuln_data.get('name', '')
         
+        # First, check if name_patterns match (if specified)
+        name_patterns = filters.get('name_patterns', [])
+        name_patterns_matched = False
+        
+        if name_patterns:
+            for pattern in name_patterns:
+                try:
+                    if re.search(pattern, name, re.IGNORECASE):
+                        name_patterns_matched = True
+                        break
+                except re.error as e:
+                    logger.warning(f"Invalid regex pattern '{pattern}': {str(e)}")
+                    continue
+            
+            # If name patterns specified but none matched, no need to check further
+            if not name_patterns_matched:
+                return False
+        else:
+            # If no name patterns specified, we'll consider it as potential match for exclusion logging
+            name_patterns_matched = True
+        
+        # Now check other filters and log exclusions if name patterns matched
+        
         # Check plugin families (if specified)
         plugin_families = filters.get('plugin_families', [])
         if plugin_families and family not in plugin_families:
+            if name_patterns_matched and name_patterns:  # Only log if name patterns actually matched
+                self._log_exclusion(rule_name, name, plugin_id, 'plugin_families', 
+                                  f"family '{family}' not in required families {plugin_families}")
             return False
         
         # Check exclude families
         exclude_families = filters.get('exclude_families', [])
         if exclude_families and family in exclude_families:
+            if name_patterns_matched:
+                self._log_exclusion(rule_name, name, plugin_id, 'exclude_families', 
+                                  f"family '{family}' matches excluded family in {exclude_families}")
             return False
-        
-        # Check name patterns (if specified)
-        name_patterns = filters.get('name_patterns', [])
-        if name_patterns:
-            pattern_matches = False
-            for pattern in name_patterns:
-                try:
-                    if re.search(pattern, name, re.IGNORECASE):
-                        pattern_matches = True
-                        break
-                except re.error as e:
-                    logger.warning(f"Invalid regex pattern '{pattern}': {str(e)}")
-                    continue
-            if not pattern_matches:
-                return False
         
         # Check exclude name patterns
         exclude_name_patterns = filters.get('exclude_name_patterns', [])
@@ -444,6 +496,9 @@ class VulnerabilityConsolidator:
             for pattern in exclude_name_patterns:
                 try:
                     if re.search(pattern, name, re.IGNORECASE):
+                        if name_patterns_matched:
+                            self._log_exclusion(rule_name, name, plugin_id, 'exclude_name_patterns', 
+                                              f"name matches exclusion pattern '{pattern}'")
                         return False
                 except re.error as e:
                     logger.warning(f"Invalid regex pattern '{pattern}': {str(e)}")
@@ -454,6 +509,10 @@ class VulnerabilityConsolidator:
         if plugin_output_patterns:
             require_all = filters.get('plugin_output_require_all', False)
             if not self._search_plugin_output(vuln_data, plugin_output_patterns, require_all):
+                if name_patterns_matched:
+                    mode = "all" if require_all else "any"
+                    self._log_exclusion(rule_name, name, plugin_id, 'plugin_output_patterns', 
+                                      f"plugin output doesn't match required patterns ({mode} of {plugin_output_patterns})")
                 return False
         
         # Check exclude plugin output patterns
@@ -461,9 +520,20 @@ class VulnerabilityConsolidator:
         if exclude_plugin_output_patterns:
             require_all = filters.get('exclude_plugin_output_require_all', False)
             if self._search_plugin_output(vuln_data, exclude_plugin_output_patterns, require_all):
+                if name_patterns_matched:
+                    mode = "all" if require_all else "any"
+                    self._log_exclusion(rule_name, name, plugin_id, 'exclude_plugin_output_patterns', 
+                                      f"plugin output matches exclusion patterns ({mode} of {exclude_plugin_output_patterns})")
                 return False
         
         return True
+    
+    def _log_exclusion(self, rule_name: str, vuln_name: str, plugin_id: str, filter_type: str, reason: str):
+        """Log exclusion details to file."""
+        if self.exclusion_logger:
+            self.exclusion_logger.info(
+                f"Rule '{rule_name}': Plugin {plugin_id} '{vuln_name}' matched name patterns but excluded by {filter_type} - {reason}"
+            )
     
     def _validate_config_structure(self, config_data: Dict[str, Any]) -> bool:
         """Validate the basic structure of the configuration data."""
