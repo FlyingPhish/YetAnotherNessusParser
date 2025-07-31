@@ -80,6 +80,12 @@ def setup_argparse() -> argparse.ArgumentParser:
         help='Maximum number of affected entities per API finding (Nessus only)'
     )
     
+    nessus_group.add_argument(
+        '--log-exclusions',
+        action='store_true',
+        help='Enable detailed exclusion logging to file during consolidation (Nessus only)'
+    )
+    
     # Nmap-specific options
     nmap_group = parser.add_argument_group('Nmap options')
     nmap_group.add_argument(
@@ -139,6 +145,8 @@ def main():
             nessus_only_options.append("--rules-file")
         if args.entity_limit:
             nessus_only_options.append("--entity-limit")
+        if args.log_exclusions:
+            nessus_only_options.append("--log-exclusions")
         
         if nessus_only_options and args.file_type == 'nmap':
             log.warning(f"Ignoring Nessus-only options for Nmap file: {', '.join(nessus_only_options)}")
@@ -167,7 +175,8 @@ def main():
             api_format=args.api_output,
             rules_file=args.rules_file,
             entity_limit=args.entity_limit,
-            flat_json=args.flat_json
+            flat_json=args.flat_json,
+            log_exclusions=args.log_exclusions
         )
         
         # Display results

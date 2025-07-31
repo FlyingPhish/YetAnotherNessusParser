@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yapp"
-version = "5.5.0"
+version = "5.5.2"
 description = "Yet Another Pentest Parser - A Swiss Army Knife parser for pentesters. Comes with library and CLI usage."
 readme = "README.md"
 requires-python = ">=3.8"

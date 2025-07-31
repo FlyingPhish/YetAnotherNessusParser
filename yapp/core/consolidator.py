@@ -14,13 +14,14 @@ class ConsolidationError(Exception):
 class VulnerabilityConsolidator:
     """Consolidates Nessus vulnerabilities based on configurable rules."""
     
-    def __init__(self, rules_file: Optional[str] = None):
+    def __init__(self, rules_file: Optional[str] = None, enable_exclusion_logging: bool = False):
         """
         Initialize consolidator with rules file path.
         
         Args:
             rules_file: Path to custom consolidation rules file. 
                        If None, uses default bundled rules.
+            enable_exclusion_logging: Enable detailed exclusion logging to file.
         """
         if rules_file:
             self.rules_file = Path(rules_file)
@@ -29,6 +30,7 @@ class VulnerabilityConsolidator:
             
         self.rules = []
         self.exclusion_logger = None
+        self.enable_exclusion_logging = enable_exclusion_logging
         
     def consolidate(self, parsed_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -46,8 +48,9 @@ class VulnerabilityConsolidator:
         logger.debug("Starting vulnerability consolidation")
         
         try:
-            # Setup exclusion logging
-            self._setup_exclusion_logging()
+            # Setup exclusion logging if enabled
+            if self.enable_exclusion_logging:
+                self._setup_exclusion_logging()
             
             # Load consolidation rules
             if not self._load_rules():
@@ -87,7 +90,7 @@ class VulnerabilityConsolidator:
         
         # Create file handler with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file = Path(f"consolidation_exclusions_{timestamp}.log")
+        log_file = Path(f"yapp-exclusions-{timestamp}.log")
         
         file_handler = logging.FileHandler(log_file, mode='w', encoding='utf-8')
         file_handler.setLevel(logging.INFO)

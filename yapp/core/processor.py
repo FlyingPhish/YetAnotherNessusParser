@@ -19,7 +19,8 @@ def process_file(
     entity_limit: int = None,
     output_dir: str = None,
     custom_output_name: str = None,
-    flat_json: bool = False
+    flat_json: bool = False,
+    log_exclusions: bool = False
 ) -> Dict[str, Any]:
     """
     Complete processing pipeline for supported file types.
@@ -88,7 +89,10 @@ def process_file(
         
         # Optional consolidation (Nessus only)
         if consolidate:
-            consolidator = VulnerabilityConsolidator(rules_file)
+            consolidator = VulnerabilityConsolidator(
+                rules_file=rules_file,
+                enable_exclusion_logging=log_exclusions
+            )
             consolidated_data = consolidator.consolidate(parsed_data)
             results['consolidated'] = consolidated_data
             
