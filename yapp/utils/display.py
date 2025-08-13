@@ -41,6 +41,8 @@ def display_summary(parsed_data: dict, file_type: str):
         display_nessus_summary(parsed_data)
     elif file_type == "nmap":
         display_nmap_summary(parsed_data)
+    elif file_type == "burp":
+        display_burp_summary(parsed_data)
 
 def display_nessus_summary(parsed_data: dict):
     """Display formatted summary of Nessus scan results"""
@@ -157,6 +159,70 @@ def display_nmap_summary(parsed_data: dict):
             print(f"    └─ {Colors.GREEN}{service}: {count}{Colors.RESET}")
     
     print(f"{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
+
+def display_burp_summary(parsed_data: dict):
+    """Display formatted summary of Burp scan results"""
+    stats = parsed_data['stats']
+    context = parsed_data['context']
+
+    # Color mappings for severity levels (same as Nessus)
+    severity_colors = {
+        'Critical': Colors.MAGENTA + Colors.BRIGHT,
+        'High': Colors.RED + Colors.BRIGHT,
+        'Medium': '\033[38;5;214m' + Colors.BRIGHT,
+        'Low': Colors.YELLOW + Colors.BRIGHT,
+        'None': Colors.GREEN
+    }
+
+    # Print Summary
+    print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}")
+    print(f"{Colors.WHITE}{Colors.BRIGHT}BURP SUITE SCAN SUMMARY{Colors.RESET}")
+    print(f"{Colors.CYAN}{'-' * 50}{Colors.RESET}")
+    
+    # Scan Context
+    print(f"{Colors.WHITE}{Colors.BRIGHT}Scan Context:{Colors.RESET}")
+    print(f"  • Export Time: {Colors.GREEN}{context['export_time']}{Colors.RESET}")
+    print(f"  • Burp Version: {Colors.GREEN}{context['burp_version']}{Colors.RESET}")
+    print(f"  • Scan ID: {Colors.GREEN}{context['scan_id']}{Colors.RESET}")
+    
+    # Target Information
+    print(f"\n{Colors.WHITE}{Colors.BRIGHT}Target Information:{Colors.RESET}")
+    print(f"  • Total Hosts: {Colors.GREEN}{stats['hosts']['total']}{Colors.RESET}")
+    print(f"  • Unique IPs: {Colors.GREEN}{stats['hosts']['total_ips']}{Colors.RESET}")
+    print(f"  • Unique FQDNs: {Colors.GREEN}{stats['hosts']['total_fqdns']}{Colors.RESET}")
+    
+    # Port and Protocol Information
+    unique_ports = stats['hosts'].get('unique_ports', [])
+    schemes = stats['hosts'].get('schemes_found', [])
+    if unique_ports:
+        ports_str = ', '.join(map(str, unique_ports))
+        print(f"  • Ports Found: {Colors.GREEN}{ports_str}{Colors.RESET}")
+    
+    if schemes:
+        schemes_str = ', '.join(schemes)
+        print(f"  • Protocols: {Colors.GREEN}{schemes_str.upper()}{Colors.RESET}")
+    
+    # Vulnerability Summary
+    print(f"\n{Colors.WHITE}{Colors.BRIGHT}Vulnerability Summary:{Colors.RESET}")
+    severity_order = ['Critical', 'High', 'Medium', 'Low', 'None']
+    
+    for severity in severity_order:
+        count = stats['vulnerabilities']['by_severity'].get(severity, 0)
+        bullet = "•"
+        print(f"  {bullet} {severity_colors[severity]}{severity}: {count}{Colors.RESET}")
+
+    # Vulnerability Types
+    vuln_types = stats['vulnerabilities']['by_type']
+    if vuln_types:
+        print(f"\n{Colors.WHITE}{Colors.BRIGHT}Vulnerability Types Found:{Colors.RESET}")
+        # Sort vulnerability types by count (descending) then alphabetically
+        sorted_types = sorted(vuln_types.items(), key=lambda x: (-x[1], x[0]))
+        # Show top 10 vulnerability types
+        top_types = sorted_types[:10]
+        for vuln_type, count in top_types:
+            print(f"  • {vuln_type}: {Colors.RED}{count}{Colors.RESET}")
+    
+    print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
 
 def display_consolidation_summary(consolidated_data: dict):
     """Display formatted consolidation summary matching YAPP aesthetic"""

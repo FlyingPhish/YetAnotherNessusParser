@@ -250,8 +250,14 @@ class BurpParser:
                         path = issue_elem.findtext('path', '/')
                         location = issue_elem.findtext('location', '')
                         
-                        # Create unique affected host key
-                        affected_key = f"{host_id}_{hash(path + location) % 1000}"
+                        # Create clean affected host key - use host_id, or add counter if multiple paths per host
+                        existing_hosts = vulnerabilities[vuln_name_key]["affected_hosts"]
+                        host_counter = len([k for k in existing_hosts.keys() if k.startswith(host_id)]) + 1
+                        
+                        if host_counter == 1:
+                            affected_key = host_id
+                        else:
+                            affected_key = f"{host_id}_{host_counter}"
                         
                         vulnerabilities[vuln_name_key]["affected_hosts"][affected_key] = {
                             "ip": host_ip,
