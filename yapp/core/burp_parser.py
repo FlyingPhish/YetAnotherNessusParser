@@ -179,34 +179,50 @@ class BurpParser:
         return hosts
     
     def _parse_vulnerabilities(self) -> Dict[str, Dict[str, Any]]:
-        """Parse vulnerability information with enhanced structure."""
+        """Parse vulnerability information with enhanced structure using name as key."""
         vulnerabilities = {}
         processed_vulns = set()
+        name_counters = defaultdict(int)  # Track duplicate names
         
         for issue_elem in self.root.findall('issue'):
             # Extract core issue data
             serial_number = issue_elem.findtext('serialNumber', '')
             issue_type = issue_elem.findtext('type', '')
-            name = issue_elem.findtext('name', '')
+            name = issue_elem.findtext('name', '').strip()
             severity_text = issue_elem.findtext('severity', '')
             confidence = issue_elem.findtext('confidence', '')
             
-            # Use serial number as unique ID, fallback to type+name hash
-            vuln_id = serial_number if serial_number else f"type_{issue_type}_{hash(name) % 10000}"
+            # Create unique vulnerability name key (handle duplicates)
+            if name in name_counters:
+                name_counters[name] += 1
+                vuln_name_key = f"{name} ({name_counters[name]})"
+            else:
+                name_counters[name] = 0
+                vuln_name_key = name
+            
+            # Use serial number for uniqueness tracking
+            tracking_id = serial_number if serial_number else f"type_{issue_type}_{hash(name) % 10000}"
             
             # Process new vulnerabilities only once
-            if vuln_id not in processed_vulns:
-                vulnerabilities[vuln_id] = {
-                    "name": name,
+            if tracking_id not in processed_vulns:
+                # Extract additional details
+                issue_background = issue_elem.findtext('issueBackground', '')
+                references = issue_elem.findtext('references', '')
+                vuln_classifications = issue_elem.findtext('vulnerabilityClassifications', '')
+                issue_detail = issue_elem.findtext('issueDetail', '')
+                remediation_detail = issue_elem.findtext('remediationDetail', '')
+                
+                vulnerabilities[vuln_name_key] = {
+                    "id": serial_number,
                     "type": issue_type,
-                    "severity": self._get_severity_numeric(severity_text),
+                    "severity": self._get_severity_label(severity_text),
                     "confidence": confidence,
-                    "issue_background": self._clean_html(issue_elem.findtext('issueBackground', '')),
-                    "references": self._clean_html(issue_elem.findtext('references', '')),
-                    "vulnerability_classifications": self._clean_html(issue_elem.findtext('vulnerabilityClassifications', '')),
-                    "issue_detail": self._clean_html(issue_elem.findtext('issueDetail', '')),
-                    "remediation_detail": self._clean_html(issue_elem.findtext('remediationDetail', '')),
-                    "cwe": self._extract_cwe_references(issue_elem.findtext('vulnerabilityClassifications', '')),
+                    "issue_background": self._clean_html_preserve_structure(issue_background),
+                    "references": self._extract_html_links(references),
+                    "vulnerability_classifications": self._clean_html_preserve_structure(vuln_classifications),
+                    "issue_detail": self._clean_html_preserve_structure(issue_detail),
+                    "remediation_detail": self._clean_html_preserve_structure(remediation_detail),
+                    "cwe": self._extract_full_cwe_references(vuln_classifications),
                     "affected_hosts": {}
                 }
                 
@@ -216,7 +232,7 @@ class BurpParser:
                 severity_label = self._get_severity_label(severity_text)
                 self._severity_counts[severity_label] += 1
                 
-                processed_vulns.add(vuln_id)
+                processed_vulns.add(tracking_id)
             
             # Add host-specific information
             host_elem = issue_elem.find('host')
@@ -237,7 +253,7 @@ class BurpParser:
                         # Create unique affected host key
                         affected_key = f"{host_id}_{hash(path + location) % 1000}"
                         
-                        vulnerabilities[vuln_id]["affected_hosts"][affected_key] = {
+                        vulnerabilities[vuln_name_key]["affected_hosts"][affected_key] = {
                             "ip": host_ip,
                             "fqdn": hostname,
                             "url": host_url,
@@ -335,20 +351,67 @@ class BurpParser:
             logger.debug(f"Failed to parse datetime: {datetime_str}")
             return datetime_str
     
-    def _clean_html(self, html_content: str) -> str:
-        """Remove HTML tags and clean up content for plain text storage."""
+    def _clean_html_preserve_structure(self, html_content: str) -> str:
+        """Clean HTML content while preserving some structure and important links."""
         if not html_content:
             return ""
         
-        # Remove HTML tags and clean whitespace
-        text = re.sub(r'<[^>]+>', '', html_content)
-        text = re.sub(r'\s+', ' ', text)
+        # Clean up the content but preserve some structure
+        text = html_content
+        
+        # Convert some HTML elements to readable text
+        text = re.sub(r'<br\s*/?>', '\n', text)
+        text = re.sub(r'</?p[^>]*>', '\n', text)
+        text = re.sub(r'</?div[^>]*>', '\n', text)
+        
+        # Preserve important table content in a readable format
+        text = re.sub(r'</?table[^>]*>', '\n', text)
+        text = re.sub(r'</?tr[^>]*>', '\n', text)
+        text = re.sub(r'<td[^>]*><b>([^<]+)</b>[^<]*</td><td[^>]*>([^<]*)</td>', r'\1: \2', text)
+        text = re.sub(r'</?td[^>]*>', ' ', text)
+        text = re.sub(r'</?th[^>]*>', ' ', text)
+        
+        # Clean up remaining HTML tags
+        text = re.sub(r'<[^>]+>', '', text)
+        
+        # Clean up whitespace
+        text = re.sub(r'\n\s*\n', '\n', text)
+        text = re.sub(r' +', ' ', text)
+        
         return text.strip()
     
-    def _extract_cwe_references(self, vuln_classifications: str) -> list:
-        """Extract CWE references from vulnerability classifications."""
+    def _extract_html_links(self, html_content: str) -> str:
+        """Extract and preserve HTML links in a clean format."""
+        if not html_content:
+            return ""
+        
+        # Extract links and preserve them
+        link_pattern = r'<a\s+href="([^"]+)"[^>]*>([^<]+)</a>'
+        links = re.findall(link_pattern, html_content)
+        
+        if links:
+            # Format as clean HTML links
+            formatted_links = []
+            for url, text in links:
+                formatted_links.append(f'<a href="{url}">{text}</a>')
+            return ' | '.join(formatted_links)
+        else:
+            # Fallback to cleaned text if no links found
+            return self._clean_html_preserve_structure(html_content)
+    
+    def _extract_full_cwe_references(self, vuln_classifications: str) -> list:
+        """Extract full CWE references with titles from vulnerability classifications."""
         if not vuln_classifications:
             return []
         
-        cwe_matches = re.findall(r'CWE-(\d+)', vuln_classifications)
-        return [f"CWE-{num}" for num in cwe_matches]
+        # Extract CWE information including titles
+        cwe_pattern = r'CWE-(\d+):\s*([^<\n]+?)(?=CWE-|\s*$|<)'
+        cwe_matches = re.findall(cwe_pattern, vuln_classifications)
+        
+        if cwe_matches:
+            return [f"CWE-{num}: {title.strip()}" for num, title in cwe_matches]
+        else:
+            # Fallback to simple CWE number extraction
+            simple_pattern = r'CWE-(\d+)'
+            simple_matches = re.findall(simple_pattern, vuln_classifications)
+            return [f"CWE-{num}" for num in simple_matches]
