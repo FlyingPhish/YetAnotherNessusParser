@@ -14,7 +14,7 @@ def detect_file_type(file_path: Union[str, Path]) -> str:
         file_path: Path to the file to analyze
         
     Returns:
-        Detected file type: 'nessus', 'nmap', or 'unknown'
+        Detected file type: 'nessus', 'nmap', 'burp', or 'unknown'
         
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -97,10 +97,13 @@ def _analyze_xml_content(file_path: Path) -> Optional[str]:
         # Check for Nessus XML (alternative structures)
         if root.tag in ["NessusClientData_v2", "NessusClientData"]:
             return 'nessus'
-            
+
+        # Check for Burp XML
+        if root.tag == "issues" and 'burpVersion' in root.attrib:
+            return 'burp'
+        
         # Check for other known pentesting tool formats
         # Add more as needed...
-        
         return None
     except ET.ParseError:
         return None
@@ -126,6 +129,8 @@ def _analyze_file_content(file_path: Path) -> Optional[str]:
             if '<?xml' in content:
                 if 'nmaprun' in content:
                     return 'nmap'
+                elif 'burpversion' in content and '<issues' in content:
+                    return 'burp'
                 elif 'nessusclientdata' in content:
                     return 'nessus'
                 elif '<report' in content and '<policy' in content:
@@ -134,7 +139,6 @@ def _analyze_file_content(file_path: Path) -> Optional[str]:
             # Could add JSON detection here for future JSON-based tools
             # if content.strip().startswith('{') and '"tool_name"' in content:
             #     return 'some_json_tool'
-            
         return None
     except Exception:
         return None
@@ -324,7 +328,7 @@ def find_input_files(directory: Union[str, Path], file_types: list = None, recur
     
     Args:
         directory: Directory to search
-        file_types: List of file types to find (['nessus', 'nmap'] or None for all)
+        file_types: List of file types to find (['nessus', 'nmap', 'burp'] or None for all)
         recursive: Whether to search subdirectories
         
     Returns:
@@ -341,14 +345,15 @@ def find_input_files(directory: Union[str, Path], file_types: list = None, recur
         return {}
     
     if file_types is None:
-        file_types = ['nessus', 'nmap']
+        file_types = ['nessus', 'nmap', 'burp']
     
     found_files = {ft: [] for ft in file_types}
     
     # Define patterns for each file type
     patterns = {
         'nessus': ['*.nessus'],
-        'nmap': ['*.xml']  # Will need content analysis
+        'nmap': ['*.xml'],
+        'burp': ['*.xml']
     }
     
     for file_type in file_types:
@@ -360,12 +365,12 @@ def find_input_files(directory: Union[str, Path], file_types: list = None, recur
             
             files = list(directory.glob(search_pattern))
             
-            # For XML files, verify they're actually Nmap files
-            if file_type == 'nmap':
+            # For XML files, verify they're actually the correct type
+            if file_type in ['nmap', 'burp']: 
                 verified_files = []
                 for file_path in files:
                     try:
-                        if detect_file_type(file_path) == 'nmap':
+                        if detect_file_type(file_path) == file_type:
                             verified_files.append(file_path)
                     except Exception:
                         continue

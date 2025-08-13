@@ -6,13 +6,14 @@ A Python library for parsing and processing various pentesting tool outputs.
 Supported formats:
 - Nessus .nessus XML files (with consolidation and API formatting)
 - Nmap .xml XML files (with flat JSON output option)
+- Burp Suite .xml XML files (basic parsing, consolidation/API coming soon)  # ADD
 
 Examples:
     Basic parsing (auto-detect):
         >>> from yapp import process_file
         >>> results = process_file('scan.nessus')
-        >>> # or
-        >>> results = process_file('scan.xml')
+        >>> results = process_file('scan.xml')  # Could be Nmap or Burp
+        >>> results = process_file('burp_scan.xml')
     
     Nessus with consolidation and API output:
         >>> from yapp import process_file
@@ -26,10 +27,16 @@ Examples:
         >>> from yapp import process_file
         >>> results = process_file('scan.xml', flat_json=True)
     
+    Burp Suite basic parsing:  # ADD
+        >>> from yapp import process_file
+        >>> results = process_file('burp_scan.xml', file_type='burp')
+        >>> print(f"Found {results['parsed']['stats']['vulnerabilities']['total']} vulnerabilities")
+    
     Using individual components:
-        >>> from yapp import NessusParser, NmapParser, VulnerabilityConsolidator, APIFormatter
+        >>> from yapp import NessusParser, NmapParser, BurpParser, VulnerabilityConsolidator, APIFormatter  # UPDATED
         >>> nessus_parser = NessusParser('scan.nessus')
         >>> nmap_parser = NmapParser('scan.xml')
+        >>> burp_parser = BurpParser('burp_scan.xml')
         >>> consolidator = VulnerabilityConsolidator()
         >>> formatter = APIFormatter(entity_limit=5)
 """
@@ -38,6 +45,7 @@ Examples:
 from .core import (
     NessusParser,
     NmapParser,
+    BurpParser,  # ADD: Import BurpParser
     VulnerabilityConsolidator, 
     APIFormatter,
     ConsolidationError,
@@ -78,6 +86,7 @@ __all__ = [
     # Core parsers
     "NessusParser",
     "NmapParser",
+    "BurpParser",
     
     # Processing classes
     "VulnerabilityConsolidator", 
@@ -121,6 +130,12 @@ def get_supported_file_types() -> dict:
             "extensions": [".xml"],
             "features": ["parsing", "port_filtering", "flat_json_output"],
             "parser_class": "NmapParser"
+        },
+        "burp": {  # ADD: Burp file type support
+            "description": "Burp Suite web vulnerability scanner XML files",
+            "extensions": [".xml"],
+            "features": ["parsing"],  # Basic parsing only for now
+            "parser_class": "BurpParser"
         }
     }
 

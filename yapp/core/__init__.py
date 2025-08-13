@@ -14,6 +14,7 @@ Future parsers can be added following the same interface pattern.
 
 from .nessus_parser import NessusParser
 from .nmap_parser import NmapParser
+from .burp_parser import BurpParser
 from .consolidator import VulnerabilityConsolidator, ConsolidationError
 from .formatter import APIFormatter, FormatterError
 from .processor import process_file
@@ -22,6 +23,7 @@ __all__ = [
     # Core parsers
     'NessusParser',
     'NmapParser',
+    'BurpParser',
     
     # Processing classes
     'VulnerabilityConsolidator', 

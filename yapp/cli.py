@@ -34,12 +34,12 @@ def setup_argparse() -> argparse.ArgumentParser:
     parser.add_argument(
         '-i', '--input-file',
         required=True,
-        help='Path to input file (Nessus .nessus, Nmap .xml)'
+        help='Path to input file (Nessus .nessus, Nmap .xml, Burp .xml)'
     )
     
     parser.add_argument(
         '-t', '--file-type',
-        choices=['auto', 'nessus', 'nmap'],
+        choices=['auto', 'nessus', 'nmap', 'burp'],
         default='auto',
         help='Input file type (default: auto-detect)'
     )
@@ -60,13 +60,13 @@ def setup_argparse() -> argparse.ArgumentParser:
     nessus_group.add_argument(
         '-c', '--consolidate',
         action='store_true',
-        help='Generate consolidated findings file based on rules (Nessus only)'
+        help='Generate consolidated findings file based on rules (Nessus/Burp)'
     )
     
     nessus_group.add_argument(
         '-a', '--api-output',
         action='store_true',
-        help='Generate API-ready JSON format (requires --consolidate, Nessus only)'
+        help='Generate API-ready JSON format (requires --consolidate, Nessus/Burp)'
     )
     
     nessus_group.add_argument(
@@ -113,6 +113,20 @@ def setup_argparse() -> argparse.ArgumentParser:
         version=f'%(prog)s {__version__}'
     )
     
+    # Burp-specific options
+    burp_group = parser.add_argument_group('Burp options')
+    burp_group.add_argument(
+        '--burp-consolidate',
+        action='store_true',
+        help='Generate consolidated findings file based on rules (Burp only, experimental)'
+    )
+
+    burp_group.add_argument(
+        '--burp-api-output',
+        action='store_true',
+        help='Generate API-ready JSON format (requires --burp-consolidate, Burp only)'
+    )
+
     return parser
 
 def main():
@@ -132,6 +146,10 @@ def main():
     
     if args.entity_limit is not None and args.entity_limit < 1:
         log.error("--entity-limit must be a positive integer")
+        return 1
+    
+    if args.burp_api_output and not args.burp_consolidate:
+        log.error("--burp-api-output requires --burp-consolidate flag")
         return 1
     
     # Check for Nessus-only options with other file types
@@ -159,7 +177,28 @@ def main():
         
         if nmap_only_options and args.file_type == 'nessus':
             log.warning(f"Ignoring Nmap-only options for Nessus file: {', '.join(nmap_only_options)}")
-    
+
+    # Check for Nessus/Burp-only options with other file types
+    if args.file_type in ['nmap'] or (args.file_type == 'auto' and Path(args.input_file).suffix.lower() == '.xml'):
+        nessus_burp_only_options = []
+        if args.consolidate:
+            nessus_burp_only_options.append("--consolidate")
+        if args.api_output:
+            nessus_burp_only_options.append("--api-output")
+        if args.rules_file:
+            nessus_burp_only_options.append("--rules-file")
+        if args.entity_limit:
+            nessus_burp_only_options.append("--entity-limit")
+        if args.log_exclusions:
+            nessus_burp_only_options.append("--log-exclusions")
+        if args.burp_consolidate:
+            nessus_burp_only_options.append("--burp-consolidate")
+        if args.burp_api_output:
+            nessus_burp_only_options.append("--burp-api-output")
+        
+        if nessus_burp_only_options and args.file_type == 'nmap':
+            log.warning(f"Ignoring Nessus/Burp-only options for Nmap file: {', '.join(nessus_burp_only_options)}")
+
     try:
         # Auto-detect file type if needed and display
         if args.file_type == "auto":
@@ -171,8 +210,8 @@ def main():
             input_file=args.input_file,
             file_type=args.file_type,
             port_status=args.port_status,
-            consolidate=args.consolidate,
-            api_format=args.api_output,
+            consolidate=args.consolidate or args.burp_consolidate,
+            api_format=args.api_output or args.burp_api_output,
             rules_file=args.rules_file,
             entity_limit=args.entity_limit,
             flat_json=args.flat_json,
