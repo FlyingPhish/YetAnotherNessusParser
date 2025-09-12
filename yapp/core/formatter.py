@@ -198,34 +198,38 @@ class APIFormatter:
         """
         Format affected services into HTML string for API consumption.
         Applies entity limit if configured.
-        
+
         Args:
             affected_services: Dictionary of affected services from consolidated data
-            
+
         Returns:
             HTML-formatted string with affected entities or CSV reference if limit exceeded
         """
         if not affected_services:
             return ""
-        
+
         entities = []
-        
+
         for service_key, service_data in affected_services.items():
             ip = service_data.get('ip', '')
-            fqdn = service_data.get('fqdn', '')
+            fqdn = service_data.get('fqdn', '').strip()
             port = service_data.get('port', '')
-            
-            # Add FQDN if available and not empty
-            if fqdn and fqdn.strip():
-                entities.append(fqdn.strip())
-            
-            # Add IP:port combination
-            if ip:
-                if port and port != '0':
-                    entities.append(f"{ip}:{port}")
-                else:
-                    entities.append(ip)
-        
+
+            if not ip:
+                continue  # skip if no IP
+
+            # Build base entity string
+            if port and port != '0':
+                entity = f"{ip}:{port}"
+            else:
+                entity = ip
+
+            # Append FQDN if present
+            if fqdn:
+                entity = f"{entity} ({fqdn})"
+
+            entities.append(entity)
+
         # Remove duplicates while preserving order
         unique_entities = []
         seen = set()
@@ -233,15 +237,15 @@ class APIFormatter:
             if entity not in seen:
                 unique_entities.append(entity)
                 seen.add(entity)
-        
+
         if not unique_entities:
             return ""
-        
+
         # Check entity limit if configured
         if self.entity_limit is not None and len(unique_entities) > self.entity_limit:
             logger.debug(f"Entity count ({len(unique_entities)}) exceeds limit ({self.entity_limit}), using CSV reference")
             return "<p>Please refer to external document named 'replaceMe'.csv</p>"
-        
+
         # Sort the entities
         sorted_entities = sorted(unique_entities)
 
