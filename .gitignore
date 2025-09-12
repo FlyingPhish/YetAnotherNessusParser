@@ -171,7 +171,7 @@ output/*.txt
 
 ## Input folder
 !input/.gitkeep
-input/*.nessus
+input/*
 
 ## General
 *.nessus

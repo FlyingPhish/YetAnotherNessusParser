@@ -3,14 +3,13 @@
     {
       "rule_name": "ssl_tls_protocol_weaknesses",
       "title": "SSL/TLS Protocol Weaknesses",
-      "internal_vulnerability_id": 999,
+      "internal_vulnerability_id": 166,
       "enabled": true,
       "filters": {
         "plugin_families": [],
         "name_patterns": [
           "TLS.*Version.*1\\.0.*Protocol.*Detection",
-          "TLS.*Version.*1\\.1.*Deprecated.*Protocol",
-          "TLS.*Version.*1\\.1.*Protocol.*Detection"
+          "TLS.*Version.*1\\.1.*Deprecated.*Protocol"
         ],
         "exclude_families": [],
         "exclude_name_patterns": [],
@@ -33,7 +32,7 @@
     {
       "rule_name": "certificate_issues",
       "title": "SSL Certificate Issues",
-      "internal_vulnerability_id": 998,
+      "internal_vulnerability_id": 173,
       "enabled": true,
       "filters": {
         "plugin_families": [],
@@ -60,7 +59,8 @@
         "exclude_name_patterns": [
           "SSL Certificate Information",
           "SSL Certificate Signed Using Weak Hashing Algorithm (Known CA)",
-          "SSL Root Certification Authority Certificate Information"
+          "SSL Root Certification Authority Certificate Information",
+          "SSL Service Requests Client Certificate"
         ],
         "plugin_output_patterns": [],
         "plugin_output_require_all": false,
@@ -75,7 +75,7 @@
     {
       "rule_name": "ssl_tls_algorithm_issues", 
       "title": "SSL/TLS Cipher and Algorithm Weaknesses",
-      "internal_vulnerability_id": 997,
+      "internal_vulnerability_id": 174,
       "enabled": true,
       "filters": {
         "plugin_families": [],
@@ -124,7 +124,7 @@
     {
       "rule_name": "ssh_weaknesses",
       "title": "SSH Weaknesses",
-      "internal_vulnerability_id": 996,
+      "internal_vulnerability_id": 177,
       "enabled": true,
       "filters": {
         "plugin_families": [],
@@ -152,7 +152,7 @@
     {
       "rule_name": "cleartext_services",
       "title": "Cleartext Services",
-      "internal_vulnerability_id": 995,
+      "internal_vulnerability_id": 175,
       "enabled": true,
       "filters": {
         "plugin_families": [],
@@ -160,7 +160,9 @@
           "vsftpd.*Detection",
           "FTP.*Server.*Detection",
           "TFTP.*Daemon.*Detection",
-          "Unencrypted.*Telnet.*Server"
+          "Unencrypted.*Telnet.*Server",
+          "VNC Server Unencrypted Communication Detection",
+          "Telnet Server Detection"
         ],
         "exclude_families": [],
         "exclude_name_patterns": [],
@@ -176,8 +178,8 @@
     },
     {
       "rule_name": "outdated_unsupported_software",
-      "title": "Outdated and Unsupported Third-Party Software", 
-      "internal_vulnerability_id": 994,
+      "title": "Outdated and Unsupported Software", 
+      "internal_vulnerability_id": 140,
       "enabled": true,
       "filters": {
         "plugin_families": [],
@@ -288,6 +290,74 @@
           "Bootstrap.*version.*[0-9]+",
           "\\.min\\.js.*version"
         ],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "remote_desktop_protocol_weaknesses",
+      "title": "Remote Desktop Protocol Weaknesses",
+      "internal_vulnerability_id": 178,
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "Remote Desktop Protocol Server Man-in-the-Middle Weakness",
+          "Terminal Services Doesn't Use Network Level Authentication (NLA) Only",
+          "Terminal Services Encryption Level is not FIPS-140 Compliant"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "smb_signing_not_enforced",
+      "title": "SMB Signing Not Enforced",
+      "internal_vulnerability_id": 117,
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "SMB Signing not required"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "dynamic_dns_injection",
+      "title": "Dynamic DNS Injection",
+      "internal_vulnerability_id": 176,
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "DNS Server Dynamic Update Record Injection"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
         "plugin_output_require_all": false,
         "exclude_plugin_output_patterns": [],
         "exclude_plugin_output_require_all": false

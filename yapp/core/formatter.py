@@ -242,10 +242,13 @@ class APIFormatter:
             logger.debug(f"Entity count ({len(unique_entities)}) exceeds limit ({self.entity_limit}), using CSV reference")
             return "<p>Please refer to external document named 'replaceMe'.csv</p>"
         
-        # Format as HTML with line breaks
-        entities_html = "<br />".join(unique_entities)
-        return f"<p>{entities_html}</p>"
-    
+        # Sort the entities
+        sorted_entities = sorted(unique_entities)
+
+        # Format as HTML with <ul> and <li> elements inside a <p>
+        list_items = "".join(f"<li>{e}</li>" for e in sorted_entities)
+        return f"<p><ul>{list_items}</ul></p>"
+
     def _format_affected_entities_plain(self, affected_services: Dict[str, Any]) -> List[str]:
         """
         Format affected services into plain list for alternative API formats.
