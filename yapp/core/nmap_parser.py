@@ -245,7 +245,7 @@ class NmapParser:
             
             # Process ports for this host
             ports_data = {}
-            port_counts = {"open": 0, "closed": 0, "filtered": 0}
+            port_counts = defaultdict(int)
             
             ports_elem = host_elem.find('ports')
             if ports_elem is not None:
@@ -262,7 +262,7 @@ class NmapParser:
                 "hostname": hostname,
                 "status": host_status,
                 "ports": ports_data,
-                "port_summary": port_counts
+                "port_summary": dict(port_counts)
             }
             
         return hosts
