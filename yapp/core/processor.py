@@ -5,6 +5,7 @@ from .nessus_parser import NessusParser
 from .nmap_parser import NmapParser
 from .consolidator import VulnerabilityConsolidator
 from .formatter import APIFormatter
+from .excel_formatter import ExcelFormatter
 from ..utils.file_utils import detect_file_type
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,7 @@ def process_file(
     port_status: str = "all",
     consolidate: bool = False,
     api_format: bool = False,
+    excel_format: bool = False,
     rules_file: str = None,
     entity_limit: int = None,
     output_dir: str = None,
@@ -27,28 +29,30 @@ def process_file(
     
     This is the main convenience function that handles the complete workflow:
     parsing, optional consolidation (Nessus only), optional API formatting (Nessus only),
-    and optional flat JSON output (Nmap only).
+    optional Excel formatting (consolidated JSON only), and optional flat JSON output (Nmap only).
     
     Args:
         input_file: Path to input file
-        file_type: File type ('auto', 'nessus', 'nmap')
+        file_type: File type ('auto', 'nessus', 'nmap', 'consolidated_json')
         port_status: Port status filter for Nmap ('all', 'open', 'closed', 'filtered')
         consolidate: Whether to apply consolidation rules (Nessus only)
         api_format: Whether to format for API consumption (Nessus only, requires consolidate=True)
+        excel_format: Whether to generate Excel report (consolidated JSON only)
         rules_file: Path to custom consolidation rules file (Nessus only)
         entity_limit: Maximum number of affected entities per API finding (Nessus only)
         output_dir: If provided, write JSON files to this directory
         custom_output_name: Custom name for the main parsed output file
         flat_json: Whether to generate flat JSON format compatible with legacy tools (Nmap only)
+        log_exclusions: Enable detailed exclusion logging during consolidation (Nessus only)
         
     Returns:
-        dict: Contains 'parsed', 'file_type', and optional 'consolidated'/'api_ready'/'flat_json' keys
+        dict: Contains 'parsed', 'file_type', and optional 'consolidated'/'api_ready'/'excel'/'flat_json' keys
         
     Raises:
         FileNotFoundError: If the input file doesn't exist
         ValueError: If the file type is unsupported or cannot be determined
         ConsolidationError: If consolidation fails (Nessus only)
-        FormatterError: If API formatting fails (Nessus only)
+        FormatterError: If API or Excel formatting fails
         
     Examples:
         Auto-detect and parse any supported file:
@@ -62,6 +66,13 @@ def process_file(
             ...     api_format=True,
             ...     entity_limit=10,
             ...     output_dir='./results'
+            ... )
+        
+        Generate Excel from consolidated JSON:
+            >>> results = process_file(
+            ...     'scan_Consolidated.json',
+            ...     file_type='consolidated_json',
+            ...     excel_format=True
             ... )
         
         Nmap with port filtering:
@@ -112,7 +123,29 @@ def process_file(
         if flat_json:
             flat_data = parser.parse_to_flat_json(port_status_filter=port_status)
             results['flat_json'] = flat_data
+    
+    elif file_type == "consolidated_json":
+        # Load consolidated JSON and generate Excel
+        import json
+        from pathlib import Path
         
+        input_path = Path(input_file)
+        if not input_path.exists():
+            raise FileNotFoundError(f"File not found: {input_file}")
+        
+        with open(input_path, 'r') as f:
+            consolidated_data = json.load(f)
+        
+        results['file_type'] = 'consolidated_json'
+        
+        # Generate Excel if requested
+        if excel_format:
+            excel_formatter = ExcelFormatter()
+            excel_workbook = excel_formatter.format(consolidated_data)
+            results['excel'] = excel_workbook
+            # Store consolidated data only for Excel generation (don't write it back out)
+            results['consolidated_loaded'] = consolidated_data
+    
     else:
         raise ValueError(f"Unsupported file type: {file_type}")
     

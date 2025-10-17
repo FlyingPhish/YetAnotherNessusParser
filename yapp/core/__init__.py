@@ -16,6 +16,7 @@ from .nessus_parser import NessusParser
 from .nmap_parser import NmapParser
 from .consolidator import VulnerabilityConsolidator, ConsolidationError
 from .formatter import APIFormatter, FormatterError
+from .excel_formatter import ExcelFormatter
 from .processor import process_file
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     # Processing classes
     'VulnerabilityConsolidator', 
     'APIFormatter',
+    'ExcelFormatter',
     
     # Main processing function
     'process_file',

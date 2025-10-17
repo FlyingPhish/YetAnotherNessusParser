@@ -262,3 +262,35 @@ def display_api_summary(api_data: List[Dict[str, Any]]):
                 print(f"  • Finding ID {Colors.GREEN}{finding_id}{Colors.RESET}")
     
     print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
+
+def display_excel_summary(consolidated_data: dict):
+    """Display formatted Excel generation summary matching YAPP aesthetic"""
+    if not consolidated_data or not consolidated_data.get('consolidated_vulnerabilities'):
+        return
+    
+    consolidated_vulns = consolidated_data['consolidated_vulnerabilities']
+    
+    # Calculate statistics
+    vuln_count = len(consolidated_vulns)
+    total_services = 0
+    total_plugins = 0
+    
+    for vuln_data in consolidated_vulns.values():
+        total_services += len(vuln_data.get('affected_services', {}))
+        total_plugins += len(vuln_data.get('consolidated_plugins', {}))
+    
+    # Print Excel Summary
+    print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}")
+    print(f"{Colors.WHITE}{Colors.BRIGHT}EXCEL REPORT GENERATED{Colors.RESET}")
+    print(f"{Colors.CYAN}{'-' * 50}{Colors.RESET}")
+    
+    print(f"{Colors.GREEN}{Colors.BRIGHT}✓ Excel workbook created successfully{Colors.RESET}")
+    
+    # Source Data Statistics
+    print(f"\n{Colors.WHITE}{Colors.BRIGHT}Source Data Summary:{Colors.RESET}")
+    print(f"  • Worksheets Created: {Colors.GREEN}{vuln_count}{Colors.RESET}")
+    print(f"  • Total Vulnerabilities: {Colors.GREEN}{vuln_count}{Colors.RESET}")
+    print(f"  • Consolidated Plugins: {Colors.CYAN}{total_plugins}{Colors.RESET}")
+    print(f"  • Affected Services: {Colors.CYAN}{total_services}{Colors.RESET}")
+    
+    print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")

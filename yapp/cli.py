@@ -12,6 +12,7 @@ from .utils.display import (
     display_summary, 
     display_consolidation_summary, 
     display_api_summary,
+    display_excel_summary,
     Colors
 )
 
@@ -34,12 +35,12 @@ def setup_argparse() -> argparse.ArgumentParser:
     parser.add_argument(
         '-i', '--input-file',
         required=True,
-        help='Path to input file (Nessus .nessus, Nmap .xml)'
+        help='Path to input file (Nessus .nessus, Nmap .xml, Consolidated JSON)'
     )
     
     parser.add_argument(
         '-t', '--file-type',
-        choices=['auto', 'nessus', 'nmap'],
+        choices=['auto', 'nessus', 'nmap', 'consolidated_json'],
         default='auto',
         help='Input file type (default: auto-detect)'
     )
@@ -101,6 +102,14 @@ def setup_argparse() -> argparse.ArgumentParser:
         help='Generate flat JSON format compatible with legacy tools (Nmap only)'
     )
     
+    # Excel output options
+    excel_group = parser.add_argument_group('Excel output options')
+    excel_group.add_argument(
+        '-e', '--excel-output',
+        action='store_true',
+        help='Generate Excel report (Consolidated JSON only)'
+    )
+    
     parser.add_argument(
         '--no-output',
         action='store_true',
@@ -134,8 +143,16 @@ def main():
         log.error("--entity-limit must be a positive integer")
         return 1
     
+    # Validate Excel output requirements
+    if args.excel_output and args.file_type not in ['auto', 'consolidated_json']:
+        log.error("--excel-output can only be used with consolidated JSON files")
+        log.error("Use -t consolidated_json or let auto-detect identify the file")
+        return 1
+    
     # Check for Nessus-only options with other file types
-    if args.file_type in ['nmap'] or (args.file_type == 'auto' and Path(args.input_file).suffix.lower() == '.xml'):
+    if args.file_type in ['nmap', 'consolidated_json'] or (
+        args.file_type == 'auto' and Path(args.input_file).suffix.lower() == '.xml'
+    ):
         nessus_only_options = []
         if args.consolidate:
             nessus_only_options.append("--consolidate")
@@ -148,17 +165,17 @@ def main():
         if args.log_exclusions:
             nessus_only_options.append("--log-exclusions")
         
-        if nessus_only_options and args.file_type == 'nmap':
-            log.warning(f"Ignoring Nessus-only options for Nmap file: {', '.join(nessus_only_options)}")
+        if nessus_only_options and args.file_type in ['nmap', 'consolidated_json']:
+            log.warning(f"Ignoring Nessus-only options for {args.file_type} file: {', '.join(nessus_only_options)}")
     
     # Check for Nmap-only options with other file types
-    if args.file_type in ['nessus'] or (args.file_type == 'auto' and Path(args.input_file).suffix.lower() == '.nessus'):
+    if args.file_type in ['nessus', 'consolidated_json'] or (args.file_type == 'auto' and Path(args.input_file).suffix.lower() == '.nessus'):
         nmap_only_options = []
         if args.flat_json:
             nmap_only_options.append("--flat-json")
         
-        if nmap_only_options and args.file_type == 'nessus':
-            log.warning(f"Ignoring Nmap-only options for Nessus file: {', '.join(nmap_only_options)}")
+        if nmap_only_options and args.file_type in ['nessus', 'consolidated_json']:
+            log.warning(f"Ignoring Nmap-only options for {args.file_type} file: {', '.join(nmap_only_options)}")
     
     try:
         # Auto-detect file type if needed and display
@@ -173,6 +190,7 @@ def main():
             port_status=args.port_status,
             consolidate=args.consolidate,
             api_format=args.api_output,
+            excel_format=args.excel_output,
             rules_file=args.rules_file,
             entity_limit=args.entity_limit,
             flat_json=args.flat_json,
@@ -188,6 +206,10 @@ def main():
         
         if 'api_ready' in results and results['api_ready']:
             display_api_summary(results['api_ready'])
+        
+        if 'excel' in results and results['excel']:
+            if 'consolidated_loaded' in results and results['consolidated_loaded']:
+                display_excel_summary(results['consolidated_loaded'])
         
         # Write output files unless disabled
         if not args.no_output:

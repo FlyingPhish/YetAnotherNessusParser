@@ -1,13 +1,13 @@
 # YAPP - Yet Another Pentest Parser
 
-![No External Dependencies](/.github/badges/no-dependencies.svg)
+![External Dependencies](/.github/badges/dependencies.svg)
 ![Py](/.github/badges/python.svg)
 
-> **"Same shit, different parser"** - but this time it's actually good. 🔥
+> **One parser to rule them all**
 
 **A powerful Python library and CLI tool for parsing and processing multiple pentesting tool outputs.**
 
-YAPP is a comprehensive solution for parsing pentesting tool outputs (Nessus, Nmap, and more) into structured JSON, with advanced consolidation capabilities and both programmatic and command-line interfaces. Built as an extensible framework with modularity, efficiency, and ease of use in mind.
+YAPP is a comprehensive solution for parsing pentesting tool outputs (Nessus, Nmap, and Burp-soon) into structured JSON, with advanced consolidation capabilities, excel outputting, and both programmatic and command-line interfaces. Built as an extensible framework with modularity, efficiency, and ease of use in mind.
 
 ## 🎯 Why YAPP Exists 
 The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most businesses treat capabilities development as an afterthought - they'd rather hire more people to combat performance and resource issues, rather than fix their piss-poor workflows and capabiltiies.
@@ -36,7 +36,7 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
 ### 🖥️ **Dual Interface Design**
 - **CLI Tool**: Beautiful command-line interface with colored output and tool-specific options
 - **Python Library**: Clean programmatic API for integration into your projects
-- **No External Dependencies**: Pure Python implementation
+- **One External Dependency**: It used to be 0 deps but `openpyxl` is needed for xlsx 
 
 ### 📊 **Advanced Nessus Processing**
 - Parse Nessus XML files into structured JSON/Python dictionaries
@@ -44,6 +44,7 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
 - Plugin output pattern matching and filtering
 - Rule-based vulnerability categorization
 - API-ready output formatting with entity limiting
+- **Excel report generation from consolidated findings**
 
 ### 🗺️ **Comprehensive Nmap Support**
 - Parse Nmap XML into structured format with service details
@@ -57,6 +58,7 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
 - Multiple FQDN support per host
 - Detailed vulnerability information (CVE, CVSS, affected systems)
 - Human-readable output with plugin/service names
+- **Consolidation rule logging -- easily debug consolidation rules by seeing what hasn't matched and why**
 
 ### ⚡ **Performance**
 **Benchmark Results (Nessus):**
@@ -115,10 +117,14 @@ pip install git+https://github.com/FlyingPhish/YetAnotherPentestParser.git --for
 - `-a, --api-output`: Generate API-ready format (requires -c)
 - `-r, --rules-file`: Custom consolidation rules file
 - `-el, --entity-limit`: Maximum entities per API finding
+- `--log-exclusions`: Enable detailed exclusion logging to file during consolidation (Nessus only - used to debug rules)
 
 **Nmap Options:**
 - `-s, --port-status`: Filter by port status (all, open, closed, filtered)
 - `-fj, --flat-json`: Generate flat JSON for legacy tool compatibility
+
+**Excel Options:**
+- `-e, --excel-output`: Generate Excel report (Consolidated JSON only)
 
 #### Basic parsing (auto-detects file type):
 ```bash
@@ -131,6 +137,20 @@ yapp -i scan.xml
 yapp -i scan.nessus -c -a -el 10 # If finding has > 10 affected, the API output will just say 'refer to external document'
 yapp -i scan.nessus -c -a
 ```
+
+#### Generate Excel report from consolidated findings (separate run):
+```bash
+# First: Parse and consolidate
+yapp -i scan.nessus -c
+
+# Then: Generate Excel from consolidated JSON
+yapp -i output/x_Consolidated_Findings.json -e
+```
+
+When using the `-e` flag on a consolidated JSON file, an Excel workbook is generated with one worksheet per consolidated finding. Each sheet contains:
+- **Columns**: FQDN, IP, Port, and one column per consolidated plugin showing Yes/No if that plugin affected the service
+- **Rows**: One row per affected service
+- **Worksheets**: One sheet per consolidated vulnerability (e.g., "SSL/TLS Protocol Weaknesses", "SSH Weaknesses")
 
 #### Nmap with port filtering and flat JSON:
 ```bash
@@ -192,6 +212,7 @@ yapp/
 │   ├── processor.py         # Main processing pipeline
 │   ├── nessus_parser.py     # Nessus XML parsing
 │   ├── nmap_parser.py       # Nmap XML parsing
+│   ├── excel_formatter.py   # Excel logic
 │   ├── consolidator.py      # Vulnerability consolidation
 │   └── formatter.py         # API output formatting
 ├── utils/                   # Utility modules
@@ -226,6 +247,21 @@ The consolidation engine intelligently groups related vulnerabilities, reducing 
 - **Weak Encryption**: Group protocol and cipher vulnerabilities
 - **JavaScript Libraries**: Separate web application library issues
 - **Operating System**: Group OS-specific updates and patches
+
+## 📊 Excel Report Generation
+Transform consolidated vulnerability data into structured Excel workbooks for easy analysis and validation.
+
+### Features:
+- **Matrix Layout**: One worksheet per vulnerability with Yes/No plugin indicators
+- **Service-Level Detail**: Each row shows FQDN, IP, Port, and which plugins affected it
+- **Consolidation Validation**: Quickly verify which plugins were grouped together
+- **Analyst-Friendly Format**: Familiar spreadsheet format for review and sign-off
+- **Automatic Naming**: Output filename matches input consolidated JSON file
+
+### Workflow:
+1. **Parse & Consolidate**: `yapp -i scan.nessus -c` → Creates consolidated JSON
+2. **Generate Excel**: `yapp -i scan_Consolidated.json -e` → Creates matching .xlsx file
+3. **Review**: Open Excel workbook with one sheet per consolidated vulnerability
 
 ## 🔬 Nessus Consolidation Engine + API Formatter
 You can use `-a` or `--api-output`, which transforms the results of your consolidation rules into a basic JSON structure that can be used with a reporting engine to turn Nessus results into findings within your pentest report engine. The output has been designed to work with my custom API for [Ghostwriter](https://github.com/GhostManager/Ghostwriter). (DM me on Twatter (x) if you want more info on this)
@@ -519,11 +555,11 @@ See [Module Expansion Guide](yapp/docs/Module%20Expansion.md) for detailed instr
 - [X] Auto file type detection
 - [X] Entity limiting for API output
 - [X] Extensible architecture
+- [X] Excel/XLSX output formats
+- [X] Verbose consolidation reporting
 
 ### Future Enhancements:
-- [ ] Verbose consolidation reporting
 - [ ] Enhanced type annotations
-- [ ] Excel/XLSX output formats
 - [ ] Additional tool parsers
 - [ ] Advanced filtering and querying
 - [ ] Intergrate functionality from [Nmap-Analysis](https://github.com/FlyingPhish/Nmap-Analysis)

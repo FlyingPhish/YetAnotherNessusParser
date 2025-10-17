@@ -9,7 +9,9 @@
         "plugin_families": [],
         "name_patterns": [
           "TLS.*Version.*1\\.0.*Protocol.*Detection",
-          "TLS.*Version.*1\\.1.*Deprecated.*Protocol"
+          "TLS.*Version.*1\\.1.*Deprecated.*Protocol",
+          "SSL Version 2 and 3 Protocol Detection",
+          "SSLv3 Padding Oracle On Downgraded Legacy Encryption Vulnerability \\(POODLE\\)"
         ],
         "exclude_families": [],
         "exclude_name_patterns": [],
@@ -58,7 +60,6 @@
         "exclude_families": [],
         "exclude_name_patterns": [
           "SSL Certificate Information",
-          "SSL Certificate Signed Using Weak Hashing Algorithm (Known CA)",
           "SSL Root Certification Authority Certificate Information",
           "SSL Service Requests Client Certificate"
         ],
@@ -91,7 +92,8 @@
           "SSL Cipher Block Chaining.*",
           "SSL.*Diffie-Hellman.*",
           "TLS.*Diffie-Hellman.*",
-          "SSL Medium Strength Cipher Suites Supported (SWEET32)"
+          "SSL Medium Strength Cipher Suites Supported (SWEET32)",
+          "SSL/TLS Diffie-Hellman Modulus <= 1024 Bits (Logjam)"
         ],
         "exclude_families": [],
         "exclude_name_patterns": [
@@ -135,7 +137,8 @@
           "SSH Weak Key Exchange Algorithms Enabled",
           "SSH Server CBC Mode Ciphers Enabled",
           "SSH Weak MAC Algorithms Enabled",
-          "SSH Terrapin Prefix Truncation Weakness \\(CVE-2023-48795\\)"
+          "SSH Terrapin Prefix Truncation Weakness \\(CVE-2023-48795\\)",
+          "SSH Protocol Version 1 Session Key Retrieval"
         ],
         "exclude_families": [],
         "exclude_name_patterns": [],
@@ -162,7 +165,8 @@
           "TFTP.*Daemon.*Detection",
           "Unencrypted.*Telnet.*Server",
           "VNC Server Unencrypted Communication Detection",
-          "Telnet Server Detection"
+          "Telnet Server Detection",
+          "rsh Service Detection"
         ],
         "exclude_families": [],
         "exclude_name_patterns": [],
@@ -193,14 +197,21 @@
           ".*obsolete.*",
           ".*End-of-Life.*",
           ".*EOL.*",
-          ".*<.*"
+          ".*<.*",
+          ".*Overflow.*",
+          ".*RCE.*",
+          ".*SSRF.*",
+          "ESXI.*",
+          "VMWare ESXi.*",
+          "Treck TCP.*"
         ],
         "exclude_families": [],
         "exclude_name_patterns": [
           ".*Operating System.*",
           ".*Windows OS.*",
           ".*Linux.*",
-          ".*Unix.*"
+          ".*Unix.*",
+          ".*JQuery.*"
         ],
         "plugin_output_patterns": [
           "Supported version",
@@ -222,7 +233,10 @@
           "no longer supported",
           "support.*ended",
           "deprecated.*version",
-          ".*Fixed version.*"
+          ".*Fixed version.*",
+          "version:.*",
+          ".*Fixed build.*",
+          "Detected Treck TCP.*stack"
         ],
         "plugin_output_require_all": false,
         "exclude_plugin_output_patterns": [
@@ -241,7 +255,10 @@
       "internal_vulnerability_id": 993,
       "enabled": true,
       "filters": {
-        "plugin_families": [],
+        "plugin_families": [
+          "Windows",
+          "General"
+        ],
         "name_patterns": [
           "Operating System Unsupported Version.*",
           "Unsupported Windows OS.*", 
@@ -254,7 +271,9 @@
           ".*Unix.*Unsupported.*"
         ],
         "exclude_families": [],
-        "exclude_name_patterns": [],
+        "exclude_name_patterns": [
+          "Microsoft Exchange Server.*"
+        ],
         "plugin_output_patterns": [],
         "plugin_output_require_all": false,
         "exclude_plugin_output_patterns": [],
@@ -275,7 +294,8 @@
           ".*Operating System.*",
           ".*Windows OS.*",
           ".*Linux.*",
-          ".*Unix.*"
+          ".*Unix.*",
+          "Patch Report"
         ],
         "plugin_output_patterns": [
           "\\.js\\n.*Installed version",
@@ -308,7 +328,8 @@
         "plugin_families": [],
         "name_patterns": [
           "Remote Desktop Protocol Server Man-in-the-Middle Weakness",
-          "Terminal Services Doesn't Use Network Level Authentication (NLA) Only",
+          "Terminal Services Doesn't Use Network Level Authentication \\(NLA\\) Only",
+          "Terminal Services Encryption Level is Medium or Low",
           "Terminal Services Encryption Level is not FIPS-140 Compliant"
         ],
         "exclude_families": [],
@@ -354,6 +375,144 @@
         "plugin_families": [],
         "name_patterns": [
           "DNS Server Dynamic Update Record Injection"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "default_web_dirs",
+      "title": "Default Web Resources",
+      "internal_vulnerability_id": 179,
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "Apache Tomcat Default Files",
+          "Sun ONE Application Server Upper Case Request JSP Source Disclosure",
+          "Multiple Server Crafted Request WEB-INF Directory Information Disclosure"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "null_smb_sessions",
+      "title": "Null SMB Sessions",
+      "internal_vulnerability_id": 53,
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "SMB NULL Session Authentication",
+          "SMB NULL Session Authentication.*"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "snmp_default_community",
+      "title": "SNMP Agent Default Community Name",
+      "internal_vulnerability_id": 46,
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "SNMP Agent Default Community Name \\(public\\)"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "snmp_getbulk",
+      "title": "SNMP 'GETBULK' Reflection DDoS",
+      "internal_vulnerability_id": 19,
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "SNMP 'GETBULK' Reflection DDoS"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": [
+        "ip",
+        "port"
+      ]
+    },
+    {
+      "rule_name": "windows_patches",
+      "title": "Missing Windows Updates", 
+      "internal_vulnerability_id": 180,
+      "enabled": true,
+      "filters": {
+        "plugin_families": [
+          "Windows"
+        ],
+        "name_patterns": [
+          "Microsoft Windows SMBv1 Multiple Vulnerabilities",
+          "Microsoft Windows EFSRPC NTLM Reflection Elevation of Privilege \\(PetitPotam\\) \\(Remote\\)",
+          "MS\\d{2}-\\d{3}.*",
+          ".*\\(CVE.*\\)"
+        ],
+        "exclude_families": [],
+        "exclude_name_patterns": [],
+        "plugin_output_patterns": [],
+        "plugin_output_require_all": false,
+        "exclude_plugin_output_patterns": [],
+        "exclude_plugin_output_require_all": false
+      },
+      "grouping_criteria": ["ip", "port"]
+    },
+    {
+      "rule_name": "smbv1",
+      "title": "SMBv1 Enabled",
+      "internal_vulnerability_id": 35,
+      "enabled": true,
+      "filters": {
+        "plugin_families": [],
+        "name_patterns": [
+          "Server Message Block \\(SMB\\) Protocol Version 1.*",
+          "Microsoft Windows SMBv1 Multiple Vulnerabilities"
         ],
         "exclude_families": [],
         "exclude_name_patterns": [],

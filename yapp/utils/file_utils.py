@@ -1,4 +1,5 @@
 import logging
+import json
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
@@ -14,7 +15,7 @@ def detect_file_type(file_path: Union[str, Path]) -> str:
         file_path: Path to the file to analyze
         
     Returns:
-        Detected file type: 'nessus', 'nmap', or 'unknown'
+        Detected file type: 'nessus', 'nmap', 'consolidated_json', or 'unknown'
         
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -37,6 +38,11 @@ def detect_file_type(file_path: Union[str, Path]) -> str:
         xml_type = _analyze_xml_content(file_path)
         if xml_type:
             return xml_type
+    elif extension == '.json':
+        # Check if it's a consolidated JSON file
+        json_type = _analyze_json_content(file_path)
+        if json_type:
+            return json_type
     
     # If extension-based detection failed, try content analysis
     try:
@@ -107,6 +113,29 @@ def _analyze_xml_content(file_path: Path) -> Optional[str]:
     except Exception:
         return None
 
+def _analyze_json_content(file_path: Path) -> Optional[str]:
+    """
+    Analyze JSON file content to determine if it's a consolidated JSON file.
+    
+    Args:
+        file_path: Path to the JSON file
+        
+    Returns:
+        'consolidated_json' if it's a consolidated vulnerability file, None otherwise
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Check for consolidated vulnerability structure
+        if isinstance(data, dict) and 'consolidated_vulnerabilities' in data:
+            logger.debug(f"Detected consolidated JSON file: {file_path}")
+            return 'consolidated_json'
+        
+        return None
+    except (json.JSONDecodeError, Exception):
+        return None
+
 def _analyze_file_content(file_path: Path) -> Optional[str]:
     """
     Analyze file content by reading the beginning of the file.
@@ -131,9 +160,9 @@ def _analyze_file_content(file_path: Path) -> Optional[str]:
                 elif '<report' in content and '<policy' in content:
                     return 'nessus'
             
-            # Could add JSON detection here for future JSON-based tools
-            # if content.strip().startswith('{') and '"tool_name"' in content:
-            #     return 'some_json_tool'
+            # Check for consolidated JSON structure
+            if content.strip().startswith('{') and 'consolidated_vulnerabilities' in content:
+                return 'consolidated_json'
             
         return None
     except Exception:
@@ -243,7 +272,7 @@ def write_results_to_files(results: Dict[str, Any], input_file: Union[str, Path]
     Write all processing results to appropriately named files.
     
     Args:
-        results: Dictionary containing parsed data and optional consolidated/API/flat_json data
+        results: Dictionary containing parsed data and optional consolidated/API/flat_json/excel data
         input_file: Original input file path (for naming)
         output_dir: Output directory path
         custom_output_name: Custom name for the main parsed file (optional)
@@ -302,6 +331,21 @@ def write_results_to_files(results: Dict[str, Any], input_file: Union[str, Path]
         flat_path = output_dir / flat_filename
         write_status['flat_json'] = write_json_output(results['flat_json'], flat_path)
     
+    # Write Excel file (Consolidated JSON only)
+    if 'excel' in results and results['excel']:
+        # Simply replace .json extension with .xlsx
+        input_path = Path(input_file)
+        excel_filename = input_path.stem + '.xlsx'
+        excel_path = output_dir / excel_filename
+        
+        try:
+            results['excel'].save(excel_path)
+            logger.info(f"Excel report written to: {excel_path}")
+            write_status['excel'] = True
+        except Exception as e:
+            logger.error(f"Failed to write Excel file: {e}")
+            write_status['excel'] = False
+    
     return write_status
 
 def get_package_resource_path(resource_path: str) -> Path:
@@ -324,7 +368,7 @@ def find_input_files(directory: Union[str, Path], file_types: list = None, recur
     
     Args:
         directory: Directory to search
-        file_types: List of file types to find (['nessus', 'nmap'] or None for all)
+        file_types: List of file types to find (['nessus', 'nmap', 'consolidated_json'] or None for all)
         recursive: Whether to search subdirectories
         
     Returns:
@@ -341,14 +385,15 @@ def find_input_files(directory: Union[str, Path], file_types: list = None, recur
         return {}
     
     if file_types is None:
-        file_types = ['nessus', 'nmap']
+        file_types = ['nessus', 'nmap', 'consolidated_json']
     
     found_files = {ft: [] for ft in file_types}
     
     # Define patterns for each file type
     patterns = {
         'nessus': ['*.nessus'],
-        'nmap': ['*.xml']  # Will need content analysis
+        'nmap': ['*.xml'],
+        'consolidated_json': ['*_Consolidated*.json']
     }
     
     for file_type in file_types:
@@ -360,18 +405,17 @@ def find_input_files(directory: Union[str, Path], file_types: list = None, recur
             
             files = list(directory.glob(search_pattern))
             
-            # For XML files, verify they're actually Nmap files
-            if file_type == 'nmap':
-                verified_files = []
-                for file_path in files:
-                    try:
-                        if detect_file_type(file_path) == 'nmap':
-                            verified_files.append(file_path)
-                    except Exception:
-                        continue
-                files = verified_files
+            # Verify files using detect_file_type
+            verified_files = []
+            for file_path in files:
+                try:
+                    detected = detect_file_type(file_path)
+                    if detected == file_type:
+                        verified_files.append(file_path)
+                except Exception:
+                    continue
             
-            found_files[file_type].extend(files)
+            found_files[file_type].extend(verified_files)
     
     # Log results
     total_files = sum(len(files) for files in found_files.values())
