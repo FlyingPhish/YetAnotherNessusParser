@@ -22,7 +22,7 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
     - Burnout & general negative vibes.
 
 
-![YAPP CLI Banner](https://github.com/user-attachments/assets/bd35da53-b726-4f4b-b68e-ff7bb8fa11e2)
+<img width="1235" height="849" alt="YAPP CLI Banner" src="https://github.com/user-attachments/assets/f1201566-934d-4c13-8228-d38eb10d6836" />
 
 
 ## ✨ Features
@@ -232,7 +232,6 @@ The consolidation engine intelligently groups related vulnerabilities, reducing 
 
 ![Consolidation Example](https://github.com/user-attachments/assets/8fc1f210-12d3-48ba-a651-dc9c3ee24048)
 
-
 ### Features:
 - **Smart Pattern Matching**: Regex patterns for vulnerability names and plugin output
 - **Plugin Output Filtering**: Search actual Nessus plugin output content
@@ -250,6 +249,9 @@ The consolidation engine intelligently groups related vulnerabilities, reducing 
 
 ## 📊 Excel Report Generation
 Transform consolidated vulnerability data into structured Excel workbooks for easy analysis and validation.
+
+<img width="689" height="555" alt="Excel Output CLI" src="https://github.com/user-attachments/assets/4c5b380d-4e0d-4c0a-b3e7-ce957fcc14de" />
+
 
 ### Features:
 - **Matrix Layout**: One worksheet per vulnerability with Yes/No plugin indicators
