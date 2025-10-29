@@ -21,9 +21,7 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
     - Cutting corners to meet deadlines.
     - Burnout & general negative vibes.
 
-
-<img width="1235" height="849" alt="YAPP CLI Banner" src="https://github.com/user-attachments/assets/f1201566-934d-4c13-8228-d38eb10d6836" />
-
+<img width="536" height="470" alt="image" src="https://github.com/user-attachments/assets/a0f96d93-f908-42f6-85a3-deed0b37c6a5" />
 
 ## ✨ Features
 
@@ -217,6 +215,10 @@ You can use `-a` or `--api-output`, which transforms the results of your consoli
 You can see the proper output in the below sections
 
 ![Nmap Analysis CLI Output](https://github.com/user-attachments/assets/37bc4dae-85b4-4a7a-80d0-9597e91337dd)
+
+### 📊 Nmap Result Comparisons
+
+<img width="628" height="534" alt="image" src="https://github.com/user-attachments/assets/91804d3e-f976-4f8e-9efd-c296c5ca5db9" />
 
 
 ## 📋 Output Formats
