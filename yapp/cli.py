@@ -4,7 +4,7 @@ from pathlib import Path
 
 from .core.consolidator import ConsolidationError
 from .core.formatter import FormatterError
-from .core.processor import process_file
+from .core.processor import process_file, process_nmap_comparison
 from .utils import setup_logging, write_results_to_files
 from .utils.file_utils import ensure_output_directory, detect_file_type
 from .utils.display import (
@@ -13,6 +13,7 @@ from .utils.display import (
     display_consolidation_summary, 
     display_api_summary,
     display_excel_summary,
+    display_nmap_comparison_summary,
     Colors
 )
 
@@ -33,107 +34,141 @@ def setup_argparse() -> argparse.ArgumentParser:
     )
     
     parser.add_argument(
+        '--version',
+        action='version',
+        version=f'%(prog)s {__version__}'
+    )
+    
+    # Create subparsers for commands
+    subparsers = parser.add_subparsers(
+        dest='command',
+        help='Available commands',
+        metavar='{parse,compare}'
+    )
+    
+    # ===== PARSE COMMAND (default) =====
+    parse_parser = subparsers.add_parser(
+        'parse',
+        help='Parse and process pentesting files (Nessus/Nmap/JSON)'
+    )
+    
+    parse_parser.add_argument(
         '-i', '--input-file',
         required=True,
         help='Path to input file (Nessus .nessus, Nmap .xml, Consolidated JSON)'
     )
     
-    parser.add_argument(
+    parse_parser.add_argument(
         '-t', '--file-type',
         choices=['auto', 'nessus', 'nmap', 'consolidated_json'],
         default='auto',
         help='Input file type (default: auto-detect)'
     )
     
-    parser.add_argument(
+    parse_parser.add_argument(
         '-of', '--output-folder',
         default='./output',
         help='Output folder path (default: ./output)'
     )
     
-    parser.add_argument(
+    parse_parser.add_argument(
         '-on', '--output-name',
         help='Output file name (default: timestamp_<original-name>_Parsed.json)'
     )
     
-    # Nessus-specific options
-    nessus_group = parser.add_argument_group('Nessus options')
-    nessus_group.add_argument(
-        '-c', '--consolidate',
-        action='store_true',
-        help='Generate consolidated findings file based on rules (Nessus only)'
-    )
-    
-    nessus_group.add_argument(
-        '-a', '--api-output',
-        action='store_true',
-        help='Generate API-ready JSON format (requires --consolidate, Nessus only)'
-    )
-    
-    nessus_group.add_argument(
-        '-r', '--rules-file',
-        help='Custom consolidation rules file (Nessus only)'
-    )
-    
-    nessus_group.add_argument(
-        '-el', '--entity-limit',
-        type=int,
-        help='Maximum number of affected entities per API finding (Nessus only)'
-    )
-    
-    nessus_group.add_argument(
-        '--log-exclusions',
-        action='store_true',
-        help='Enable detailed exclusion logging to file during consolidation (Nessus only)'
-    )
-    
-    # Nmap-specific options
-    nmap_group = parser.add_argument_group('Nmap options')
-    nmap_group.add_argument(
-        '-s', '--port-status',
-        choices=['all', 'open', 'closed', 'filtered'],
-        default='all',
-        help='Filter by port status (Nmap only, default: all)'
-    )
-    
-    nmap_group.add_argument(
-        '-fj', '--flat-json',
-        action='store_true',
-        help='Generate flat JSON format compatible with legacy tools (Nmap only)'
-    )
-    
-    # Excel output options
-    excel_group = parser.add_argument_group('Excel output options')
-    excel_group.add_argument(
-        '-e', '--excel-output',
-        action='store_true',
-        help='Generate Excel report (Consolidated JSON only)'
-    )
-    
-    parser.add_argument(
+    parse_parser.add_argument(
         '--no-output',
         action='store_true',
         help='Skip writing files, only display results'
     )
     
-    parser.add_argument(
-        '--version',
-        action='version',
-        version=f'%(prog)s {__version__}'
+    # Nessus-specific options
+    nessus_group = parse_parser.add_argument_group('Nessus options')
+    nessus_group.add_argument(
+        '-c', '--consolidate',
+        action='store_true',
+        help='Generate consolidated findings file'
+    )
+    
+    nessus_group.add_argument(
+        '-a', '--api-output',
+        action='store_true',
+        help='Generate API-ready JSON (requires --consolidate)'
+    )
+    
+    nessus_group.add_argument(
+        '-r', '--rules-file',
+        help='Custom consolidation rules file'
+    )
+    
+    nessus_group.add_argument(
+        '-el', '--entity-limit',
+        type=int,
+        help='Max entities per API finding'
+    )
+    
+    nessus_group.add_argument(
+        '--log-exclusions',
+        action='store_true',
+        help='Enable detailed exclusion logging'
+    )
+    
+    # Nmap-specific options
+    nmap_group = parse_parser.add_argument_group('Nmap options')
+    nmap_group.add_argument(
+        '-s', '--port-status',
+        choices=['all', 'open', 'closed', 'filtered'],
+        default='all',
+        help='Filter by port status (default: all)'
+    )
+    
+    nmap_group.add_argument(
+        '-fj', '--flat-json',
+        action='store_true',
+        help='Generate flat JSON format'
+    )
+    
+    # Excel output options
+    excel_group = parse_parser.add_argument_group('Excel options')
+    excel_group.add_argument(
+        '-e', '--excel-output',
+        action='store_true',
+        help='Generate Excel report (consolidated JSON input only)'
+    )
+    
+    # ===== COMPARE COMMAND =====
+    compare_parser = subparsers.add_parser(
+        'compare',
+        help='Compare two Nmap XML scans'
+    )
+    
+    compare_parser.add_argument(
+        '-ff', '--first-file',
+        required=True,
+        help='Path to first Nmap XML file'
+    )
+    
+    compare_parser.add_argument(
+        '-lf', '--last-file',
+        required=True,
+        help='Path to second Nmap XML file'
+    )
+    
+    compare_parser.add_argument(
+        '-of', '--output-folder',
+        default='./output',
+        help='Output folder path (default: ./output)'
+    )
+    
+    compare_parser.add_argument(
+        '-on', '--output-name',
+        help='Custom output filename (without extension)'
     )
     
     return parser
 
-def main():
-    """Main CLI execution function"""
-    print_banner(__version__)
-    
-    # Setup logging
-    log = setup_logging()
-    
-    # Parse arguments
-    args = setup_argparse().parse_args()
-    
+def handle_parse(args, log):
+    """Handle parse command"""
     # Validate arguments
     if args.api_output and not args.consolidate:
         log.error("--api-output requires --consolidate flag")
@@ -241,6 +276,79 @@ def main():
         return 1
     except Exception as e:
         log.error(f"Unexpected error: {str(e)}")
+        return 1
+
+def handle_compare(args, log):
+    """Handle compare command"""
+    try:
+        # Validate input files
+        first_path = Path(args.first_file)
+        last_path = Path(args.last_file)
+        
+        if not first_path.exists():
+            log.error(f"First file not found: {args.first_file}")
+            return 1
+        
+        if not last_path.exists():
+            log.error(f"Second file not found: {args.last_file}")
+            return 1
+        
+        # Process comparison
+        results = process_nmap_comparison(
+            first_file=args.first_file,
+            second_file=args.last_file,
+            output_dir=args.output_folder,
+            custom_output_name=args.output_name
+        )
+        
+        # Display comparison summary
+        display_nmap_comparison_summary(results['comparison'])
+        
+        # Display output file info
+        if 'excel_file_path' in results:
+            print(f"\n{Colors.GREEN}{Colors.BRIGHT}✓ Excel comparison report saved:{Colors.RESET}")
+            print(f"  {Colors.CYAN}{results['excel_file_path']}{Colors.RESET}\n")
+        
+        return 0
+        
+    except FileNotFoundError as e:
+        log.error(f"File not found: {e}")
+        return 1
+    except Exception as e:
+        log.error(f"Comparison failed: {str(e)}")
+        return 1
+
+def main():
+    """Main CLI execution function"""
+    print_banner(__version__)
+    
+    # Setup logging
+    log = setup_logging()
+    
+    # Parse arguments
+    parser = setup_argparse()
+    args = parser.parse_args()
+    
+    # Default to parse command if no command specified (backward compatibility)
+    if not args.command:
+        # Check if user provided -i flag (old style)
+        if len(sys.argv) > 1 and ('-i' in sys.argv or '--input-file' in sys.argv):
+            # Insert 'parse' command at beginning
+            sys.argv.insert(1, 'parse')
+            args = parser.parse_args()
+        else:
+            # No command and no -i flag, show help
+            parser.print_help()
+            return 1
+    
+    # Route to appropriate handler
+    if args.command == 'parse':
+        return handle_parse(args, log)
+    elif args.command == 'compare':
+        return handle_compare(args, log)
+    else:
+        log.error(f"Unknown command: {args.command}")
+        parser.print_help()
         return 1
 
 def cli_entry_point():

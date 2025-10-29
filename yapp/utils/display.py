@@ -294,3 +294,33 @@ def display_excel_summary(consolidated_data: dict):
     print(f"  • Affected Services: {Colors.CYAN}{total_services}{Colors.RESET}")
     
     print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")
+
+def display_nmap_comparison_summary(comparison_data: dict):
+    """Display formatted Nmap comparison summary"""
+    metadata = comparison_data['comparison_metadata']
+    
+    print(f"{Colors.CYAN}{'=' * 50}{Colors.RESET}")
+    print(f"{Colors.WHITE}{Colors.BRIGHT}NMAP COMPARISON SUMMARY{Colors.RESET}")
+    print(f"{Colors.CYAN}{'-' * 50}{Colors.RESET}")
+    
+    print(f"{Colors.WHITE}{Colors.BRIGHT}Comparison Statistics:{Colors.RESET}")
+    print(f"  • Total IPs Compared: {Colors.GREEN}{metadata['total_ips']}{Colors.RESET}")
+    print(f"  • Total Comparisons: {Colors.GREEN}{metadata['total_comparisons']}{Colors.RESET}")
+    print(f"  • Differences Found: {Colors.YELLOW}{metadata['differences_found']}{Colors.RESET}")
+    
+    # Service distribution
+    stats = comparison_data['statistics']
+    service_counts = stats.get('service_counts', {})
+    
+    if service_counts:
+        print(f"\n{Colors.WHITE}{Colors.BRIGHT}Service Distribution:{Colors.RESET}")
+        sorted_services = sorted(
+            service_counts.items(),
+            key=lambda x: x[1]['count'],
+            reverse=True
+        )[:10]
+        
+        for service, details in sorted_services:
+            print(f"  • {service}: {Colors.GREEN}{details['count']}{Colors.RESET} instances across {Colors.CYAN}{details['ips']}{Colors.RESET} IPs")
+    
+    print(f"\n{Colors.CYAN}{'=' * 50}{Colors.RESET}\n")

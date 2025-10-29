@@ -1,6 +1,6 @@
 """
 yapp/core/excel_formatter.py
-Excel report generator for consolidated vulnerability data
+Excel report generator for consolidated vulnerability data and Nmap comparison
 """
 
 import logging
@@ -14,8 +14,7 @@ logger = logging.getLogger(__name__)
 
 class ExcelFormatter:
     """
-    Formats consolidated vulnerability data into Excel workbook.
-    Creates one sheet per vulnerability with affected services.
+    Formats consolidated vulnerability data and Nmap comparison data into Excel workbooks.
     """
     
     def __init__(self):
@@ -63,6 +62,89 @@ class ExcelFormatter:
         except Exception as e:
             logger.error(f"Excel formatting failed: {str(e)}")
             raise FormatterError(f"Failed to format Excel: {str(e)}")
+    
+    def format_nmap_comparison(
+        self,
+        comparison_data: Dict[str, Any],
+        first_filename: str,
+        second_filename: str
+    ) -> Optional[Workbook]:
+        """
+        Generate Excel workbook from Nmap comparison data.
+        
+        Args:
+            comparison_data: Comparison data from NmapComparator with structure:
+                {
+                    'comparison_metadata': {...},
+                    'comparison_data': [...],
+                    'statistics': {...}
+                }
+            first_filename: Name of first scan file
+            second_filename: Name of second scan file
+            
+        Returns:
+            Workbook object ready to save, or None if no valid data
+            
+        Raises:
+            FormatterError: If data validation or formatting fails
+        """
+        try:
+            if not comparison_data or not comparison_data.get('comparison_data'):
+                logger.warning("No comparison data found for Excel formatting")
+                return None
+            
+            wb = Workbook()
+            
+            # Create comparison sheet
+            self._create_comparison_sheet(
+                wb,
+                comparison_data['comparison_data'],
+                first_filename,
+                second_filename
+            )
+            
+            logger.info(f"Successfully formatted Nmap comparison into Excel workbook")
+            return wb
+            
+        except Exception as e:
+            logger.error(f"Excel comparison formatting failed: {str(e)}")
+            raise FormatterError(f"Failed to format Excel comparison: {str(e)}")
+    
+    def _create_comparison_sheet(
+        self,
+        wb: Workbook,
+        comparison_data: list,
+        first_filename: str,
+        second_filename: str
+    ) -> None:
+        """
+        Create comparison worksheet with port/service differences.
+        
+        Args:
+            wb: Workbook to add sheet to
+            comparison_data: List of comparison tuples
+            first_filename: Name of first scan
+            second_filename: Name of second scan
+        """
+        ws = wb.active
+        ws.title = "Scan Comparison"
+        
+        # Add headers
+        headers = [
+            'IP Address',
+            f'{first_filename} - Port/Protocol',
+            f'{first_filename} - Service',
+            f'{second_filename} - Port/Protocol',
+            f'{second_filename} - Service',
+            'Differences'
+        ]
+        ws.append(headers)
+        
+        # Add comparison data rows
+        for row in comparison_data:
+            ws.append(row)
+        
+        logger.debug(f"Created comparison sheet with {len(comparison_data)} rows")
     
     def _create_vulnerability_sheet(
         self, 

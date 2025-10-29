@@ -26,6 +26,7 @@ from .display import (
     display_nmap_summary,
     display_consolidation_summary,
     display_api_summary,
+    display_nmap_comparison_summary,
     Colors
 )
 
@@ -58,5 +59,6 @@ __all__ = [
     'display_nmap_summary',
     'display_consolidation_summary',
     'display_api_summary',
+    'display_nmap_comparison_summary',
     'Colors'
 ]

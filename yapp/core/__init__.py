@@ -14,23 +14,26 @@ Future parsers can be added following the same interface pattern.
 
 from .nessus_parser import NessusParser
 from .nmap_parser import NmapParser
+from .nmap_comparator import NmapComparator
 from .consolidator import VulnerabilityConsolidator, ConsolidationError
 from .formatter import APIFormatter, FormatterError
 from .excel_formatter import ExcelFormatter
-from .processor import process_file
+from .processor import process_file, process_nmap_comparison
 
 __all__ = [
     # Core parsers
     'NessusParser',
     'NmapParser',
+    'NmapComparator',
     
     # Processing classes
     'VulnerabilityConsolidator', 
     'APIFormatter',
     'ExcelFormatter',
     
-    # Main processing function
+    # Main processing functions
     'process_file',
+    'process_nmap_comparison',
     
     # Exceptions
     'ConsolidationError',

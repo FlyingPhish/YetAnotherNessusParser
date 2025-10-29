@@ -155,3 +155,103 @@ def process_file(
         write_results_to_files(results, input_file, output_dir, custom_output_name)
     
     return results
+
+def process_nmap_comparison(
+    first_file: str,
+    second_file: str,
+    output_dir: str = None,
+    custom_output_name: str = None
+) -> Dict[str, Any]:
+    """
+    Process Nmap comparison between two scan files.
+    
+    This function handles the complete workflow for comparing two Nmap XML scans:
+    parsing both files, comparing ports and services, generating statistics,
+    and creating an Excel report with comparison data and pie charts.
+    
+    Args:
+        first_file: Path to first Nmap XML file
+        second_file: Path to second Nmap XML file
+        output_dir: Optional output directory for Excel file
+        custom_output_name: Optional custom name for output file
+        
+    Returns:
+        dict: Contains 'comparison', 'excel', and 'file_type' keys
+        
+    Raises:
+        FileNotFoundError: If either input file doesn't exist
+        ValueError: If files are not valid Nmap XML files
+        FormatterError: If Excel formatting fails
+        
+    Examples:
+        Basic comparison:
+            >>> results = process_nmap_comparison('scan1.xml', 'scan2.xml')
+            >>> excel_wb = results['excel']
+            
+        With custom output:
+            >>> results = process_nmap_comparison(
+            ...     'scan1.xml',
+            ...     'scan2.xml',
+            ...     output_dir='./comparison_reports',
+            ...     custom_output_name='network_comparison'
+            ... )
+    """
+    from pathlib import Path
+    from .nmap_parser import NmapParser
+    from .nmap_comparator import NmapComparator
+    from .excel_formatter import ExcelFormatter
+    
+    results = {}
+    
+    # Get filenames for display
+    first_filename = Path(first_file).stem
+    second_filename = Path(second_file).stem
+    
+    # Parse both files
+    first_parser = NmapParser(first_file)
+    first_parsed = first_parser.parse(port_status_filter='open')
+    
+    second_parser = NmapParser(second_file)
+    second_parsed = second_parser.parse(port_status_filter='open')
+    
+    # Perform comparison
+    comparator = NmapComparator()
+    comparison_data = comparator.compare(
+        first_parsed,
+        second_parsed,
+        first_filename,
+        second_filename
+    )
+    
+    results['comparison'] = comparison_data
+    results['file_type'] = 'nmap_comparison'
+    
+    # Generate Excel report
+    logger.info("Generating Excel comparison report")
+    formatter = ExcelFormatter()
+    excel_workbook = formatter.format_nmap_comparison(
+        comparison_data,
+        first_filename,
+        second_filename
+    )
+    
+    results['excel'] = excel_workbook
+    
+    # Write Excel file if output directory specified
+    if output_dir and excel_workbook:
+        from datetime import datetime
+        from ..utils.file_utils import ensure_output_directory
+        
+        output_path = ensure_output_directory(output_dir)
+        
+        if custom_output_name:
+            excel_filename = f"{custom_output_name}.xlsx"
+        else:
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            excel_filename = f"Nmap_Comparison_{timestamp}.xlsx"
+        
+        excel_file_path = output_path / excel_filename
+        excel_workbook.save(excel_file_path)
+        results['excel_file_path'] = str(excel_file_path)
+    
+    return results

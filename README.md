@@ -29,7 +29,7 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
 
 ### 🔧 **Multi-Tool Support**
 - **Nessus XML**: Full vulnerability parsing with consolidation and API formatting
-- **Nmap XML**: Service discovery with port filtering and flat JSON output
+- **Nmap XML**: Service discovery with port filtering, flat JSON output, and a comparison spreadsheet between two scans
 - **Extensible Framework**: Easy to add new parsers following established patterns
 - **Auto-Detection**: Automatically identifies file types
 
@@ -51,6 +51,7 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
 - Port status filtering (open, closed, filtered)
 - Flat JSON output for legacy tool compatibility
 - Service enumeration and script output capture
+- Compare two Nmap XML files and output differences into spreadsheet
 
 ### 🎯 **Intelligence & Analytics**
 - Track vulnerabilities globally and per host (Nessus)
@@ -104,127 +105,69 @@ pip install git+https://github.com/FlyingPhish/YetAnotherPentestParser.git --for
 
 ### 🖥️ Command Line Interface
 
-**Core Arguments:**
-- `-i, --input-file`: Path to input file (required)
-- `-t, --file-type`: File type (auto, nessus, nmap) - auto-detects by default
-- `-of, --output-folder`: Output directory (default: ./output)
-- `-on, --output-name`: Custom output filename
-- `--no-output`: Display results only, don't write files
-- `--version`: What it says on the tin
+```
+usage: yapp [-h] [--version] {parse,compare} ...
 
-**Nessus Options:**
-- `-c, --consolidate`: Enable vulnerability consolidation
-- `-a, --api-output`: Generate API-ready format (requires -c)
-- `-r, --rules-file`: Custom consolidation rules file
-- `-el, --entity-limit`: Maximum entities per API finding
-- `--log-exclusions`: Enable detailed exclusion logging to file during consolidation (Nessus only - used to debug rules)
+YAPP - Swiss Army Knife for Pentester File Processing
 
-**Nmap Options:**
-- `-s, --port-status`: Filter by port status (all, open, closed, filtered)
-- `-fj, --flat-json`: Generate flat JSON for legacy tool compatibility
+positional arguments:
+  {parse,compare}  Available commands
+    parse          Parse and process pentesting files (Nessus/Nmap/JSON)
+    compare        Compare two Nmap XML scans
 
-**Excel Options:**
-- `-e, --excel-output`: Generate Excel report (Consolidated JSON only)
-
-#### Basic parsing (auto-detects file type):
-```bash
-yapp -i scan.nessus
-yapp -i scan.xml
+options:
+  -h, --help       show this help message and exit
+  --version        show program's version number and exit
 ```
 
-#### Nessus with consolidation and API formatting:
-```bash
-yapp -i scan.nessus -c -a -el 10 # If finding has > 10 affected, the API output will just say 'refer to external document'
-yapp -i scan.nessus -c -a
+### 🖥️ Command Line Interface - Parse
+```
+yapp parse -h
+
+options:
+  -h, --help            show this help message and exit
+  -i, --input-file INPUT_FILE
+                        Path to input file (Nessus .nessus, Nmap .xml, Consolidated JSON)
+  -t, --file-type {auto,nessus,nmap,consolidated_json}
+                        Input file type (default: auto-detect)
+  -of, --output-folder OUTPUT_FOLDER
+                        Output folder path (default: ./output)
+  -on, --output-name OUTPUT_NAME
+                        Output file name (default: timestamp_<original-name>_Parsed.json)
+  --no-output           Skip writing files, only display results
+
+Nessus options:
+  -c, --consolidate     Generate consolidated findings file
+  -a, --api-output      Generate API-ready JSON (requires --consolidate)
+  -r, --rules-file RULES_FILE
+                        Custom consolidation rules file
+  -el, --entity-limit ENTITY_LIMIT
+                        Max entities per API finding
+  --log-exclusions      Enable detailed exclusion logging
+
+Nmap options:
+  -s, --port-status {all,open,closed,filtered}
+                        Filter by port status (default: all)
+  -fj, --flat-json      Generate flat JSON format
+
+Excel options:
+  -e, --excel-output    Generate Excel report (consolidated JSON input only)
 ```
 
-#### Generate Excel report from consolidated findings (separate run):
-```bash
-# First: Parse and consolidate
-yapp -i scan.nessus -c
-
-# Then: Generate Excel from consolidated JSON
-yapp -i output/x_Consolidated_Findings.json -e
+### 🖥️ Command Line Interface - Compare
 ```
+yapp compare -h
 
-When using the `-e` flag on a consolidated JSON file, an Excel workbook is generated with one worksheet per consolidated finding. Each sheet contains:
-- **Columns**: FQDN, IP, Port, and one column per consolidated plugin showing Yes/No if that plugin affected the service
-- **Rows**: One row per affected service
-- **Worksheets**: One sheet per consolidated vulnerability (e.g., "SSL/TLS Protocol Weaknesses", "SSH Weaknesses")
-
-#### Nmap with port filtering and flat JSON:
-```bash
-yapp -i scan.xml -s open --flat-json
-```
-
-#### Custom output with specific file type:
-```bash
-yapp -i scan.xml -t nmap -of ./reports -on results.json
-```
-
-#### Display results without saving files:
-```bash
-yapp -i scan.nessus --no-output -c
-```
-
-### 🐍 Python Library
-
-```python
-from yapp import process_file
-
-# Auto-detect and parse any supported file
-results = process_file('scan.nessus')  # or scan.xml
-
-# Nessus with full pipeline
-nessus_results = process_file(
-    'scan.nessus',
-    consolidate=True,
-    api_format=True,
-    entity_limit=10
-)
-
-# Nmap with filtering and flat JSON
-nmap_results = process_file(
-    'scan.xml',
-    port_status='open',
-    flat_json=True
-)
-
-# Access parsed data
-nessus_data = nessus_results['parsed']
-consolidated = nessus_results.get('consolidated')
-api_ready = nessus_results.get('api_ready')
-
-nmap_data = nmap_results['parsed']
-flat_json = nmap_results.get('flat_json')
-```
-
-For comprehensive examples, see [Library Usage Examples](examples/library_usage.py) and [Library Documentation](yapp/docs/Library%20Usage.md)
-
-## 🏗️ Project Structure
-
-```
-yapp/
-├── __init__.py              # Main package API
-├── cli.py                   # CLI interface
-├── core/                    # Core processing modules
-│   ├── __init__.py
-│   ├── processor.py         # Main processing pipeline
-│   ├── nessus_parser.py     # Nessus XML parsing
-│   ├── nmap_parser.py       # Nmap XML parsing
-│   ├── excel_formatter.py   # Excel logic
-│   ├── consolidator.py      # Vulnerability consolidation
-│   └── formatter.py         # API output formatting
-├── utils/                   # Utility modules
-│   ├── __init__.py
-│   ├── file_utils.py        # File operations & detection
-│   ├── json_utils.py        # JSON handling
-│   ├── display.py           # CLI output formatting
-│   └── logger.py            # Logging utilities
-└── config/                  # Configuration
-    ├── __init__.py
-    ├── default_rules.json    # Default consolidation rules
-    └── consolidation_README.md
+options:
+  -h, --help            show this help message and exit
+  -ff, --first-file FIRST_FILE
+                        Path to first Nmap XML file
+  -lf, --last-file LAST_FILE
+                        Path to second Nmap XML file
+  -of, --output-folder OUTPUT_FOLDER
+                        Output folder path (default: ./output)
+  -on, --output-name OUTPUT_NAME
+                        Custom output filename (without extension)
 ```
 
 ## 🔬 Nessus Consolidation Engine
@@ -528,6 +471,68 @@ When using the `-c` flag, an additional consolidated findings file is generated:
 ]
 ```
 
+## 🏗️ Project Structure
+
+```
+yapp/
+├── __init__.py              # Main package API
+├── cli.py                   # CLI interface
+├── core/                    # Core processing modules
+│   ├── __init__.py
+│   ├── processor.py         # Main processing pipeline
+│   ├── nessus_parser.py     # Nessus XML parsing
+│   ├── nmap_comparator.py   # Nmap comparison
+│   ├── nmap_parser.py       # Nmap XML parsing
+│   ├── excel_formatter.py   # Excel logic
+│   ├── consolidator.py      # Vulnerability consolidation
+│   └── formatter.py         # API output formatting
+├── utils/                   # Utility modules
+│   ├── __init__.py
+│   ├── file_utils.py        # File operations & detection
+│   ├── json_utils.py        # JSON handling
+│   ├── display.py           # CLI output formatting
+│   └── logger.py            # Logging utilities
+└── config/                  # Configuration
+    ├── __init__.py
+    ├── default_rules.json    # Default consolidation rules
+    └── consolidation_README.md
+```
+
+### 🐍 Python Library
+
+```python
+from yapp import process_file
+
+# Auto-detect and parse any supported file
+results = process_file('scan.nessus')  # or scan.xml
+
+# Nessus with full pipeline
+nessus_results = process_file(
+    'scan.nessus',
+    consolidate=True,
+    api_format=True,
+    entity_limit=10
+)
+
+# Nmap with filtering and flat JSON
+nmap_results = process_file(
+    'scan.xml',
+    port_status='open',
+    flat_json=True
+)
+
+# Access parsed data
+nessus_data = nessus_results['parsed']
+consolidated = nessus_results.get('consolidated')
+api_ready = nessus_results.get('api_ready')
+
+nmap_data = nmap_results['parsed']
+flat_json = nmap_results.get('flat_json')
+```
+
+For comprehensive examples, see [Library Usage Examples](examples/library_usage.py) and [Library Documentation](yapp/docs/Library%20Usage.md)
+
+
 ## 🔧 Framework Extension
 
 YAPP is designed as an extensible framework. Adding support for new pentesting tools follows a consistent pattern:
@@ -540,12 +545,13 @@ YAPP is designed as an extensible framework. Adding support for new pentesting t
 
 See [Module Expansion Guide](yapp/docs/Module%20Expansion.md) for detailed instructions.
 
+## 📈 Roadmap
+
 ### Supported Tools:
 - ✅ **Nessus** (.nessus XML files)
 - ✅ **Nmap** (.xml XML files)
+- 🔄 **Burp**: Branch created with core burp functionality - pending
 - 🔄 **Framework ready for**: Masscan, Nuclei, OpenVAS, and more
-
-## 📈 Roadmap
 
 ### Current Version Features:
 - [X] Make the damned tool
@@ -559,12 +565,12 @@ See [Module Expansion Guide](yapp/docs/Module%20Expansion.md) for detailed instr
 - [X] Extensible architecture
 - [X] Excel/XLSX output formats
 - [X] Verbose consolidation reporting
+- [x] Intergrate comparison functionality from [Nmap-Analysis](https://github.com/FlyingPhish/Nmap-Analysis)
 
 ### Future Enhancements:
 - [ ] Enhanced type annotations
 - [ ] Additional tool parsers
 - [ ] Advanced filtering and querying
-- [ ] Intergrate functionality from [Nmap-Analysis](https://github.com/FlyingPhish/Nmap-Analysis)
 - [ ] Intergrate functionality from [NessCIS](https://github.com/FlyingPhish/NessCIS)
 - [ ] (Maybe) AI reporting (finding + executive summary/consultants comments) using [Fabric](https://github.com/danielmiessler/fabric) or something similar.
 
