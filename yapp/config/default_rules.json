@@ -252,7 +252,7 @@
     {
       "rule_name": "outdated_unsupported_operating_system",
       "title": "Outdated and Unsupported Operating Systems",
-      "internal_vulnerability_id": 993,
+      "internal_vulnerability_id": 182,
       "enabled": true,
       "filters": {
         "plugin_families": [
@@ -295,7 +295,8 @@
           ".*Windows OS.*",
           ".*Linux.*",
           ".*Unix.*",
-          "Patch Report"
+          "Patch Report",
+          "HyperText Transfer Protocol (HTTP) Information"
         ],
         "plugin_output_patterns": [
           "\\.js\\n.*Installed version",

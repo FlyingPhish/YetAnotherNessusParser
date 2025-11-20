@@ -133,7 +133,7 @@ def process_file(
         if not input_path.exists():
             raise FileNotFoundError(f"File not found: {input_file}")
         
-        with open(input_path, 'r') as f:
+        with open(input_path, 'r', encoding='utf-8', errors='replace') as f:
             consolidated_data = json.load(f)
         
         results['file_type'] = 'consolidated_json'
