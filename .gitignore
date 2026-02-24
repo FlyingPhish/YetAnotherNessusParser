@@ -173,6 +173,10 @@ output/*.txt
 !input/.gitkeep
 input/*
 
+## Examples
+examples/*
+!examples/library_usage.py
+
 ## General
 *.nessus
 *.xlsx
