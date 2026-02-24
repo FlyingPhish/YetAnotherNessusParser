@@ -153,6 +153,88 @@ def direct_parser_usage():
         api_data = formatter.format_for_api(consolidated)
         print(f"API findings: {len(api_data) if api_data else 0}")
 
+def data_source_processing():
+    """Parse raw XML from memory using process_data() — no file path required.
+
+    process_data() mirrors the full process_file() pipeline but accepts a raw
+    XML string instead of a file path. Use this when scan data arrives from
+    any non-filesystem source: a database column, an API response, a message
+    queue payload, an S3 object, etc.
+    """
+    print("\n🗃️  Data Source Processing (in-memory XML)")
+
+    from yapp import process_data
+
+    # Simulate receiving XML from a data source by reading the file into a
+    # string first. In a real integration this string would come from your
+    # DB driver / HTTP response / message broker — no temp file needed.
+    xml_string = Path(NESSUS_FILE).read_text(encoding='utf-8')
+
+    # file_type must be given explicitly — there is no filename to
+    # auto-detect from, so 'nessus' or 'nmap' must be specified.
+    results = process_data(
+        xml_data=xml_string,
+        file_type='nessus',
+        consolidate=True,
+    )
+
+    parsed = results['parsed']
+    consolidated = results.get('consolidated')
+
+    print(f"Parsed {len(parsed['vulnerabilities'])} plugins from in-memory XML")
+    print(f"Hosts found: {parsed['stats']['hosts']['total']}")
+
+    if consolidated:
+        n = len(consolidated['consolidated_vulnerabilities'])
+        print(f"Consolidated into {n} finding(s) — entirely in memory, no files written")
+
+    # process_data() has no output_dir parameter by design.
+    # To persist results, pass the returned dict to write_results_to_files()
+    # (see single_file_output() below) or serialise it yourself with json.dump().
+    return results
+
+
+def single_file_output():
+    """Write all outputs into one combined JSON file — equivalent to CLI -sf flag.
+
+    process_file() calls write_results_to_files() internally but never sets
+    single_file=True (the parameter isn't exposed on process_file). To get
+    -sf behaviour from the library, skip output_dir on the parse call and
+    drive write_results_to_files() yourself.
+    """
+    print("\n📦 Single-File Output (-sf / --single-file)")
+
+    from yapp import process_file
+    from yapp.utils.file_utils import write_results_to_files
+
+    # Run the full pipeline without output_dir so nothing is written yet.
+    # Equivalent to: yapp parse -i ... -c -a
+    results = process_file(
+        NESSUS_FILE,
+        consolidate=True,
+        api_format=True,
+        entity_limit=10,
+    )
+
+    # write_results_to_files with single_file=True packs parsed +
+    # consolidated + api into one <name>_Combined.json instead of three
+    # separate files. This matches: yapp parse -i ... -c -a -sf
+    write_status = write_results_to_files(
+        results=results,
+        input_file=NESSUS_FILE,
+        output_dir=OUTPUT_DIR,
+        single_file=True,
+    )
+
+    written = [k for k, ok in write_status.items() if ok]
+    failed = [k for k, ok in write_status.items() if not ok]
+
+    print(f"Sections in combined file: {written}")
+    if failed:
+        print(f"Failed to write: {failed}")
+    print(f"Output: {OUTPUT_DIR}*_Combined.json")
+
+
 def error_handling():
     """Error handling examples"""
     print("\n🛡️  Error Handling")
@@ -221,6 +303,8 @@ def main():
         nmap_processing,
         working_with_data,
         direct_parser_usage,
+        data_source_processing,
+        single_file_output,
         error_handling,
         batch_processing
     ]
