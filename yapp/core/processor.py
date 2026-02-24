@@ -112,6 +112,12 @@ def process_file(
                 formatter = APIFormatter(entity_limit=entity_limit)
                 api_data = formatter.format_for_api(consolidated_data)
                 results['api_ready'] = api_data
+            
+            # Optional Excel generation from consolidated data (Nessus inline)
+            if excel_format and consolidated_data:
+                excel_formatter = ExcelFormatter()
+                excel_workbook = excel_formatter.format(consolidated_data)
+                results['excel'] = excel_workbook
                 
     elif file_type == "nmap":
         parser = NmapParser(input_file)
@@ -155,6 +161,92 @@ def process_file(
         write_results_to_files(results, input_file, output_dir, custom_output_name)
     
     return results
+
+
+def process_data(
+    xml_data: str,
+    file_type: str,
+    port_status: str = "all",
+    consolidate: bool = False,
+    api_format: bool = False,
+    rules_file: str = None,
+    entity_limit: int = None,
+    flat_json: bool = False,
+    log_exclusions: bool = False
+) -> Dict[str, Any]:
+    """
+    Process raw XML data without touching the filesystem.
+    
+    Designed for library consumers who already have XML in memory (e.g. from a
+    database column, HTTP response, or message queue). Mirrors the process_file
+    pipeline but accepts a string instead of a path.
+    
+    Args:
+        xml_data: Raw XML string (Nessus or Nmap format)
+        file_type: Explicit type — 'nessus' or 'nmap' (no auto-detect)
+        port_status: Port status filter for Nmap ('all', 'open', 'closed', 'filtered')
+        consolidate: Apply consolidation rules (Nessus only)
+        api_format: Format for API consumption (Nessus only, requires consolidate=True)
+        rules_file: Path to custom consolidation rules (Nessus only)
+        entity_limit: Max affected entities per API finding (Nessus only)
+        flat_json: Generate flat JSON format (Nmap only)
+        log_exclusions: Enable exclusion logging during consolidation (Nessus only)
+        
+    Returns:
+        dict: Contains 'parsed', 'file_type', and optional 'consolidated'/'api_ready'/'flat_json' keys
+        
+    Raises:
+        ValueError: If file_type is not 'nessus' or 'nmap'
+        xml.etree.ElementTree.ParseError: If the XML is malformed
+        ConsolidationError: If consolidation fails
+        FormatterError: If API formatting fails
+        
+    Examples:
+        Nessus XML from a database:
+            >>> xml_str = db.fetch_xml(scan_id)
+            >>> results = process_data(xml_str, file_type='nessus', consolidate=True, api_format=True)
+        
+        Nmap XML from an API response:
+            >>> results = process_data(response.text, file_type='nmap', port_status='open')
+    """
+    if file_type not in ('nessus', 'nmap'):
+        raise ValueError(f"file_type must be 'nessus' or 'nmap', got: {file_type}")
+    
+    results = {}
+    
+    if file_type == "nessus":
+        parser = NessusParser(xml_data=xml_data)
+        parsed_data = parser.parse()
+        results['parsed'] = parsed_data
+        results['file_type'] = 'nessus'
+        
+        if consolidate:
+            consolidator = VulnerabilityConsolidator(
+                rules_file=rules_file,
+                enable_exclusion_logging=log_exclusions
+            )
+            consolidated_data = consolidator.consolidate(parsed_data)
+            results['consolidated'] = consolidated_data
+            
+            if api_format and consolidated_data:
+                formatter = APIFormatter(entity_limit=entity_limit)
+                api_data = formatter.format_for_api(consolidated_data)
+                results['api_ready'] = api_data
+                
+    elif file_type == "nmap":
+        parser = NmapParser(xml_data=xml_data)
+        parsed_data = parser.parse(port_status_filter=port_status)
+        results['parsed'] = parsed_data
+        results['file_type'] = 'nmap'
+        
+        if flat_json:
+            # Re-init parser for second pass (counters reset)
+            parser_flat = NmapParser(xml_data=xml_data)
+            flat_data = parser_flat.parse_to_flat_json(port_status_filter=port_status)
+            results['flat_json'] = flat_data
+    
+    return results
+
 
 def process_nmap_comparison(
     first_file: str,

@@ -43,7 +43,7 @@ def setup_argparse() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(
         dest='command',
         help='Available commands',
-        metavar='{parse,compare}'
+        metavar='{parse,excel,compare}'
     )
     
     # ===== PARSE COMMAND (default) =====
@@ -80,6 +80,14 @@ def setup_argparse() -> argparse.ArgumentParser:
         '--no-output',
         action='store_true',
         help='Skip writing files, only display results'
+    )
+    
+    # Output mode options
+    output_group = parse_parser.add_argument_group('Output options')
+    output_group.add_argument(
+        '-sf', '--single-file',
+        action='store_true',
+        help='Write all selected outputs into one combined JSON file instead of separate files'
     )
     
     # Nessus-specific options
@@ -131,9 +139,32 @@ def setup_argparse() -> argparse.ArgumentParser:
     # Excel output options
     excel_group = parse_parser.add_argument_group('Excel options')
     excel_group.add_argument(
-        '-e', '--excel-output',
+        '-x', '--excel',
         action='store_true',
-        help='Generate Excel report (consolidated JSON input only)'
+        help='Also generate Excel report (Nessus: requires -c; or consolidated JSON input)'
+    )
+    
+    # ===== EXCEL COMMAND =====
+    excel_parser = subparsers.add_parser(
+        'excel',
+        help='Generate Excel report from YAPP JSON output'
+    )
+    
+    excel_parser.add_argument(
+        '-i', '--input-file',
+        required=True,
+        help='Path to YAPP JSON file (consolidated, combined, or parsed)'
+    )
+    
+    excel_parser.add_argument(
+        '-of', '--output-folder',
+        default='./output',
+        help='Output folder path (default: ./output)'
+    )
+    
+    excel_parser.add_argument(
+        '-on', '--output-name',
+        help='Custom output filename (without extension)'
     )
     
     # ===== COMPARE COMMAND =====
@@ -178,11 +209,13 @@ def handle_parse(args, log):
         log.error("--entity-limit must be a positive integer")
         return 1
     
-    # Validate Excel output requirements
-    if args.excel_output and args.file_type not in ['auto', 'consolidated_json']:
-        log.error("--excel-output can only be used with consolidated JSON files")
-        log.error("Use -t consolidated_json or let auto-detect identify the file")
-        return 1
+    # Validate Excel: for Nessus input, -x requires -c (consolidation)
+    if args.excel and args.file_type not in ['consolidated_json']:
+        if not args.consolidate:
+            # Auto-detect might resolve to consolidated_json, but for nessus/nmap we need -c
+            if args.file_type != 'auto' or Path(args.input_file).suffix.lower() != '.json':
+                log.error("--excel requires --consolidate (-c) for Nessus files, or use with consolidated JSON input")
+                return 1
     
     # Check for Nessus-only options with other file types
     if args.file_type in ['nmap', 'consolidated_json'] or (
@@ -225,7 +258,7 @@ def handle_parse(args, log):
             port_status=args.port_status,
             consolidate=args.consolidate,
             api_format=args.api_output,
-            excel_format=args.excel_output,
+            excel_format=args.excel,
             rules_file=args.rules_file,
             entity_limit=args.entity_limit,
             flat_json=args.flat_json,
@@ -243,8 +276,10 @@ def handle_parse(args, log):
             display_api_summary(results['api_ready'])
         
         if 'excel' in results and results['excel']:
-            if 'consolidated_loaded' in results and results['consolidated_loaded']:
-                display_excel_summary(results['consolidated_loaded'])
+            # Display summary from whichever source has the consolidated data
+            consolidated_for_summary = results.get('consolidated_loaded') or results.get('consolidated')
+            if consolidated_for_summary:
+                display_excel_summary(consolidated_for_summary)
         
         # Write output files unless disabled
         if not args.no_output:
@@ -254,7 +289,8 @@ def handle_parse(args, log):
                 results, 
                 args.input_file, 
                 output_folder,
-                custom_output_name=args.output_name
+                custom_output_name=args.output_name,
+                single_file=args.single_file
             )
             
             # Check if any writes failed
@@ -318,6 +354,67 @@ def handle_compare(args, log):
         log.error(f"Comparison failed: {str(e)}")
         return 1
 
+def handle_excel(args, log):
+    """Handle excel command — generate Excel from YAPP JSON output"""
+    import json
+    from .core.excel_formatter import ExcelFormatter
+    from .utils.file_utils import _get_base_name, _build_output_name
+    
+    input_path = Path(args.input_file)
+    
+    if not input_path.exists():
+        log.error(f"File not found: {args.input_file}")
+        return 1
+    
+    try:
+        with open(input_path, 'r', encoding='utf-8', errors='replace') as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        log.error(f"Invalid JSON: {e}")
+        return 1
+    
+    # Extract consolidated data from whichever structure we got
+    consolidated_data = None
+    
+    if isinstance(data, dict):
+        if 'consolidated_vulnerabilities' in data:
+            # Direct consolidated JSON
+            consolidated_data = data
+        elif 'consolidated' in data and isinstance(data['consolidated'], dict):
+            # Combined file with consolidated key
+            consolidated_data = data['consolidated']
+    
+    if not consolidated_data or not consolidated_data.get('consolidated_vulnerabilities'):
+        log.error("Input JSON does not contain consolidated vulnerability data")
+        log.error("Excel generation requires consolidated data (from -c flag or consolidated JSON)")
+        return 1
+    
+    try:
+        formatter = ExcelFormatter()
+        workbook = formatter.format(consolidated_data)
+        
+        if not workbook:
+            log.error("Excel formatting returned no workbook")
+            return 1
+        
+        # Write output
+        output_folder = ensure_output_directory(args.output_folder)
+        base = _get_base_name(args.input_file, args.output_name)
+        excel_filename = _build_output_name(base, "_Report", ".xlsx")
+        excel_path = output_folder / excel_filename
+        
+        workbook.save(excel_path)
+        
+        display_excel_summary(consolidated_data)
+        print(f"\n{Colors.GREEN}{Colors.BRIGHT}✓ Excel report saved:{Colors.RESET}")
+        print(f"  {Colors.CYAN}{excel_path}{Colors.RESET}\n")
+        
+        return 0
+        
+    except Exception as e:
+        log.error(f"Excel generation failed: {str(e)}")
+        return 1
+
 def main():
     """Main CLI execution function"""
     print_banner(__version__)
@@ -344,6 +441,8 @@ def main():
     # Route to appropriate handler
     if args.command == 'parse':
         return handle_parse(args, log)
+    elif args.command == 'excel':
+        return handle_excel(args, log)
     elif args.command == 'compare':
         return handle_compare(args, log)
     else:

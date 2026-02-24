@@ -185,3 +185,6 @@ input/*
 
 ## Dev
 reference/
+
+.flake8
+.pylintrc

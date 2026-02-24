@@ -10,16 +10,42 @@ logger = logging.getLogger(__name__)
 class NmapParser:
     """Parser for Nmap XML reports with structured output format."""
     
-    def __init__(self, file_path: str):
-        """Initialize parser with file path."""
-        self.file_path = Path(file_path)
+    def __init__(self, file_path: str = None, xml_data: str = None):
+        """
+        Initialize parser with a file path or raw XML string.
+        
+        Args:
+            file_path: Path to an Nmap .xml file (mutually exclusive with xml_data)
+            xml_data: Raw XML string containing Nmap scan data
+            
+        Raises:
+            ValueError: If neither or both arguments are provided
+        """
+        if file_path and xml_data:
+            raise ValueError("Provide either file_path or xml_data, not both")
+        if not file_path and not xml_data:
+            raise ValueError("Provide either file_path or xml_data")
+        
+        self.file_path = Path(file_path) if file_path else None
+        self._xml_data = xml_data
         self.tree = None
         self.root = None
         self._reset_counters()
+    
+    def _load_xml(self) -> None:
+        """Load XML from file or string into self.root."""
+        if self._xml_data:
+            self.root = ET.fromstring(self._xml_data)
+        else:
+            self._validate_file()
+            self.tree = ET.parse(self.file_path)
+            self.root = self.tree.getroot()
         
     def parse(self, port_status_filter: str = "all") -> Optional[Dict[str, Any]]:
         """
-        Parse Nmap XML file and return structured data.
+        Parse Nmap XML and return structured data.
+        
+        Accepts input from either a file path or raw XML string (set at init).
         
         Args:
             port_status_filter: Filter by port status (open, closed, filtered, all)
@@ -32,12 +58,8 @@ class NmapParser:
             ET.ParseError: If the XML is malformed
             ValueError: If the file is not a valid Nmap file
         """
-        # Validate input file
-        self._validate_file()
-        
         try:
-            self.tree = ET.parse(self.file_path)
-            self.root = self.tree.getroot()
+            self._load_xml()
             
             # Parse main sections
             context = self._parse_context()
@@ -55,16 +77,18 @@ class NmapParser:
             }
             
         except ET.ParseError as e:
-            logger.error(f"Error parsing XML file: {str(e)}")
-            raise ET.ParseError(f"Invalid XML format in file: {self.file_path}")
+            source = "XML data" if self._xml_data else f"file: {self.file_path}"
+            logger.error(f"Error parsing XML from {source}: {str(e)}")
+            raise ET.ParseError(f"Invalid XML format in {source}")
         except Exception as e:
             logger.error(f"Unexpected error during parsing: {str(e)}")
             raise
 
     def parse_to_flat_json(self, port_status_filter: str = "all") -> List[Dict[str, Any]]:
         """
-        Parse Nmap XML file and return flat JSON format compatible with legacy tools.
-        This creates the exact same structure as NmapXmlToJson.py
+        Parse Nmap XML and return flat JSON format compatible with legacy tools.
+        
+        Accepts input from either a file path or raw XML string (set at init).
         
         Args:
             port_status_filter: Filter by port status (open, closed, filtered, all)
@@ -77,15 +101,12 @@ class NmapParser:
             ET.ParseError: If the XML is malformed
             ValueError: If the file is not a valid Nmap file
         """
-        # Validate input file
-        self._validate_file()
-        
         try:
-            self.tree = ET.parse(self.file_path)
-            self.root = self.tree.getroot()
+            self._load_xml()
         except ET.ParseError as e:
-            logger.error(f"Error parsing XML file: {str(e)}")
-            raise ET.ParseError(f"Invalid XML format in file: {self.file_path}")
+            source = "XML data" if self._xml_data else f"file: {self.file_path}"
+            logger.error(f"Error parsing XML from {source}: {str(e)}")
+            raise ET.ParseError(f"Invalid XML format in {source}")
         
         results = []
         

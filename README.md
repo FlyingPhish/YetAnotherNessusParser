@@ -34,6 +34,7 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
 ### 🖥️ **Dual Interface Design**
 - **CLI Tool**: Beautiful command-line interface with colored output and tool-specific options
 - **Python Library**: Clean programmatic API for integration into your projects
+- **In-Memory Processing**: Parse raw XML strings directly — no filesystem required (ideal for DB/API integration via `process_data()`)
 - **One External Dependency**: It used to be 0 deps but `openpyxl` is needed for xlsx 
 
 ### 📊 **Advanced Nessus Processing**
@@ -42,7 +43,8 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
 - Plugin output pattern matching and filtering
 - Rule-based vulnerability categorization
 - API-ready output formatting with entity limiting
-- **Excel report generation from consolidated findings**
+- **Inline Excel report generation** (`-x` flag) — no more two-step workflow
+- **Combined single-file output** (`-sf` flag) — all selected outputs in one JSON
 
 ### 🗺️ **Comprehensive Nmap Support**
 - Parse Nmap XML into structured format with service details
@@ -104,14 +106,15 @@ pip install git+https://github.com/FlyingPhish/YetAnotherPentestParser.git --for
 ### 🖥️ Command Line Interface
 
 ```
-usage: yapp [-h] [--version] {parse,compare} ...
+usage: yapp [-h] [--version] {parse,excel,compare} ...
 
 YAPP - Swiss Army Knife for Pentester File Processing
 
 positional arguments:
-  {parse,compare}  Available commands
-    parse          Parse and process pentesting files (Nessus/Nmap/JSON)
-    compare        Compare two Nmap XML scans
+  {parse,excel,compare}  Available commands
+    parse                Parse and process pentesting files (Nessus/Nmap/JSON)
+    excel                Generate Excel report from YAPP JSON output
+    compare              Compare two Nmap XML scans
 
 options:
   -h, --help       show this help message and exit
@@ -131,8 +134,12 @@ options:
   -of, --output-folder OUTPUT_FOLDER
                         Output folder path (default: ./output)
   -on, --output-name OUTPUT_NAME
-                        Output file name (default: timestamp_<original-name>_Parsed.json)
+                        Output base name (default: timestamp_<original-name>)
   --no-output           Skip writing files, only display results
+
+Output options:
+  -sf, --single-file    Write all selected outputs into one combined JSON file
+                        instead of separate files
 
 Nessus options:
   -c, --consolidate     Generate consolidated findings file
@@ -149,7 +156,22 @@ Nmap options:
   -fj, --flat-json      Generate flat JSON format
 
 Excel options:
-  -e, --excel-output    Generate Excel report (consolidated JSON input only)
+  -x, --excel           Also generate Excel report (Nessus: requires -c;
+                        or consolidated JSON input)
+```
+
+### 🖥️ Command Line Interface - Excel
+```
+yapp excel -h
+
+options:
+  -h, --help            show this help message and exit
+  -i, --input-file INPUT_FILE
+                        Path to YAPP JSON file (consolidated, combined, or parsed)
+  -of, --output-folder OUTPUT_FOLDER
+                        Output folder path (default: ./output)
+  -on, --output-name OUTPUT_NAME
+                        Custom output filename (without extension)
 ```
 
 ### 🖥️ Command Line Interface - Compare
@@ -199,12 +221,22 @@ Transform consolidated vulnerability data into structured Excel workbooks for ea
 - **Service-Level Detail**: Each row shows FQDN, IP, Port, and which plugins affected it
 - **Consolidation Validation**: Quickly verify which plugins were grouped together
 - **Analyst-Friendly Format**: Familiar spreadsheet format for review and sign-off
-- **Automatic Naming**: Output filename matches input consolidated JSON file
+- **Consistent Naming**: Output filename follows the unified `{base}_Report.xlsx` convention
 
 ### Workflow:
-1. **Parse & Consolidate**: `yapp -i scan.nessus -c` → Creates consolidated JSON
-2. **Generate Excel**: `yapp -i scan_Consolidated.json -e` → Creates matching .xlsx file
-3. **Review**: Open Excel workbook with one sheet per consolidated vulnerability
+
+**Option A — Inline (single command):**
+```bash
+yapp parse -i scan.nessus -c -x          # Parse, consolidate, and generate Excel in one shot
+yapp parse -i scan.nessus -c -a -x       # Full pipeline with API output + Excel
+yapp parse -i scan.nessus -c -a -x -sf   # Everything above, combined into one JSON + Excel
+```
+
+**Option B — Standalone (from existing JSON):**
+```bash
+yapp excel -i scan_Consolidated.json      # From a consolidated JSON file
+yapp excel -i scan_Combined.json          # From a combined JSON file (extracts consolidated data)
+```
 
 ## 🔬 Nessus Consolidation Engine + API Formatter
 You can use `-a` or `--api-output`, which transforms the results of your consolidation rules into a basic JSON structure that can be used with a reporting engine to turn Nessus results into findings within your pentest report engine. The output has been designed to work with my custom API for [Ghostwriter](https://github.com/GhostManager/Ghostwriter). (DM me on Twatter (x) if you want more info on this)
@@ -473,6 +505,37 @@ When using the `-c` flag, an additional consolidated findings file is generated:
 ]
 ```
 
+### Combined Single-File Output (with -sf flag)
+When using `-sf`, all selected outputs are combined into a single JSON file. Only the outputs you selected are included as top-level keys:
+
+```json
+{
+  "parsed": { ... },
+  "consolidated": { ... },
+  "api": [ ... ]
+}
+```
+
+**Examples:**
+- `yapp parse -i scan.nessus -sf` → `{"parsed": {...}}`
+- `yapp parse -i scan.nessus -c -sf` → `{"parsed": {...}, "consolidated": {...}}`
+- `yapp parse -i scan.nessus -c -a -sf` → `{"parsed": {...}, "consolidated": {...}, "api": [...]}`
+
+### Output File Naming
+
+YAPP uses consistent naming conventions for all output files:
+
+| Flag(s) | Default name | With `-on my_scan` |
+|---|---|---|
+| *(base)* | `{timestamp}_{input}_Parsed.json` | `my_scan_Parsed.json` |
+| `-c` | `{timestamp}_{input}_Consolidated.json` | `my_scan_Consolidated.json` |
+| `-a` | `{timestamp}_{input}_API.json` | `my_scan_API.json` |
+| `-fj` | `{timestamp}_{input}_Flat.json` | `my_scan_Flat.json` |
+| `-sf` | `{timestamp}_{input}_Combined.json` | `my_scan_Combined.json` |
+| `-x` | `{timestamp}_{input}_Report.xlsx` | `my_scan_Report.xlsx` |
+
+The `-on` flag sets the **base name** — YAPP always appends the appropriate suffix and extension automatically. Passing `my_scan`, `my_scan.json`, or `my_scan.xlsx` all resolve to the same base `my_scan`.
+
 ## 🏗️ Project Structure
 
 ```
@@ -481,7 +544,7 @@ yapp/
 ├── cli.py                   # CLI interface
 ├── core/                    # Core processing modules
 │   ├── __init__.py
-│   ├── processor.py         # Main processing pipeline
+│   ├── processor.py         # Main processing pipeline (process_file + process_data)
 │   ├── nessus_parser.py     # Nessus XML parsing
 │   ├── nmap_comparator.py   # Nmap comparison
 │   ├── nmap_parser.py       # Nmap XML parsing
@@ -508,11 +571,12 @@ from yapp import process_file
 # Auto-detect and parse any supported file
 results = process_file('scan.nessus')  # or scan.xml
 
-# Nessus with full pipeline
+# Nessus with full pipeline (including inline Excel)
 nessus_results = process_file(
     'scan.nessus',
     consolidate=True,
     api_format=True,
+    excel_format=True,
     entity_limit=10
 )
 
@@ -530,6 +594,45 @@ api_ready = nessus_results.get('api_ready')
 
 nmap_data = nmap_results['parsed']
 flat_json = nmap_results.get('flat_json')
+```
+
+#### Processing raw XML from memory
+
+For integration with databases, APIs, or message queues — no filesystem required:
+
+```python
+from yapp import process_data
+
+# Nessus XML from a database column
+xml_str = db.fetch_xml(scan_id)
+results = process_data(xml_str, file_type='nessus', consolidate=True, api_format=True)
+
+# Nmap XML from an HTTP response
+results = process_data(response.text, file_type='nmap', port_status='open')
+```
+
+#### Using individual parser classes directly
+
+```python
+from yapp import NessusParser, NmapParser, VulnerabilityConsolidator, APIFormatter
+
+# From file
+nessus_parser = NessusParser('scan.nessus')
+nessus_data = nessus_parser.parse()
+
+# From raw XML string (e.g. pulled from a DB)
+nessus_parser = NessusParser(xml_data=raw_xml_string)
+nessus_data = nessus_parser.parse()
+
+nmap_parser = NmapParser(xml_data=nmap_xml_string)
+nmap_data = nmap_parser.parse(port_status_filter='open')
+
+# Manual consolidation + API formatting
+consolidator = VulnerabilityConsolidator()
+consolidated = consolidator.consolidate(nessus_data)
+
+formatter = APIFormatter(entity_limit=5)
+api_data = formatter.format_for_api(consolidated)
 ```
 
 For comprehensive examples, see [Library Usage Examples](examples/library_usage.py) and [Library Documentation](yapp/docs/Library%20Usage.md)
@@ -568,6 +671,11 @@ See [Module Expansion Guide](yapp/docs/Module%20Expansion.md) for detailed instr
 - [X] Excel/XLSX output formats
 - [X] Verbose consolidation reporting
 - [x] Intergrate comparison functionality from [Nmap-Analysis](https://github.com/FlyingPhish/Nmap-Analysis)
+- [X] In-memory XML processing (`process_data()` / `xml_data=` parameter) for DB/API integration
+- [X] Combined single-file JSON output (`-sf` / `--single-file`)
+- [X] Inline Excel generation from parse pipeline (`-x` / `--excel`)
+- [X] Standalone `yapp excel` subcommand for post-hoc Excel generation
+- [X] Consistent output file naming (fixed `-on` extension handling)
 
 ### Future Enhancements:
 - [ ] Enhanced type annotations
@@ -589,7 +697,7 @@ We welcome contributions! See [Module Expansion Guide](yapp/docs/Module%20Expans
 ### Key Design Principles:
 - **KISS**: Keep implementations simple and readable
 - **DRY**: Modular, reusable components
-- **No External Dependencies**: Pure Python implementation
+- **Minimal Dependencies**: Single external dependency (`openpyxl` for Excel)
 - **Extensible**: Framework-based architecture for easy expansion
 
 ## 📄 License

@@ -18,6 +18,11 @@ Examples:
         >>> from yapp import process_file
         >>> results = process_file('scan.nessus', consolidate=True, api_format=True, entity_limit=10)
     
+    Parse raw XML from memory (e.g. database, API response):
+        >>> from yapp import process_data
+        >>> results = process_data(xml_string, file_type='nessus', consolidate=True)
+        >>> results = process_data(nmap_xml, file_type='nmap', port_status='open')
+    
     Nmap with port filtering:
         >>> from yapp import process_file
         >>> results = process_file('scan.xml', port_status='open')
@@ -32,6 +37,11 @@ Examples:
         >>> nmap_parser = NmapParser('scan.xml')
         >>> consolidator = VulnerabilityConsolidator()
         >>> formatter = APIFormatter(entity_limit=5)
+    
+    Parsing raw XML with individual components:
+        >>> from yapp import NessusParser
+        >>> parser = NessusParser(xml_data=raw_xml_string)
+        >>> data = parser.parse()
 """
 
 # Import core classes
@@ -44,8 +54,8 @@ from .core import (
     FormatterError
 )
 
-# Import main processing function
-from .core.processor import process_file
+# Import main processing functions
+from .core.processor import process_file, process_data
 
 # Import CLI functionality
 from .cli import cli_entry_point
@@ -87,8 +97,9 @@ __all__ = [
     "ConsolidationError",
     "FormatterError",
     
-    # Main processing function
+    # Main processing functions
     "process_file",
+    "process_data",
     
     # Utilities
     "detect_file_type",

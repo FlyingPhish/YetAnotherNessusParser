@@ -10,16 +10,33 @@ logger = logging.getLogger(__name__)
 class NessusParser:
     """Parser for Nessus XML reports with restructured output format."""
     
-    def __init__(self, file_path: str):
-        """Initialize parser with file path."""
-        self.file_path = Path(file_path)
+    def __init__(self, file_path: str = None, xml_data: str = None):
+        """
+        Initialize parser with a file path or raw XML string.
+        
+        Args:
+            file_path: Path to a .nessus file (mutually exclusive with xml_data)
+            xml_data: Raw XML string containing Nessus report data
+            
+        Raises:
+            ValueError: If neither or both arguments are provided
+        """
+        if file_path and xml_data:
+            raise ValueError("Provide either file_path or xml_data, not both")
+        if not file_path and not xml_data:
+            raise ValueError("Provide either file_path or xml_data")
+        
+        self.file_path = Path(file_path) if file_path else None
+        self._xml_data = xml_data
         self.tree = None
         self.root = None
         self._reset_counters()
         
     def parse(self) -> Optional[Dict[str, Any]]:
         """
-        Parse Nessus XML file and return structured data.
+        Parse Nessus XML and return structured data.
+        
+        Accepts input from either a file path or raw XML string (set at init).
         
         Returns:
             dict: Parsed Nessus data with context, stats, hosts, and vulnerabilities
@@ -29,12 +46,13 @@ class NessusParser:
             ET.ParseError: If the XML is malformed
             ValueError: If the file is not a valid Nessus file
         """
-        # Validate input file
-        self._validate_file()
-        
         try:
-            self.tree = ET.parse(self.file_path)
-            self.root = self.tree.getroot()
+            if self._xml_data:
+                self.root = ET.fromstring(self._xml_data)
+            else:
+                self._validate_file()
+                self.tree = ET.parse(self.file_path)
+                self.root = self.tree.getroot()
             
             # Parse main sections
             context = self._parse_context()
@@ -52,8 +70,9 @@ class NessusParser:
             }
             
         except ET.ParseError as e:
-            logger.error(f"Error parsing XML file: {str(e)}")
-            raise ET.ParseError(f"Invalid XML format in file: {self.file_path}")
+            source = "XML data" if self._xml_data else f"file: {self.file_path}"
+            logger.error(f"Error parsing XML from {source}: {str(e)}")
+            raise ET.ParseError(f"Invalid XML format in {source}")
         except Exception as e:
             logger.error(f"Unexpected error during parsing: {str(e)}")
             raise

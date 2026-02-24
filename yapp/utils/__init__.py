@@ -17,7 +17,9 @@ from .file_utils import (
     ensure_output_directory,
     write_results_to_files,
     find_input_files,
-    sanitize_filename
+    sanitize_filename,
+    _get_base_name,
+    _build_output_name
 )
 from .display import (
     print_banner,

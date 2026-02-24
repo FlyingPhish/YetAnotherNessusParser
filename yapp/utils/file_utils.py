@@ -168,24 +168,63 @@ def _analyze_file_content(file_path: Path) -> Optional[str]:
     except Exception:
         return None
 
+def _build_output_name(base: str, suffix: str, extension: str = ".json") -> str:
+    """
+    Build a consistent output filename from a base name, suffix, and extension.
+    
+    Args:
+        base: Base name (e.g. timestamp_stem or custom name, already stripped of extensions)
+        suffix: Output type suffix (e.g. '_Parsed', '_Consolidated')
+        extension: File extension including dot (default: '.json')
+        
+    Returns:
+        Formatted filename string
+    """
+    return f"{base}{suffix}{extension}"
+
+
+def _get_base_name(input_file: Union[str, Path], custom_name: str = None) -> str:
+    """
+    Derive the base name for output files.
+    
+    When custom_name is provided, strips any known extensions (.json, .xlsx) and returns it.
+    Otherwise generates '{timestamp}_{original_stem}'.
+    
+    Args:
+        input_file: Path to the original input file
+        custom_name: Optional user-provided output name
+        
+    Returns:
+        Clean base name string with no extension
+    """
+    if custom_name:
+        # Strip known extensions the user might accidentally include
+        name = custom_name
+        for ext in ('.json', '.xlsx', '.xml', '.nessus'):
+            if name.lower().endswith(ext):
+                name = name[:-len(ext)]
+                break
+        return name
+    
+    timestamp = datetime.now().strftime('%d-%m-%y_%H-%M-%S')
+    original_name = Path(input_file).stem
+    return f"{timestamp}_{original_name}"
+
+
 def get_default_output_name(input_file: Union[str, Path], file_type: str = None) -> str:
     """
     Generate default output filename for parsed data.
     
     Args:
         input_file: Path to the original input file
-        file_type: Optional file type to include in name
+        file_type: Optional file type (unused, kept for backward compat)
         
     Returns:
         Generated filename string
     """
-    timestamp = datetime.now().strftime('%d-%m-%y_%H-%M-%S')
-    original_name = Path(input_file).stem
-    
-    if file_type:
-        return f"{timestamp}_{original_name}_Parsed_{file_type.title()}.json"
-    else:
-        return f"{timestamp}_{original_name}_Parsed.json"
+    base = _get_base_name(input_file)
+    return _build_output_name(base, "_Parsed")
+
 
 def get_consolidated_output_name(input_file: Union[str, Path], file_type: str = None) -> str:
     """
@@ -193,18 +232,14 @@ def get_consolidated_output_name(input_file: Union[str, Path], file_type: str = 
     
     Args:
         input_file: Path to the original input file
-        file_type: Optional file type to include in name
+        file_type: Optional file type (unused, kept for backward compat)
         
     Returns:
         Generated filename string
     """
-    timestamp = datetime.now().strftime('%d-%m-%y_%H-%M-%S')
-    original_name = Path(input_file).stem
-    
-    if file_type:
-        return f"{timestamp}_{original_name}_Consolidated_{file_type.title()}.json"
-    else:
-        return f"{timestamp}_{original_name}_Consolidated_Findings.json"
+    base = _get_base_name(input_file)
+    return _build_output_name(base, "_Consolidated")
+
 
 def get_api_output_name(input_file: Union[str, Path], file_type: str = None) -> str:
     """
@@ -212,18 +247,14 @@ def get_api_output_name(input_file: Union[str, Path], file_type: str = None) -> 
     
     Args:
         input_file: Path to the original input file
-        file_type: Optional file type to include in name
+        file_type: Optional file type (unused, kept for backward compat)
         
     Returns:
         Generated filename string
     """
-    timestamp = datetime.now().strftime('%d-%m-%y_%H-%M-%S')
-    original_name = Path(input_file).stem
-    
-    if file_type:
-        return f"{timestamp}_{original_name}_API_Ready_{file_type.title()}.json"
-    else:
-        return f"{timestamp}_{original_name}_API_Ready.json"
+    base = _get_base_name(input_file)
+    return _build_output_name(base, "_API")
+
 
 def get_flat_json_output_name(input_file: Union[str, Path], file_type: str = None) -> str:
     """
@@ -231,18 +262,13 @@ def get_flat_json_output_name(input_file: Union[str, Path], file_type: str = Non
     
     Args:
         input_file: Path to the original input file
-        file_type: Optional file type to include in name
+        file_type: Optional file type (unused, kept for backward compat)
         
     Returns:
         Generated filename string
     """
-    timestamp = datetime.now().strftime('%d-%m-%y_%H-%M-%S')
-    original_name = Path(input_file).stem
-    
-    if file_type:
-        return f"{timestamp}_{original_name}_Flat_{file_type.title()}.json"
-    else:
-        return f"{timestamp}_{original_name}_Flat.json"
+    base = _get_base_name(input_file)
+    return _build_output_name(base, "_Flat")
 
 def ensure_output_directory(output_path: Union[str, Path]) -> Path:
     """
@@ -267,7 +293,7 @@ def ensure_output_directory(output_path: Union[str, Path]) -> Path:
     
     return directory
 
-def write_results_to_files(results: Dict[str, Any], input_file: Union[str, Path], output_dir: Union[str, Path], custom_output_name: str = None) -> Dict[str, bool]:
+def write_results_to_files(results: Dict[str, Any], input_file: Union[str, Path], output_dir: Union[str, Path], custom_output_name: str = None, single_file: bool = False) -> Dict[str, bool]:
     """
     Write all processing results to appropriately named files.
     
@@ -275,7 +301,8 @@ def write_results_to_files(results: Dict[str, Any], input_file: Union[str, Path]
         results: Dictionary containing parsed data and optional consolidated/API/flat_json/excel data
         input_file: Original input file path (for naming)
         output_dir: Output directory path
-        custom_output_name: Custom name for the main parsed file (optional)
+        custom_output_name: Custom base name for output files (optional)
+        single_file: If True, write all JSON results into one combined file
         
     Returns:
         Dictionary indicating success/failure for each file type
@@ -285,59 +312,63 @@ def write_results_to_files(results: Dict[str, Any], input_file: Union[str, Path]
     output_dir = ensure_output_directory(output_dir)
     write_status = {}
     
-    # Get file type from results
-    file_type = results.get('file_type', None)
+    # Derive a single base name used for all outputs
+    base = _get_base_name(input_file, custom_output_name)
     
-    # Generate base filename (without extension) for custom naming
-    if custom_output_name:
-        # Remove .json extension if present to get base name
-        base_name = Path(custom_output_name).stem
-    else:
-        base_name = None
+    # --- Single-file (combined) mode ---
+    if single_file:
+        combined = {}
+        if 'parsed' in results and results['parsed']:
+            combined['parsed'] = results['parsed']
+        if 'consolidated' in results and results['consolidated']:
+            combined['consolidated'] = results['consolidated']
+        if 'api_ready' in results and results['api_ready']:
+            combined['api'] = results['api_ready']
+        if 'flat_json' in results and results['flat_json']:
+            combined['flat'] = results['flat_json']
+        
+        if combined:
+            combined_path = output_dir / _build_output_name(base, "_Combined")
+            write_status['combined'] = write_json_output(combined, combined_path)
+        
+        # Excel is always a separate file (binary format)
+        if 'excel' in results and results['excel']:
+            excel_path = output_dir / _build_output_name(base, "_Report", ".xlsx")
+            try:
+                results['excel'].save(excel_path)
+                logger.info(f"Excel report written to: {excel_path}")
+                write_status['excel'] = True
+            except Exception as e:
+                logger.error(f"Failed to write Excel file: {e}")
+                write_status['excel'] = False
+        
+        return write_status
+    
+    # --- Multi-file (default) mode ---
     
     # Write main parsed file
     if 'parsed' in results and results['parsed']:
-        if custom_output_name:
-            parsed_filename = custom_output_name
-        else:
-            parsed_filename = get_default_output_name(input_file, file_type)
-        parsed_path = output_dir / parsed_filename
+        parsed_path = output_dir / _build_output_name(base, "_Parsed")
         write_status['parsed'] = write_json_output(results['parsed'], parsed_path)
     
-    # Write consolidated file (Nessus only)
+    # Write consolidated file
     if 'consolidated' in results and results['consolidated']:
-        if base_name:
-            consolidated_filename = f"{base_name}_Consolidated_Findings.json"
-        else:
-            consolidated_filename = get_consolidated_output_name(input_file, file_type)
-        consolidated_path = output_dir / consolidated_filename
+        consolidated_path = output_dir / _build_output_name(base, "_Consolidated")
         write_status['consolidated'] = write_json_output(results['consolidated'], consolidated_path)
     
-    # Write API file (Nessus only)
+    # Write API file
     if 'api_ready' in results and results['api_ready']:
-        if base_name:
-            api_filename = f"{base_name}_API_Ready.json"
-        else:
-            api_filename = get_api_output_name(input_file, file_type)
-        api_path = output_dir / api_filename
+        api_path = output_dir / _build_output_name(base, "_API")
         write_status['api_ready'] = write_json_output(results['api_ready'], api_path)
     
-    # Write flat JSON file (Nmap only)
+    # Write flat JSON file
     if 'flat_json' in results and results['flat_json']:
-        if base_name:
-            flat_filename = f"{base_name}_Flat.json"
-        else:
-            flat_filename = get_flat_json_output_name(input_file, file_type)
-        flat_path = output_dir / flat_filename
+        flat_path = output_dir / _build_output_name(base, "_Flat")
         write_status['flat_json'] = write_json_output(results['flat_json'], flat_path)
     
-    # Write Excel file (Consolidated JSON only)
+    # Write Excel file
     if 'excel' in results and results['excel']:
-        # Simply replace .json extension with .xlsx
-        input_path = Path(input_file)
-        excel_filename = input_path.stem + '.xlsx'
-        excel_path = output_dir / excel_filename
-        
+        excel_path = output_dir / _build_output_name(base, "_Report", ".xlsx")
         try:
             results['excel'].save(excel_path)
             logger.info(f"Excel report written to: {excel_path}")
