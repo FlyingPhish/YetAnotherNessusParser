@@ -43,7 +43,7 @@ def setup_argparse() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(
         dest='command',
         help='Available commands',
-        metavar='{parse,excel,compare}'
+        metavar='{parse,excel,compare,tui}'
     )
     
     # ===== PARSE COMMAND (default) =====
@@ -194,6 +194,85 @@ def setup_argparse() -> argparse.ArgumentParser:
     compare_parser.add_argument(
         '-on', '--output-name',
         help='Custom output filename (without extension)'
+    )
+
+    # ===== TUI COMMAND =====
+    tui_parser = subparsers.add_parser(
+        'tui',
+        help='Launch high-volume Nessus triage TUI'
+    )
+
+    tui_parser.add_argument(
+        '-i', '--input-file',
+        required=True,
+        help='Path to Nessus input file'
+    )
+
+    tui_parser.add_argument(
+        '-t', '--file-type',
+        choices=['auto', 'nessus'],
+        default='auto',
+        help='Input file type for TUI mode (default: auto-detect)'
+    )
+
+    tui_parser.add_argument(
+        '-c', '--consolidate',
+        action='store_true',
+        help='Build consolidated data in-memory for export actions'
+    )
+
+    tui_parser.add_argument(
+        '-a', '--api-output',
+        action='store_true',
+        help='Build API-ready data in-memory (requires --consolidate)'
+    )
+
+    tui_parser.add_argument(
+        '-x', '--excel',
+        action='store_true',
+        help='Build Excel workbook in-memory for export actions'
+    )
+
+    tui_parser.add_argument(
+        '-r', '--rules-file',
+        help='Custom consolidation rules file'
+    )
+
+    tui_parser.add_argument(
+        '-el', '--entity-limit',
+        type=int,
+        help='Max entities per API finding'
+    )
+
+    tui_parser.add_argument(
+        '--log-exclusions',
+        action='store_true',
+        help='Enable detailed consolidation exclusion logging'
+    )
+
+    tui_parser.add_argument(
+        '-of', '--output-folder',
+        default='./output',
+        help='Default output folder for TUI export actions'
+    )
+
+    tui_parser.add_argument(
+        '-on', '--output-name',
+        default='',
+        help='Default output base name for TUI export actions'
+    )
+
+    tui_parser.add_argument(
+        '-sf', '--single-file',
+        action='store_true',
+        help='Default export mode in TUI: write combined JSON output'
+    )
+
+    tui_parser.add_argument(
+        '--page-size',
+        type=int,
+        default=100,
+        help='Findings rows per page in TUI (default: 100)'
     )
     
     return parser
@@ -415,6 +494,53 @@ def handle_excel(args, log):
         log.error(f"Excel generation failed: {str(e)}")
         return 1
 
+def handle_tui(args, log):
+    """Handle tui command — launch Textual Nessus triage UI"""
+    if args.api_output and not args.consolidate:
+        log.error("--api-output requires --consolidate flag")
+        return 1
+
+    if args.entity_limit is not None and args.entity_limit < 1:
+        log.error("--entity-limit must be a positive integer")
+        return 1
+
+    if args.page_size < 10:
+        log.error("--page-size must be at least 10")
+        return 1
+
+    try:
+        from .tui import build_scan_index, run_tui_app
+    except Exception:
+        log.error("TUI dependencies are not installed. Install with: pip install 'yapp[tui]'")
+        return 1
+
+    try:
+        scan = build_scan_index(
+            input_file=args.input_file,
+            file_type=args.file_type,
+            consolidate=args.consolidate,
+            api_output=args.api_output,
+            excel=args.excel,
+            rules_file=args.rules_file,
+            entity_limit=args.entity_limit,
+            log_exclusions=args.log_exclusions
+        )
+
+        run_tui_app(
+            scan=scan,
+            output_folder=args.output_folder,
+            output_name=args.output_name,
+            single_file=args.single_file,
+            page_size=args.page_size
+        )
+        return 0
+    except FileNotFoundError as e:
+        log.error(f"File not found: {e}")
+        return 1
+    except Exception as e:
+        log.error(f"TUI failed: {str(e)}")
+        return 1
+
 def main():
     """Main CLI execution function"""
     print_banner(__version__)
@@ -445,6 +571,8 @@ def main():
         return handle_excel(args, log)
     elif args.command == 'compare':
         return handle_compare(args, log)
+    elif args.command == 'tui':
+        return handle_tui(args, log)
     else:
         log.error(f"Unknown command: {args.command}")
         parser.print_help()

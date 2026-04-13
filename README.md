@@ -33,6 +33,7 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
 
 ### 🖥️ **Dual Interface Design**
 - **CLI Tool**: Beautiful command-line interface with colored output and tool-specific options
+- **TUI Mode**: Operator-first Nessus triage workflow (`yapp tui`) for high-volume finding review
 - **Python Library**: Clean programmatic API for integration into your projects
 - **In-Memory Processing**: Parse raw XML strings directly — no filesystem required (ideal for DB/API integration via `process_data()`)
 - **One External Dependency**: It used to be 0 deps but `openpyxl` is needed for xlsx 
@@ -106,15 +107,16 @@ pip install git+https://github.com/FlyingPhish/YetAnotherPentestParser.git --for
 ### 🖥️ Command Line Interface
 
 ```
-usage: yapp [-h] [--version] {parse,excel,compare} ...
+usage: yapp [-h] [--version] {parse,excel,compare,tui} ...
 
 YAPP - Swiss Army Knife for Pentester File Processing
 
 positional arguments:
-  {parse,excel,compare}  Available commands
+  {parse,excel,compare,tui}  Available commands
     parse                Parse and process pentesting files (Nessus/Nmap/JSON)
     excel                Generate Excel report from YAPP JSON output
     compare              Compare two Nmap XML scans
+    tui                  Launch high-volume Nessus triage TUI
 
 options:
   -h, --help       show this help message and exit
@@ -188,6 +190,33 @@ options:
                         Output folder path (default: ./output)
   -on, --output-name OUTPUT_NAME
                         Custom output filename (without extension)
+```
+
+### 🖥️ Command Line Interface - TUI
+```
+yapp tui -h
+
+options:
+  -h, --help            show this help message and exit
+  -i, --input-file INPUT_FILE
+                        Path to Nessus input file
+  -t, --file-type {auto,nessus}
+                        Input file type for TUI mode (default: auto-detect)
+  -c, --consolidate     Build consolidated data in-memory for export actions
+  -a, --api-output      Build API-ready data in-memory (requires --consolidate)
+  -x, --excel           Build Excel workbook in-memory for export actions
+  -r, --rules-file RULES_FILE
+                        Custom consolidation rules file
+  -el, --entity-limit ENTITY_LIMIT
+                        Max entities per API finding
+  --log-exclusions      Enable detailed consolidation exclusion logging
+  -of, --output-folder OUTPUT_FOLDER
+                        Default output folder for TUI export actions
+  -on, --output-name OUTPUT_NAME
+                        Default output base name for TUI export actions
+  -sf, --single-file    Default export mode in TUI: write combined JSON output
+  --page-size PAGE_SIZE
+                        Findings rows per page in TUI (default: 100)
 ```
 
 ## 🔬 Nessus Consolidation Engine
@@ -635,7 +664,7 @@ formatter = APIFormatter(entity_limit=5)
 api_data = formatter.format_for_api(consolidated)
 ```
 
-For comprehensive examples, see [Library Usage Examples](examples/library_usage.py) and [Library Documentation](yapp/docs/Library%20Usage.md)
+For comprehensive examples, see [Library Usage Examples](examples/library_usage.py), [Library Documentation](yapp/docs/Library%20Usage.md), and [TUI Usage](yapp/docs/TUI%20Usage.md).
 
 
 ## 🔧 Framework Extension
