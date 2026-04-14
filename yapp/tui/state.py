@@ -130,9 +130,6 @@ class ScanIndex:
     metadata: dict[str, Any]
 
     def get_triage_path(self) -> Path:
-        """Path for persisting triage state sidecar JSON."""
-        source = Path(self.input_file)
-        stamp = self.metadata.get("source_fingerprint", "unknown")
-        folder = Path(".yapp-tui")
-        folder.mkdir(parents=True, exist_ok=True)
-        return folder / f"{source.stem}_{stamp}_triage.json"
+        """Triage sidecar JSON — sits next to the input file."""
+        source = Path(self.input_file).resolve()
+        return source.parent / f"{source.stem}.triage.json"
