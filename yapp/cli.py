@@ -496,10 +496,6 @@ def handle_excel(args, log):
 
 def handle_tui(args, log):
     """Handle tui command — launch Textual Nessus triage UI"""
-    if args.api_output and not args.consolidate:
-        log.error("--api-output requires --consolidate flag")
-        return 1
-
     if args.entity_limit is not None and args.entity_limit < 1:
         log.error("--entity-limit must be a positive integer")
         return 1
@@ -518,7 +514,7 @@ def handle_tui(args, log):
         scan = build_scan_index(
             input_file=args.input_file,
             file_type=args.file_type,
-            consolidate=args.consolidate,
+            consolidate=True,          # always consolidate — required for the view toggle
             api_output=args.api_output,
             excel=args.excel,
             rules_file=args.rules_file,

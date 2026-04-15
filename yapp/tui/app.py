@@ -8,7 +8,7 @@ from pathlib import Path
 from textual.app import App
 from textual.command import Hit, Hits, Provider
 
-from .exports import export_scan_results, write_filtered_snapshot
+from .exports import export_result_key, export_scan_results, write_filtered_snapshot
 from .query import filter_and_sort
 from .screens.consolidated_detail import ConsolidatedDetailScreen
 from .screens.detail import DetailScreen
@@ -48,8 +48,12 @@ class YappCommands(Provider):
             ("Show Intel overlay", "Show full threat intel for selected finding", app.action_show_intel),
             ("Search findings", "Open search input", app.action_search),
             ("Clear filters", "Clear search and severity filters", app.action_clear_filters),
-            ("Export all results", "Export full scan to disk", app.action_export_results),
-            ("Export filtered results", "Export current filtered set to disk", app.action_export_filtered),
+            ("Export: parsed JSON", "Write parsed Nessus output to disk", app.action_export_parsed),
+            ("Export: consolidated JSON", "Write consolidated findings to disk", app.action_export_consolidated),
+            ("Export: API-ready JSON", "Write API-formatted findings to disk (requires --api-output)", app.action_export_api),
+            ("Export: combined single file", "Write all available outputs into one JSON file", app.action_export_combined),
+            ("Export: all separate files", "Write each available output as its own file", app.action_export_results),
+            ("Export: filtered findings", "Export current filtered set to disk", app.action_export_filtered),
             ("Next page", "Go to next page of findings", app.action_next_page),
             ("Previous page", "Go to previous page of findings", app.action_prev_page),
         ])
@@ -343,6 +347,57 @@ class YetAnotherPentestParser(App):
             return Path(self.default_output_folder)
         return Path(self.scan.input_file).resolve().parent
 
+    # ── Export helpers ──────────────────────────────────────────────
+
+    def _report_export(self, status: dict[str, bool], out_dir: Path) -> None:
+        failed = [n for n, ok in status.items() if not ok]
+        if failed:
+            self.notify(f"Partial failure: {', '.join(failed)}", severity="warning")
+        else:
+            self.notify(f"Exported → {out_dir}")
+
+    def _export_key(self, key: str, missing_msg: str) -> None:
+        if not self.scan.results.get(key):
+            self.notify(missing_msg, severity="warning")
+            return
+        out_dir = self._output_dir()
+        try:
+            status = export_result_key(
+                scan=self.scan,
+                key=key,
+                output_folder=str(out_dir),
+                output_name=self.default_output_name or None,
+            )
+        except Exception as exc:
+            self.notify(f"Export failed: {exc}", severity="error")
+            return
+        self._report_export(status, out_dir)
+
+    # ── Export actions ──────────────────────────────────────────────
+
+    def action_export_parsed(self) -> None:
+        self._export_key("parsed", "No parsed data available")
+
+    def action_export_consolidated(self) -> None:
+        self._export_key("consolidated", "No consolidated data — should be auto-generated, check logs")
+
+    def action_export_api(self) -> None:
+        self._export_key("api_ready", "No API data — run with --api-output (-a)")
+
+    def action_export_combined(self) -> None:
+        out_dir = self._output_dir()
+        try:
+            status = export_scan_results(
+                scan=self.scan,
+                output_folder=str(out_dir),
+                output_name=self.default_output_name or None,
+                single_file=True,
+            )
+        except Exception as exc:
+            self.notify(f"Export failed: {exc}", severity="error")
+            return
+        self._report_export(status, out_dir)
+
     def action_export_results(self) -> None:
         out_dir = self._output_dir()
         try:
@@ -355,12 +410,7 @@ class YetAnotherPentestParser(App):
         except Exception as exc:
             self.notify(f"Export failed: {exc}", severity="error")
             return
-
-        failed = [n for n, ok in status.items() if not ok]
-        if failed:
-            self.notify(f"Partial failure: {', '.join(failed)}", severity="warning")
-        else:
-            self.notify(f"Exported → {out_dir}")
+        self._report_export(status, out_dir)
 
     def action_export_filtered(self) -> None:
         filtered = filter_and_sort(self.scan.findings_rows, self.query_state)

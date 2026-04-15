@@ -29,6 +29,26 @@ def export_scan_results(
     return status
 
 
+def export_result_key(
+    scan: ScanIndex,
+    key: str,
+    output_folder: str,
+    output_name: str | None = None,
+) -> dict[str, bool]:
+    """Export a single result type (e.g. 'parsed', 'consolidated', 'api_ready') to disk."""
+    data = scan.results.get(key)
+    if not data:
+        return {}
+    output_dir = ensure_output_directory(output_folder)
+    return write_results_to_files(
+        results={key: data},
+        input_file=scan.input_file,
+        output_dir=output_dir,
+        custom_output_name=output_name,
+        single_file=False,
+    )
+
+
 def build_filtered_snapshot(scan: ScanIndex, plugin_ids: list[str]) -> dict[str, Any]:
     """Return a lightweight JSON snapshot for current filtered findings set."""
     parsed = scan.results.get("parsed", {})
