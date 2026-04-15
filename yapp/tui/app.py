@@ -102,6 +102,10 @@ class YetAnotherPentestParser(App):
     Screen {
         background: $surface;
     }
+
+    Toast {
+        max-width: 25;
+    }
     """
 
     def __init__(

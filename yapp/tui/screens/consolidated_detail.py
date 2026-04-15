@@ -40,16 +40,33 @@ def _build_content_md(vuln: dict) -> str:
         parts += [f"- `{pid}`: {name}" for pid, name in plugins.items()]
         parts.append("")
 
+    # Consolidated intel
+    cve = vuln.get("cve") or []
+    cwe = vuln.get("cwe") or []
+    xref = vuln.get("xref") or []
+    see_also = vuln.get("see_also") or []
+
+    if cve or cwe or xref or see_also:
+        parts += ["## Intel", ""]
+        if cve:
+            parts.append(f"**CVE:** {', '.join(cve)}")
+            parts.append("")
+        if cwe:
+            parts.append(f"**CWE:** {', '.join(cwe)}")
+            parts.append("")
+        if xref:
+            parts += ["**Cross References:**"]
+            parts += [f"- {r}" for r in xref]
+            parts.append("")
+        if see_also:
+            parts += ["**See Also:**"]
+            parts += [f"- {r}" for r in see_also]
+            parts.append("")
+
     solutions = vuln.get("solutions") or []
     if solutions:
         parts += ["## Solutions", ""]
         parts += [f"- {s}" for s in solutions]
-        parts.append("")
-
-    cve = vuln.get("cve") or []
-    if cve:
-        parts += ["## CVEs", ""]
-        parts += [f"- {c}" for c in cve]
         parts.append("")
 
     return "\n".join(parts)
@@ -61,6 +78,8 @@ class ConsolidatedDetailScreen(Screen):
     BINDINGS = [
         Binding("escape", "go_back", "Back"),
         Binding("b", "go_back", "Back"),
+        Binding("d", "view_plugin_detail", "Detail"),
+        Binding("c", "copy_table", "Copy Table"),
         Binding("bracketright", "next_finding", "Next", key_display="]"),
         Binding("bracketleft", "prev_finding", "Prev", key_display="["),
         Binding("q", "app.quit", "Quit"),
@@ -81,7 +100,7 @@ class ConsolidatedDetailScreen(Screen):
     }
 
     #services-table {
-        height: 8;
+        height: 10;
         margin-bottom: 1;
     }
 
@@ -118,8 +137,20 @@ class ConsolidatedDetailScreen(Screen):
         table = self.query_one("#services-table", DataTable)
         table.cursor_type = "row"
         table.zebra_stripes = True
-        table.add_columns("IP", "FQDN", "Port", "Issues")
+        self._setup_table_columns()
         self._populate_services()
+
+    def _setup_table_columns(self) -> None:
+        """Set up Excel-style columns: FQDN, IP, Port, then one per plugin."""
+        table = self.query_one("#services-table", DataTable)
+        table.add_column("FQDN", width=20)
+        table.add_column("IP", width=16)
+        table.add_column("Port", width=8)
+        vuln = self.vuln
+        if vuln:
+            plugins = vuln.get("consolidated_plugins") or {}
+            for pid, name in plugins.items():
+                table.add_column(name, width=max(6, len(name) + 2))
 
     def _populate_services(self) -> None:
         vuln = self.vuln
@@ -130,16 +161,19 @@ class ConsolidatedDetailScreen(Screen):
         if not vuln:
             return
         services = vuln.get("affected_services") or {}
+        plugins = vuln.get("consolidated_plugins") or {}
+        plugin_ids = list(plugins.keys())
         svc_keys = list(services.keys())
         for svc_key in svc_keys:
             svc = services[svc_key]
-            table.add_row(
-                svc.get("ip", "-"),
+            found_ids = {issue["id"] for issue in (svc.get("issues_found") or [])}
+            row_data = [
                 svc.get("fqdn", "-") or "-",
+                svc.get("ip", "-"),
                 str(svc.get("port", "-")),
-                str(len(svc.get("issues_found") or [])),
-                key=svc_key,
-            )
+            ]
+            row_data += ["Yes" if pid in found_ids else "No" for pid in plugin_ids]
+            table.add_row(*row_data, key=svc_key)
         if svc_keys:
             self._show_service_output(svc_keys[0], services[svc_keys[0]])
 
@@ -171,11 +205,59 @@ class ConsolidatedDetailScreen(Screen):
         if svc:
             self._show_service_output(svc_key, svc)
 
+    def _build_table_tsv(self) -> str:
+        """Build tab-separated table text for clipboard copy."""
+        vuln = self.vuln
+        if not vuln:
+            return ""
+        plugins = vuln.get("consolidated_plugins") or {}
+        plugin_ids = list(plugins.keys())
+        headers = ["FQDN", "IP", "Port"] + [plugins[pid] for pid in plugin_ids]
+        lines = ["\t".join(headers)]
+        services = vuln.get("affected_services") or {}
+        for svc in services.values():
+            found_ids = {issue["id"] for issue in (svc.get("issues_found") or [])}
+            row = [
+                svc.get("fqdn", "") or "",
+                svc.get("ip", ""),
+                str(svc.get("port", "")),
+            ]
+            row += ["Yes" if pid in found_ids else "No" for pid in plugin_ids]
+            lines.append("\t".join(row))
+        return "\n".join(lines)
+
+    def action_copy_table(self) -> None:
+        tsv = self._build_table_tsv()
+        if not tsv:
+            self.app.notify("No table data to copy", severity="warning")
+            return
+        self.app.copy_to_clipboard(tsv)
+        self.app.notify("Table copied to clipboard")
+
+    def action_view_plugin_detail(self) -> None:
+        """Open the Nessus detail view for the first consolidated plugin."""
+        vuln = self.vuln
+        if not vuln:
+            self.app.notify("No vulnerability data", severity="warning")
+            return
+        plugins = vuln.get("consolidated_plugins") or {}
+        # Find the first plugin that has a detail entry
+        for pid in plugins:
+            if pid in self.scan.finding_details:
+                from .detail import DetailScreen
+                self.app.push_screen(DetailScreen(self.scan, pid))
+                return
+        self.app.notify("No plugin detail available", severity="warning")
+
     def _update_detail(self) -> None:
         vuln = self.vuln
         meta_text = _build_meta_bar(self.plugin_id, vuln) if vuln else f"  {self.plugin_id}  | (not found)"
         self.query_one("#detail-meta", Static).update(meta_text)
         self.query_one("#content-md", Markdown).update(_build_content_md(vuln) if vuln else "")
+        # Rebuild table columns for new vuln
+        table = self.query_one("#services-table", DataTable)
+        table.clear(columns=True)
+        self._setup_table_columns()
         self._populate_services()
 
     def _get_neighbor_plugin_id(self, offset: int) -> str | None:

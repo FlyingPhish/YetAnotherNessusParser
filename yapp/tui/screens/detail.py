@@ -34,8 +34,8 @@ def _build_meta_bar(detail: FindingDetail) -> str:
     )
 
 
-def _build_content_md(detail: FindingDetail) -> str:
-    """Single Markdown document: title + synopsis + description + solution + references."""
+def _build_top_md(detail: FindingDetail) -> str:
+    """Title + Synopsis + Description."""
     row = detail.row
     parts: list[str] = [f"# {row.name}", ""]
 
@@ -44,6 +44,14 @@ def _build_content_md(detail: FindingDetail) -> str:
 
     if detail.description:
         parts += ["## Description", "", detail.description, ""]
+
+    return "\n".join(parts)
+
+
+def _build_bottom_md(detail: FindingDetail) -> str:
+    """Solution + References."""
+    row = detail.row
+    parts: list[str] = []
 
     if detail.solution:
         parts += ["## Solution", "", detail.solution, ""]
@@ -64,7 +72,7 @@ class DetailScreen(Screen):
         Binding("b", "go_back", "Back"),
         Binding("i", "app.show_intel", "Intel"),
         Binding("m", "app.mark_triage", "Triage"),
-        Binding("h", "app.host_pivot", "Host Pivot"),
+        Binding("h", "app.host_pivot", "Host View"),
         Binding("bracketright", "next_finding", "Next", key_display="]"),
         Binding("bracketleft", "prev_finding", "Prev", key_display="["),
         Binding("q", "app.quit", "Quit"),
@@ -107,17 +115,19 @@ class DetailScreen(Screen):
     def compose(self) -> ComposeResult:
         detail = self.detail
         meta_text = _build_meta_bar(detail) if detail else "Finding not found"
-        content_text = _build_content_md(detail) if detail else ""
+        top_md = _build_top_md(detail) if detail else ""
+        bottom_md = _build_bottom_md(detail) if detail else ""
         yield Header(show_clock=True)
         yield Static(meta_text, id="detail-meta")
 
         with VerticalScroll(id="detail-scroll"):
-            yield Markdown(content_text, id="content-md")
+            yield Markdown(top_md, id="content-top-md")
+            yield RichLog(id="plugin-output", wrap=True, markup=True)
+            yield Markdown(bottom_md, id="content-bottom-md")
 
-            with Collapsible(title="Affected Hosts & Plugin Output", collapsed=False):
+            with Collapsible(title="Affected Hosts", collapsed=False):
                 with Vertical():
                     yield DataTable(id="hosts-table")
-                    yield RichLog(id="plugin-output", wrap=True, markup=True)
 
         yield Footer()
 
@@ -135,7 +145,8 @@ class DetailScreen(Screen):
             return
 
         self.query_one("#detail-meta", Static).update(_build_meta_bar(detail))
-        self.query_one("#content-md", Markdown).update(_build_content_md(detail))
+        self.query_one("#content-top-md", Markdown).update(_build_top_md(detail))
+        self.query_one("#content-bottom-md", Markdown).update(_build_bottom_md(detail))
 
         table = self.query_one("#hosts-table", DataTable)
         table.clear()

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from rich.text import Text
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import Screen
@@ -10,12 +12,22 @@ from textual.widgets import DataTable, Footer, Header, Static
 from ..query import apply_query, filter_and_sort
 from ..state import ScanIndex, QueryOptions
 
+SEVERITY_COLOURS = {
+    4: "purple",
+    3: "red",
+    2: "yellow",
+    1: "green",
+    0: "cyan",
+}
+
+
 
 class FindingsScreen(Screen):
     """Full-page findings table with summary bar."""
 
     BINDINGS = [
         Binding("enter", "view_detail", "Detail", priority=True),
+        Binding("v", "app.toggle_view", "Consolidated"),
         Binding("i", "app.show_intel", "Intel"),
         Binding("slash", "app.search", "Search", key_display="/"),
         Binding("s", "app.cycle_sort", "Sort"),
@@ -24,8 +36,7 @@ class FindingsScreen(Screen):
         Binding("bracketleft", "app.prev_page", "Prev Page", key_display="["),
         Binding("bracketright", "app.next_page", "Next Page", key_display="]"),
         Binding("e", "app.export_combined", "Export"),
-        Binding("h", "app.host_pivot", "Host Pivot"),
-        Binding("v", "app.toggle_view", "View"),
+        Binding("h", "app.host_pivot", "Host View"),
         Binding("q", "app.quit", "Quit"),
     ]
 
@@ -68,7 +79,10 @@ class FindingsScreen(Screen):
         table = self.query_one("#findings-table", DataTable)
         table.cursor_type = "row"
         table.zebra_stripes = True
-        table.add_columns("Severity", "Name", "Hosts", "Triage")
+        table.add_column("Severity", width=10)
+        table.add_column("Name",)
+        table.add_column("Hosts", width=6)
+        table.add_column("Triage", width=14)
         self.refresh_table(reset_page=True)
 
     def refresh_table(self, reset_page: bool = False) -> None:
@@ -86,8 +100,10 @@ class FindingsScreen(Screen):
         table.clear()
 
         for row in self.current_page_rows:
+            colour = SEVERITY_COLOURS.get(row.severity, "white")
+            sev_text = Text(row.severity_label, style=colour)
             table.add_row(
-                row.severity_label,
+                sev_text,
                 row.name,
                 str(row.affected_hosts_count),
                 row.triage_state,

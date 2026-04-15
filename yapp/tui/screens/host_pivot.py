@@ -59,7 +59,7 @@ class HostPivotScreen(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="host-modal"):
             yield Static(
-                f"  Host Pivot  |  {self.detail.row.plugin_id}  |  {self.detail.row.name}",
+                f"  Host View  |  {self.detail.row.plugin_id}  |  {self.detail.row.name}",
                 id="host-title",
             )
             yield DataTable(id="host-table")
