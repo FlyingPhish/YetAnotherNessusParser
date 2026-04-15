@@ -86,32 +86,39 @@ class ConsolidatedDetailScreen(Screen):
     CSS = """
     #detail-meta {
         height: auto;
-        padding: 0 1;
+        padding: 0 2;
         background: $primary-background;
         color: $text;
         text-style: bold;
+        border-bottom: solid $panel;
     }
 
     #detail-scroll {
         height: 1fr;
+    }
+
+    #content-md {
         padding: 0 2;
     }
 
     #plugins-table {
         height: auto;
         max-height: 8;
+        width: 100%;
         margin-bottom: 1;
     }
 
     #services-table {
         height: auto;
         max-height: 14;
+        width: 100%;
         margin-bottom: 1;
     }
 
     #plugin-output {
         height: 12;
-        border: round $panel;
+        margin: 0 2 1 2;
+        border: tall $panel;
     }
     """
 

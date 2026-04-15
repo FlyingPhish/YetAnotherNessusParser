@@ -274,7 +274,7 @@ def setup_argparse() -> argparse.ArgumentParser:
         default=100,
         help='Findings rows per page in TUI (default: 100)'
     )
-    
+
     return parser
 
 def handle_parse(args, log):
@@ -527,7 +527,7 @@ def handle_tui(args, log):
             output_folder=args.output_folder,
             output_name=args.output_name,
             single_file=args.single_file,
-            page_size=args.page_size
+            page_size=args.page_size,
         )
         return 0
     except FileNotFoundError as e:

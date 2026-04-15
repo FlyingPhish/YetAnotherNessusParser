@@ -28,7 +28,7 @@ class HostPivotScreen(ModalScreen[None]):
     #host-modal {
         width: 95%;
         height: 90%;
-        border: round $accent;
+        border: tall $accent;
         background: $surface;
         padding: 1;
     }
@@ -37,16 +37,18 @@ class HostPivotScreen(ModalScreen[None]):
         height: auto;
         padding: 0 1;
         text-style: bold;
+        border-bottom: solid $panel;
         margin-bottom: 1;
     }
 
     #host-table {
         height: 1fr;
+        width: 100%;
     }
 
     #host-output {
         height: 12;
-        border: round $panel;
+        border: tall $panel;
         margin-top: 1;
     }
     """

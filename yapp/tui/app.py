@@ -101,6 +101,8 @@ class YetAnotherPentestParser(App):
     CSS = """
     Screen {
         background: $surface;
+        width: 100%;
+        height: 100%;
     }
 
     Toast {

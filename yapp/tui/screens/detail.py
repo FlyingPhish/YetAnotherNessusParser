@@ -101,25 +101,35 @@ class DetailScreen(Screen):
     CSS = """
     #detail-meta {
         height: auto;
-        padding: 0 1;
+        padding: 0 2;
         background: $primary-background;
         color: $text;
         text-style: bold;
+        border-bottom: solid $panel;
     }
 
     #detail-scroll {
         height: 1fr;
+    }
+
+    #content-top-md {
+        padding: 0 2;
+    }
+
+    #content-bottom-md {
         padding: 0 2;
     }
 
     #hosts-table {
         height: 8;
+        width: 100%;
         margin-bottom: 1;
     }
 
     #plugin-output {
         height: 12;
-        border: round $panel;
+        margin: 0 2 1 2;
+        border: tall $panel;
     }
     """
 

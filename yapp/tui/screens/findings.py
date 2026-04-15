@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 from rich.text import Text
 
 from textual.app import ComposeResult
@@ -13,11 +15,11 @@ from ..query import apply_query, filter_and_sort
 from ..state import ScanIndex, QueryOptions
 
 SEVERITY_COLOURS = {
-    4: "purple",
-    3: "red",
-    2: "yellow",
-    1: "green",
-    0: "cyan",
+    4: "bold bright_magenta",
+    3: "bold bright_red",
+    2: "bold yellow",
+    1: "bold bright_green",
+    0: "bold cyan",
 }
 
 
@@ -43,21 +45,24 @@ class FindingsScreen(Screen):
     CSS = """
     #summary-bar {
         height: auto;
-        padding: 0 1;
+        padding: 0 2;
         background: $primary-background;
         color: $text;
         text-style: bold;
+        border-bottom: solid $panel;
     }
 
     #findings-table {
         height: 1fr;
+        width: 100%;
     }
 
     #page-bar {
         height: auto;
-        padding: 0 1;
-        background: $accent;
-        color: $text;
+        padding: 0 2;
+        background: $panel;
+        color: $text-disabled;
+        border-top: solid $primary-background;
     }
     """
 
@@ -147,7 +152,7 @@ class FindingsScreen(Screen):
         label = "Nessus" if self.app.view_mode == "consolidated" else "Consolidated"
         bindings = self._bindings.key_to_bindings.get("v", [])
         self._bindings.key_to_bindings["v"] = [
-            b.__replace__(description=label) for b in bindings
+            dataclasses.replace(b, description=label) for b in bindings
         ]
         self.refresh_bindings()
 
