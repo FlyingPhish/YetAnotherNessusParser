@@ -255,6 +255,8 @@ def _build_nessus_index(
             solution=str(vuln.get("solution", "")),
             xref=xref,
             affected_hosts=tuple(host_refs),
+            cvss_vector=str(vuln.get("cvss", {}).get("vector", "")),
+            cvss3_vector=str(vuln.get("cvss3", {}).get("vector", "")),
         )
 
         findings_rows.append(row)

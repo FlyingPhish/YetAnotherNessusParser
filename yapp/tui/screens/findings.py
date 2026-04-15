@@ -102,9 +102,10 @@ class FindingsScreen(Screen):
         for row in self.current_page_rows:
             colour = SEVERITY_COLOURS.get(row.severity, "white")
             sev_text = Text(row.severity_label, style=colour)
+            name = Text(row.name, no_wrap=True, overflow="ellipsis")
             table.add_row(
                 sev_text,
-                row.name,
+                name,
                 str(row.affected_hosts_count),
                 row.triage_state,
                 key=row.plugin_id,
@@ -112,6 +113,7 @@ class FindingsScreen(Screen):
 
         self._update_summary()
         self._update_page_bar()
+        self._update_view_binding()
 
     def _update_summary(self) -> None:
         bar = self.query_one("#summary-bar", Static)
@@ -139,6 +141,15 @@ class FindingsScreen(Screen):
             f"  Page {page}/{total_pages}  |  "
             f"{len(self.current_page_rows)} shown (filtered {self.current_total})"
         )
+
+    def _update_view_binding(self) -> None:
+        """Update the v binding label to reflect current view mode."""
+        label = "Nessus" if self.app.view_mode == "consolidated" else "Consolidated"
+        bindings = self._bindings.key_to_bindings.get("v", [])
+        self._bindings.key_to_bindings["v"] = [
+            b.__replace__(description=label) for b in bindings
+        ]
+        self.refresh_bindings()
 
     def _severity_filter_label(self) -> str:
         if not self.query_state.severities:

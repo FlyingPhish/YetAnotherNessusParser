@@ -23,6 +23,11 @@ def _fmt_list(items: tuple[str, ...], none_text: str = "(none)") -> str:
     return ", ".join(items) if items else none_text
 
 
+def _clean_md(text: str) -> str:
+    """Strip leading whitespace from each line to prevent markdown code blocks."""
+    return "\n".join(line.lstrip() for line in text.splitlines())
+
+
 def _build_meta_bar(detail: FindingDetail) -> str:
     row = detail.row
     return (
@@ -35,15 +40,30 @@ def _build_meta_bar(detail: FindingDetail) -> str:
 
 
 def _build_top_md(detail: FindingDetail) -> str:
-    """Title + Synopsis + Description."""
+    """Title + Synopsis + Description + CVSS."""
     row = detail.row
     parts: list[str] = [f"# {row.name}", ""]
 
     if detail.synopsis:
-        parts += ["## Synopsis", "", detail.synopsis, ""]
+        parts += ["## Synopsis", "", _clean_md(detail.synopsis), ""]
 
     if detail.description:
-        parts += ["## Description", "", detail.description, ""]
+        parts += ["## Description", "", _clean_md(detail.description), ""]
+
+    # CVSS metrics
+    cvss_parts: list[str] = []
+    if row.cvss_base:
+        line = f"**CVSS:** {row.cvss_base}"
+        if detail.cvss_vector:
+            line += f" `{detail.cvss_vector}`"
+        cvss_parts.append(line)
+    if row.cvss3_base:
+        line = f"**CVSS3:** {row.cvss3_base}"
+        if detail.cvss3_vector:
+            line += f" `{detail.cvss3_vector}`"
+        cvss_parts.append(line)
+    if cvss_parts:
+        parts += ["## CVSS", ""] + cvss_parts + [""]
 
     return "\n".join(parts)
 
@@ -54,7 +74,7 @@ def _build_bottom_md(detail: FindingDetail) -> str:
     parts: list[str] = []
 
     if detail.solution:
-        parts += ["## Solution", "", detail.solution, ""]
+        parts += ["## Solution", "", _clean_md(detail.solution), ""]
 
     if row.references:
         parts += ["## References", ""]

@@ -84,6 +84,8 @@ class FindingDetail:
     solution: str
     xref: tuple[str, ...] = ()
     affected_hosts: tuple[HostRef, ...] = ()
+    cvss_vector: str = ""
+    cvss3_vector: str = ""
 
 
 @dataclass
