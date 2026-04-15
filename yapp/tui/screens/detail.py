@@ -105,11 +105,14 @@ class DetailScreen(Screen):
         return self.scan.finding_details.get(self.plugin_id)
 
     def compose(self) -> ComposeResult:
+        detail = self.detail
+        meta_text = _build_meta_bar(detail) if detail else "Finding not found"
+        content_text = _build_content_md(detail) if detail else ""
         yield Header(show_clock=True)
-        yield Static("", id="detail-meta")
+        yield Static(meta_text, id="detail-meta")
 
         with VerticalScroll(id="detail-scroll"):
-            yield Markdown("", id="content-md")
+            yield Markdown(content_text, id="content-md")
 
             with Collapsible(title="Affected Hosts & Plugin Output", collapsed=False):
                 with Vertical():

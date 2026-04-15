@@ -10,11 +10,12 @@ from textual.command import Hit, Hits, Provider
 
 from .exports import export_scan_results, write_filtered_snapshot
 from .query import filter_and_sort
+from .screens.consolidated_detail import ConsolidatedDetailScreen
 from .screens.detail import DetailScreen
 from .screens.findings import FindingsScreen
 from .screens.host_pivot import HostPivotScreen
 from .screens.intel import IntelScreen
-from .state import QueryOptions, ScanIndex, SEVERITY_LABELS, TRIAGE_STATES
+from .state import FindingRow, QueryOptions, ScanIndex, SEVERITY_LABELS, TRIAGE_STATES
 
 
 class YappCommands(Provider):
@@ -43,6 +44,7 @@ class YappCommands(Provider):
             cmds.append((label, help_text, self._make_sev_filter(sevs)))
 
         cmds.extend([
+            ("Toggle view (Nessus/Consolidated)", "Switch between Nessus and Consolidated findings view", app.action_toggle_view),
             ("Show Intel overlay", "Show full threat intel for selected finding", app.action_show_intel),
             ("Search findings", "Open search input", app.action_search),
             ("Clear filters", "Clear search and severity filters", app.action_clear_filters),
@@ -119,6 +121,8 @@ class YetAnotherPentestParser(App):
         self.default_output_name = default_output_name
         self.default_single_file = default_single_file
         self._active_plugin_id: str | None = None
+        self.view_mode: str = "nessus"
+        self._consolidated_rows: list[FindingRow] | None = None
 
         self.triage_path = self.scan.get_triage_path()
         self._load_triage_state()
@@ -148,6 +152,41 @@ class YetAnotherPentestParser(App):
             json.dumps(payload, indent=2), encoding="utf-8"
         )
 
+    # ── Consolidated view helpers ────────────────────────────────────
+
+    def _get_consolidated_rows(self) -> list[FindingRow]:
+        if self._consolidated_rows is not None:
+            return self._consolidated_rows
+        consolidated = (self.scan.results.get("consolidated") or {})
+        vulns = consolidated.get("consolidated_vulnerabilities") or {}
+        rows: list[FindingRow] = []
+        for rule_name, vuln in vulns.items():
+            severity = int(vuln.get("severity", 0))
+            sev_label = SEVERITY_LABELS.get(severity, "None")
+            cvss = float((vuln.get("cvss") or {}).get("base_score", 0) or 0)
+            cvss3 = float((vuln.get("cvss3") or {}).get("base_score", 0) or 0)
+            host_count = len(vuln.get("affected_services") or {})
+            sev_base = {4: 70, 3: 55, 2: 35, 1: 15, 0: 2}.get(severity, 2)
+            risk_score = min(100, sev_base + min(10, host_count) + int(max(cvss3, cvss)))
+            title = vuln.get("title", rule_name)
+            rows.append(FindingRow(
+                plugin_id=rule_name,
+                name=title,
+                family="Consolidated",
+                severity=severity,
+                severity_label=sev_label,
+                risk_factor=str(vuln.get("risk_factor", "None")),
+                risk_score=risk_score,
+                cvss_base=cvss,
+                cvss3_base=cvss3,
+                affected_hosts_count=host_count,
+                cve=tuple(vuln.get("cve") or []),
+                search_blob=f"{rule_name} {title}".lower(),
+            ))
+        rows.sort(key=lambda r: (r.risk_score, r.severity, r.affected_hosts_count), reverse=True)
+        self._consolidated_rows = rows
+        return rows
+
     # ── Screen helpers ──────────────────────────────────────────────
 
     def _get_findings_screen(self) -> FindingsScreen | None:
@@ -164,7 +203,7 @@ class YetAnotherPentestParser(App):
     def _resolve_plugin_id(self) -> str | None:
         """Get active plugin_id from current context."""
         screen = self.screen
-        if isinstance(screen, DetailScreen):
+        if isinstance(screen, (DetailScreen, ConsolidatedDetailScreen)):
             return screen.plugin_id
         if isinstance(screen, FindingsScreen):
             return screen.selected_plugin_id
@@ -172,9 +211,21 @@ class YetAnotherPentestParser(App):
 
     # ── Actions (bound from screens) ───────────────────────────────
 
+    def action_toggle_view(self) -> None:
+        consolidated = self.scan.results.get("consolidated")
+        if not consolidated or not consolidated.get("consolidated_vulnerabilities"):
+            self.notify("No consolidated data — run with --consolidate (-c)", severity="warning")
+            return
+        self.view_mode = "consolidated" if self.view_mode == "nessus" else "nessus"
+        self._refresh_findings(reset_page=True)
+        self.notify(f"View: {self.view_mode}")
+
     def action_push_detail(self, plugin_id: str) -> None:
         self._active_plugin_id = plugin_id
-        self.push_screen(DetailScreen(self.scan, plugin_id))
+        if self.view_mode == "consolidated":
+            self.push_screen(ConsolidatedDetailScreen(self.scan, plugin_id))
+        else:
+            self.push_screen(DetailScreen(self.scan, plugin_id))
 
     def action_search(self) -> None:
         def _on_search(value: str | None) -> None:

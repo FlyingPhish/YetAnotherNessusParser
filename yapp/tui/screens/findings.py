@@ -25,6 +25,7 @@ class FindingsScreen(Screen):
         Binding("bracketright", "app.next_page", "Next Page", key_display="]"),
         Binding("e", "app.export_results", "Export"),
         Binding("h", "app.host_pivot", "Host Pivot"),
+        Binding("v", "app.toggle_view", "View"),
         Binding("q", "app.quit", "Quit"),
     ]
 
@@ -74,9 +75,12 @@ class FindingsScreen(Screen):
         if reset_page:
             self.query_state.page = 0
 
-        self.current_page_rows, self.current_total = apply_query(
-            self.scan.findings_rows, self.query_state
+        row_source = (
+            self.app._get_consolidated_rows()
+            if self.app.view_mode == "consolidated"
+            else self.scan.findings_rows
         )
+        self.current_page_rows, self.current_total = apply_query(row_source, self.query_state)
 
         table = self.query_one("#findings-table", DataTable)
         table.clear()
@@ -97,12 +101,14 @@ class FindingsScreen(Screen):
         bar = self.query_one("#summary-bar", Static)
         meta = self.scan.metadata
         sev_label = self._severity_filter_label()
+        view = self.app.view_mode
         bar.update(
             f"  {meta.get('source_name', '?')}  |  "
             f"{meta.get('hosts_total', 0)} hosts  |  "
             f"{len(self.scan.findings_rows)} findings  |  "
             f"Severity: {sev_label}  |  "
-            f"Sort: {self.query_state.sort_by}"
+            f"Sort: {self.query_state.sort_by}  |  "
+            f"View: {view}"
         )
 
     def _update_page_bar(self) -> None:
