@@ -23,7 +23,7 @@ class FindingsScreen(Screen):
         Binding("m", "app.mark_triage", "Mark Triage"),
         Binding("bracketleft", "app.prev_page", "Prev Page", key_display="["),
         Binding("bracketright", "app.next_page", "Next Page", key_display="]"),
-        Binding("e", "app.export_results", "Export"),
+        Binding("e", "app.export_combined", "Export"),
         Binding("h", "app.host_pivot", "Host Pivot"),
         Binding("v", "app.toggle_view", "View"),
         Binding("q", "app.quit", "Quit"),

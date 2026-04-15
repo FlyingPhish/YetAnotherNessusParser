@@ -8,7 +8,7 @@ from pathlib import Path
 from textual.app import App
 from textual.command import Hit, Hits, Provider
 
-from .exports import export_result_key, export_scan_results, write_filtered_snapshot
+from .exports import ensure_api_ready, export_result_key, export_scan_results, write_filtered_snapshot
 from .query import filter_and_sort
 from .screens.consolidated_detail import ConsolidatedDetailScreen
 from .screens.detail import DetailScreen
@@ -50,7 +50,7 @@ class YappCommands(Provider):
             ("Clear filters", "Clear search and severity filters", app.action_clear_filters),
             ("Export: parsed JSON", "Write parsed Nessus output to disk", app.action_export_parsed),
             ("Export: consolidated JSON", "Write consolidated findings to disk", app.action_export_consolidated),
-            ("Export: API-ready JSON", "Write API-formatted findings to disk (requires --api-output)", app.action_export_api),
+            ("Export: API-ready JSON", "Write API-formatted findings to disk", app.action_export_api),
             ("Export: combined single file", "Write all available outputs into one JSON file", app.action_export_combined),
             ("Export: all separate files", "Write each available output as its own file", app.action_export_results),
             ("Export: filtered findings", "Export current filtered set to disk", app.action_export_filtered),
@@ -382,7 +382,10 @@ class YetAnotherPentestParser(App):
         self._export_key("consolidated", "No consolidated data — should be auto-generated, check logs")
 
     def action_export_api(self) -> None:
-        self._export_key("api_ready", "No API data — run with --api-output (-a)")
+        if not ensure_api_ready(self.scan):
+            self.notify("No consolidated data to format as API output", severity="warning")
+            return
+        self._export_key("api_ready", "API data unavailable")
 
     def action_export_combined(self) -> None:
         out_dir = self._output_dir()

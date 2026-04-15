@@ -29,6 +29,25 @@ def export_scan_results(
     return status
 
 
+def ensure_api_ready(scan: ScanIndex) -> bool:
+    """Generate api_ready on-demand from consolidated data if not already present.
+
+    Mutates scan.results in-place so subsequent calls are a no-op.
+    Returns True if api_ready data is now available.
+    """
+    if scan.results.get("api_ready"):
+        return True
+    consolidated = scan.results.get("consolidated")
+    if not consolidated:
+        return False
+    from ..core.formatter import APIFormatter
+    entity_limit = scan.parse_options.get("entity_limit")
+    formatter = APIFormatter(entity_limit=entity_limit)
+    api_data = formatter.format_for_api(consolidated)
+    scan.results["api_ready"] = api_data
+    return bool(api_data)
+
+
 def export_result_key(
     scan: ScanIndex,
     key: str,
