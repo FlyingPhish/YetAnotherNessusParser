@@ -72,6 +72,22 @@ def setup_argparse() -> argparse.ArgumentParser:
         '--owned-users', action='append', default=[], metavar='FILE',
         help='File containing one owned user per line; repeat for multiple files'
     )
+    ad_parser.add_argument(
+        "-a", "--api-output", action="store_true",
+        help="Generate stock API output using mapped internal IDs"
+    )
+    ad_parser.add_argument(
+        "-x", "--excel", action="store_true",
+        help="Generate a normalized AD Excel workbook"
+    )
+    ad_parser.add_argument(
+        "-r", "--rules-file",
+        help="Override packaged AD rules with internal vulnerability IDs"
+    )
+    ad_parser.add_argument(
+        "-el", "--entity-limit", type=int,
+        help="Max affected entities per API finding"
+    )
 
     # ===== PARSE COMMAND (default) =====
     parse_parser = subparsers.add_parser(
@@ -422,35 +438,74 @@ def handle_parse(args, log):
 
 def handle_ad(args, log):
     """Handle offline BloodHound analysis."""
-    import json
+    from .config import get_default_ad_rules_path
     from .core.ad_analyzer import ADAnalyzerError
     from .core.ad_owned import read_owned_principals
     from .core.ad_pipeline import analyze_bloodhound
+    from .core.ad_excel import ADExcelFormatter
+    from .core.ad_reporting import (
+        ADAPIFormatter,
+        ADReportingError,
+        load_ad_rules,
+        map_ad_findings,
+    )
     from .utils.file_utils import _get_base_name, _build_output_name
+    from .utils.json_utils import write_json_output
 
     try:
+        if args.entity_limit is not None and args.entity_limit < 1:
+            raise ADReportingError("--entity-limit must be a positive integer")
+        rules_path = args.rules_file or get_default_ad_rules_path()
+        rules = load_ad_rules(str(rules_path))
+        if args.api_output and not any(
+            rule["api_output"] and rule["internal_vulnerability_id"] is not None
+            for rule in rules
+        ):
+            raise ADReportingError(
+                "No AD rules have internal vulnerability IDs; "
+                "provide --rules-file with your catalogue IDs"
+            )
+
         owned_principals = read_owned_principals(args.owned, args.owned_users)
         results = analyze_bloodhound(
             args.input_file,
             include_paths=args.paths,
             owned_principals=owned_principals,
         )
+        mapped_findings = map_ad_findings(results, rules)
         output_folder = ensure_output_directory(args.output_folder)
         base = _get_base_name(args.input_file, args.output_name)
-        output_path = output_folder / _build_output_name(base, '_AD_Findings')
-        with open(output_path, 'w', encoding='utf-8') as output:
-            json.dump(results, output, indent=2, sort_keys=True)
-            output.write('\n')
+        output_path = output_folder / _build_output_name(base, "_AD_Findings")
+        if not write_json_output(results, output_path):
+            raise ADReportingError(f"Failed to write AD findings: {output_path}")
         print(f"{Colors.GREEN}{Colors.BRIGHT}✓ AD findings saved:{Colors.RESET}")
         print(f"  {Colors.CYAN}{output_path}{Colors.RESET}")
-        print(f"  Findings: {results['summary']['total']}")
+        print("  Findings: {}".format(results["summary"]["total"]))
+        if args.api_output:
+            api_results = ADAPIFormatter(args.entity_limit).format(mapped_findings)
+            api_path = output_folder / _build_output_name(base, "_AD_API")
+            if not write_json_output(api_results, api_path):
+                raise ADReportingError(f"Failed to write AD API output: {api_path}")
+            print(f"{Colors.GREEN}{Colors.BRIGHT}✓ AD API output saved:{Colors.RESET}")
+            print(f"  {Colors.CYAN}{api_path}{Colors.RESET}")
+            print(f"  Mapped findings: {len(api_results)}")
+
+        if args.excel:
+            workbook = ADExcelFormatter().format(results, mapped_findings)
+            excel_path = output_folder / _build_output_name(
+                base, "_AD_Report", ".xlsx"
+            )
+            workbook.save(excel_path)
+            print(f"{Colors.GREEN}{Colors.BRIGHT}✓ AD Excel report saved:{Colors.RESET}")
+            print(f"  {Colors.CYAN}{excel_path}{Colors.RESET}")
         return 0
-    except (FileNotFoundError, ADAnalyzerError) as exc:
+    except (FileNotFoundError, ADAnalyzerError, ADReportingError) as exc:
         log.error(str(exc))
         return 1
     except Exception as exc:
         log.error(f"AD analysis failed: {exc}")
         return 1
+
 
 def handle_compare(args, log):
     """Handle compare command"""

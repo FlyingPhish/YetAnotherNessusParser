@@ -48,6 +48,11 @@ Examples:
 from .core import (
     analyze_bloodhound,
     ADAnalyzerError,
+    ADAPIFormatter,
+    ADExcelFormatter,
+    ADReportingError,
+    load_ad_rules,
+    map_ad_findings,
     NessusParser,
     NmapParser,
     VulnerabilityConsolidator, 
@@ -104,6 +109,11 @@ __all__ = [
     "process_data",
     "analyze_bloodhound",
     "ADAnalyzerError",
+    "ADReportingError",
+    "ADAPIFormatter",
+    "ADExcelFormatter",
+    "load_ad_rules",
+    "map_ad_findings",
     
     # Utilities
     "detect_file_type",

@@ -187,6 +187,7 @@ examples/*
 
 ## Config
 !yapp/config/default_rules.json
+!yapp/config/default_ad_rules.json
 
 ## Dev
 reference/

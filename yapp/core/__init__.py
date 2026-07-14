@@ -21,6 +21,13 @@ from .excel_formatter import ExcelFormatter
 from .processor import process_file, process_nmap_comparison
 from .ad_analyzer import ADAnalyzerError, load_bloodhound_zip
 from .ad_pipeline import analyze_bloodhound
+from .ad_excel import ADExcelFormatter
+from .ad_reporting import (
+    ADAPIFormatter,
+    ADReportingError,
+    load_ad_rules,
+    map_ad_findings,
+)
 
 __all__ = [
     # Core parsers
@@ -42,5 +49,10 @@ __all__ = [
     # Exceptions
     'ConsolidationError',
     'FormatterError',
-    'ADAnalyzerError'
+    "ADAnalyzerError",
+    "ADReportingError",
+    "ADAPIFormatter",
+    "ADExcelFormatter",
+    "load_ad_rules",
+    "map_ad_findings",
 ]

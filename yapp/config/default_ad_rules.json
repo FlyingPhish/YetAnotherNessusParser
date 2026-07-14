@@ -1,0 +1,55 @@
+{
+  "ad_rules": [
+    {
+      "rule_name": "asrep_roastable_accounts",
+      "title": "AS-REP Roastable Accounts",
+      "internal_vulnerability_id": null,
+      "finding_ids": ["ad.kerberos.asrep_roastable"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "kerberoastable_accounts",
+      "title": "Kerberoastable Accounts",
+      "internal_vulnerability_id": null,
+      "finding_ids": ["ad.kerberos.kerberoastable"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "non_expiring_user_passwords",
+      "title": "User Passwords Do Not Expire",
+      "internal_vulnerability_id": null,
+      "finding_ids": ["ad.password.user_password_never_expires"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "unconstrained_delegation",
+      "title": "Unconstrained Kerberos Delegation",
+      "internal_vulnerability_id": null,
+      "finding_ids": ["ad.kerberos.unconstrained_delegation"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "owned_principal_outbound_control",
+      "title": "Owned Principal Outbound Control",
+      "internal_vulnerability_id": null,
+      "finding_ids": ["ad.owned.outbound_control"],
+      "enabled": true,
+      "api_output": false
+    },
+    {
+      "rule_name": "path_to_high_value_asset",
+      "title": "Path to High-Value Asset",
+      "internal_vulnerability_id": null,
+      "finding_ids": [
+        "ad.owned.path_to_high_value",
+        "ad.permissions.path_to_high_value"
+      ],
+      "enabled": true,
+      "api_output": false
+    }
+  ]
+}
