@@ -47,11 +47,31 @@ def setup_argparse() -> argparse.ArgumentParser:
     )
     
     # ===== AD COMMAND =====
-    ad_parser = subparsers.add_parser('ad', help='Analyse a BloodHound ZIP collection without a server')
-    ad_parser.add_argument('-i', '--input-file', required=True, help='Path to a BloodHound collection ZIP')
-    ad_parser.add_argument('-of', '--output-folder', default='./output', help='Output folder path (default: ./output)')
-    ad_parser.add_argument('-on', '--output-name', help='Output JSON name without extension')
-    ad_parser.add_argument('--paths', action='store_true', help='Enable bounded Kuzu path analysis (requires yapp[ad])')
+    ad_parser = subparsers.add_parser(
+        'ad', help='Analyse a BloodHound ZIP collection without a server'
+    )
+    ad_parser.add_argument(
+        '-i', '--input-file', required=True, help='Path to a BloodHound collection ZIP'
+    )
+    ad_parser.add_argument(
+        '-of', '--output-folder', default='./output',
+        help='Output folder path (default: ./output)'
+    )
+    ad_parser.add_argument(
+        '-on', '--output-name', help='Output JSON name without extension'
+    )
+    ad_parser.add_argument(
+        '--paths', action='store_true',
+        help='Enable bounded Kuzu path analysis (requires yapp[ad])'
+    )
+    ad_parser.add_argument(
+        '--owned', action='append', default=[], metavar='USER',
+        help='Assume a user is owned; repeat for multiple users'
+    )
+    ad_parser.add_argument(
+        '--owned-users', action='append', default=[], metavar='FILE',
+        help='File containing one owned user per line; repeat for multiple files'
+    )
 
     # ===== PARSE COMMAND (default) =====
     parse_parser = subparsers.add_parser(
@@ -403,11 +423,18 @@ def handle_parse(args, log):
 def handle_ad(args, log):
     """Handle offline BloodHound analysis."""
     import json
-    from .core.ad_analyzer import ADAnalyzerError, analyze_bloodhound
+    from .core.ad_analyzer import ADAnalyzerError
+    from .core.ad_owned import read_owned_principals
+    from .core.ad_pipeline import analyze_bloodhound
     from .utils.file_utils import _get_base_name, _build_output_name
 
     try:
-        results = analyze_bloodhound(args.input_file, include_paths=args.paths)
+        owned_principals = read_owned_principals(args.owned, args.owned_users)
+        results = analyze_bloodhound(
+            args.input_file,
+            include_paths=args.paths,
+            owned_principals=owned_principals,
+        )
         output_folder = ensure_output_directory(args.output_folder)
         base = _get_base_name(args.input_file, args.output_name)
         output_path = output_folder / _build_output_name(base, '_AD_Findings')

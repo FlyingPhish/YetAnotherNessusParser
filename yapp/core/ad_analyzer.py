@@ -96,7 +96,6 @@ _KIND_NAMES = {
     "gpos": "GPO",
     "containers": "Container",
     "certificationauthorities": "CertificateAuthority",
-    "ous": "OU",
 }
 
 _MAX_MEMBER_BYTES = 512 * 1024 * 1024
@@ -160,46 +159,67 @@ def _endpoint(value: Any) -> Optional[str]:
     return None
 
 
+def _items(value: Any) -> List[Any]:
+    """Return collection results from legacy lists or modern wrappers."""
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        results = _first(value, "Results", "result", "Members")
+        if isinstance(results, list):
+            return results
+    return []
+
+
 def _add_record_edges(graph: ADGraph, record: Dict[str, Any], node_id: str) -> None:
-    # Group membership is represented as a list on group records in most
-    # SharpHound exports.  Direction follows BloodHound: member -> group.
     members = _first(record, "Members", "member")
-    if isinstance(members, list):
-        for member in members:
-            member_id = _endpoint(member)
-            if member_id:
-                graph.add_edge(member_id, node_id, "MemberOf")
+    for member in _items(members):
+        member_id = _endpoint(member)
+        if member_id:
+            graph.add_edge(member_id, node_id, "MemberOf")
 
     aces = _first(record, "Aces", "ACLs", "acls")
-    if isinstance(aces, list):
-        for ace in aces:
-            if not isinstance(ace, dict):
-                continue
-            principal = _endpoint(ace)
-            right = _first(ace, "RightName", "Right", "Rights", "permission")
-            if isinstance(right, list):
-                rights = right
-            else:
-                rights = [right or "ACL"]
-            for permission in rights:
-                graph.add_edge(principal or "", node_id, str(permission), {"ace": ace})
+    for ace in _items(aces):
+        if not isinstance(ace, dict):
+            continue
+        principal = _endpoint(ace)
+        right = _first(ace, "RightName", "Right", "Rights", "permission")
+        rights = right if isinstance(right, list) else [right or "ACL"]
+        for permission in rights:
+            graph.add_edge(principal or "", node_id, str(permission), {"ace": ace})
 
     sessions = _first(record, "Sessions", "PrivilegedSessions", "HasSession")
-    if isinstance(sessions, list):
-        for session in sessions:
-            if not isinstance(session, dict):
-                continue
-            user_id = _first(session, "UserSID", "UserId", "UserIdentifier")
-            computer_id = _first(session, "ComputerSID", "ComputerId", "ComputerIdentifier")
-            if user_id and computer_id:
-                graph.add_edge(str(user_id), str(computer_id), "HasSession")
+    for session in _items(sessions):
+        if not isinstance(session, dict):
+            continue
+        user_id = _first(session, "UserSID", "UserId", "UserIdentifier")
+        computer_id = _first(
+            session, "ComputerSID", "ComputerId", "ComputerIdentifier"
+        )
+        if user_id:
+            # BloodHound path semantics are Computer -> User.
+            graph.add_edge(str(computer_id or node_id), str(user_id), "HasSession")
 
-    local_admins = _first(record, "LocalAdmins", "Administrators")
-    if isinstance(local_admins, list):
-        for administrator in local_admins:
-            administrator_id = _endpoint(administrator)
-            if administrator_id:
-                graph.add_edge(administrator_id, node_id, "AdminTo")
+    local_groups = {
+        "AdminTo": _first(record, "LocalAdmins", "Administrators"),
+        "CanRDP": _first(record, "RemoteDesktopUsers", "RDPUsers"),
+        "CanPSRemote": _first(record, "PSRemoteUsers"),
+        "ExecuteDCOM": _first(record, "DcomUsers"),
+    }
+    for relationship, entries in local_groups.items():
+        for principal in _items(entries):
+            principal_id = _endpoint(principal)
+            if principal_id:
+                graph.add_edge(principal_id, node_id, relationship)
+
+    for target in _items(_first(record, "AllowedToDelegate")):
+        target_id = _endpoint(target)
+        if target_id:
+            graph.add_edge(node_id, target_id, "AllowedToDelegate")
+
+    for principal in _items(_first(record, "AllowedToAct")):
+        principal_id = _endpoint(principal)
+        if principal_id:
+            graph.add_edge(principal_id, node_id, "AllowedToAct")
 
 
 def load_bloodhound_zip(
@@ -222,14 +242,17 @@ def load_bloodhound_zip(
     records_seen = 0
     json_members = 0
     total_uncompressed = 0
-    pending: List[Tuple[str, str, Dict[str, Any]]] = []
 
     try:
         with zipfile.ZipFile(path) as archive:
             for info in archive.infolist():
                 if info.is_dir() or not info.filename.lower().endswith(".json"):
                     continue
-                if (info.filename.startswith(("/", "\\")) or "\\" in info.filename or ".." in Path(info.filename).parts):
+                if (
+                    info.filename.startswith(("/", "\\"))
+                    or "\\" in info.filename
+                    or ".." in Path(info.filename).parts
+                ):
                     raise ADAnalyzerError(f"Unsafe ZIP member path: {info.filename}")
                 json_members += 1
                 if info.file_size > max_member_bytes:
@@ -367,33 +390,4 @@ def run_direct_rules(graph: ADGraph) -> List[Dict[str, Any]]:
             )
 
     return findings
-
-
-def analyze_bloodhound(
-    input_file: Union[str, Path],
-    *,
-    include_paths: bool = False,
-) -> Dict[str, Any]:
-    """Analyse a collection and return the stable JSON-ready result."""
-    graph = load_bloodhound_zip(input_file)
-    findings = run_direct_rules(graph)
-    backend = "direct"
-    if include_paths:
-        try:
-            from .ad_paths import add_path_findings
-
-            add_path_findings(graph, findings)
-            backend = "direct+kuzu"
-        except ImportError as exc:
-            raise ADAnalyzerError(
-                "Path analysis requires the optional dependency; install with `pip install yapp[ad]`"
-            ) from exc
-    severity_counts = {severity: sum(1 for item in findings if item["severity"] == severity) for severity in ("critical", "high", "medium", "low", "info")}
-    return {
-        "schema_version": 1,
-        "source": {"type": "bloodhound_zip", "path": Path(input_file).name},
-        "engine": {"path_backend": backend, "node_count": len(graph.nodes), "edge_count": len(graph.edges)},
-        "summary": {"total": len(findings), **severity_counts},
-        "findings": findings,
-    }
 

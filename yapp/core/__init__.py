@@ -19,7 +19,8 @@ from .consolidator import VulnerabilityConsolidator, ConsolidationError
 from .formatter import APIFormatter, FormatterError
 from .excel_formatter import ExcelFormatter
 from .processor import process_file, process_nmap_comparison
-from .ad_analyzer import ADAnalyzerError, analyze_bloodhound, load_bloodhound_zip
+from .ad_analyzer import ADAnalyzerError, load_bloodhound_zip
+from .ad_pipeline import analyze_bloodhound
 
 __all__ = [
     # Core parsers
