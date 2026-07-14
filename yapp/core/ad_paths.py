@@ -2,10 +2,55 @@
 
 from __future__ import annotations
 
+import csv
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, Dict, List, Optional, Sequence
 
 from .ad_analyzer import ADGraph, _entity, _finding, _prop, _truthy
 from .ad_owned import traversable_edge_kinds
+
+
+def _cypher_string(value: str) -> str:
+    """Quote a generated local path as a Cypher string literal."""
+    slash = chr(92)
+    quote = chr(39)
+    return (
+        quote
+        + value.replace(slash, slash + slash).replace(quote, slash + quote)
+        + quote
+    )
+
+
+def _load_graph(connection: Any, graph: ADGraph, allowed_edges: set[str]) -> None:
+    """Load the graph with Kuzu bulk COPY instead of per-row Cypher DML."""
+    connection.execute(
+        "CREATE NODE TABLE Node (id STRING PRIMARY KEY, kind STRING, name STRING)"
+    )
+    connection.execute("CREATE REL TABLE Edge (FROM Node TO Node, kind STRING)")
+
+    with TemporaryDirectory(prefix="yapp-ad-") as temporary_directory:
+        directory = Path(temporary_directory)
+        nodes_path = directory / "nodes.csv"
+        edges_path = directory / "edges.csv"
+
+        with nodes_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerows(
+                (node.id, node.kind, node.name) for node in graph.nodes.values()
+            )
+        edge_count = 0
+        with edges_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            for edge in graph.edges:
+                if edge.kind.casefold() not in allowed_edges:
+                    continue
+                writer.writerow((edge.source, edge.target, edge.kind))
+                edge_count += 1
+
+        connection.execute(f"COPY Node FROM {_cypher_string(str(nodes_path))}")
+        if edge_count:
+            connection.execute(f"COPY Edge FROM {_cypher_string(str(edges_path))}")
 
 
 def add_path_findings(
@@ -28,31 +73,7 @@ def add_path_findings(
     allowed_edges = set(traversable_edge_kinds())
     db = kuzu.Database(":memory:")
     connection = kuzu.Connection(db)
-    connection.execute(
-        "CREATE NODE TABLE Node (id STRING PRIMARY KEY, kind STRING, name STRING)"
-    )
-    connection.execute(
-        "CREATE REL TABLE Edge (FROM Node TO Node, kind STRING, properties STRING)"
-    )
-
-    for node in graph.nodes.values():
-        connection.execute(
-            "CREATE (n:Node {id: $id, kind: $kind, name: $name})",
-            parameters={"id": node.id, "kind": node.kind, "name": node.name},
-        )
-    for edge in graph.edges:
-        if edge.kind.casefold() not in allowed_edges:
-            continue
-        connection.execute(
-            "MATCH (source:Node {id: $source}), (target:Node {id: $target}) "
-            "CREATE (source)-[:Edge {kind: $kind, properties: $properties})->(target)",
-            parameters={
-                "source": edge.source,
-                "target": edge.target,
-                "kind": edge.kind,
-                "properties": str(edge.properties),
-            },
-        )
+    _load_graph(connection, graph, allowed_edges)
 
     depth = max(1, min(int(max_depth), 12))
     source_filter = (
@@ -65,7 +86,8 @@ def add_path_findings(
         f"MATCH p=(source:Node)-[path:Edge* SHORTEST 1..{depth}]->(target:Node) "
         f"WHERE {source_filter} AND target.id IN $targets "
         "RETURN source.id, target.id, "
-        "[n IN nodes(p) | n.id], [r IN rels(p) | r.kind], length(path) AS path_length "
+        "properties(nodes(p), \"id\"), properties(rels(p), \"kind\"), "
+        "length(path) AS path_length "
         "ORDER BY path_length ASC LIMIT 10000",
         parameters=parameters,
     )
