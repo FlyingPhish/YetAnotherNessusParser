@@ -45,7 +45,7 @@ def add_path_findings(
             continue
         connection.execute(
             "MATCH (source:Node {id: $source}), (target:Node {id: $target}) "
-            "CREATE (source)-(:Edge {kind: $kind, properties: $properties})->(target)",
+            "CREATE (source)-[:Edge {kind: $kind, properties: $properties})->(target)",
             parameters={
                 "source": edge.source,
                 "target": edge.target,
@@ -62,11 +62,11 @@ def add_path_findings(
     if source_ids is not None:
         parameters["sources"] = list(source_ids)
     result = connection.execute(
-        f"MATCH p=(source:Node)-[:Edge*1..{depth}]->(target:Node) "
+        f"MATCH p=(source:Node)-[path:Edge* SHORTEST 1..{depth}]->(target:Node) "
         f"WHERE {source_filter} AND target.id IN $targets "
         "RETURN source.id, target.id, "
-        "[n IN nodes(p) | n.id], [r IN rels(p) | r.kind], length(p) "
-        "ORDER BY length(p) ASC LIMIT 10000",
+        "[n IN nodes(p) | n.id], [r IN rels(p) | r.kind], length(path) AS path_length "
+        "ORDER BY path_length ASC LIMIT 10000",
         parameters=parameters,
     )
 
