@@ -32,11 +32,11 @@ classifiers = [
 ]
 dependencies = [
     "openpyxl",
-    "textual"
+    "textual",
+    "kuzu"
 ]
 
 [project.optional-dependencies]
-ad = ["kuzu>=0.11,<0.12"]
 dev = []
 
 [project.urls]
