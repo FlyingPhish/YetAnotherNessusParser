@@ -43,9 +43,16 @@ def setup_argparse() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(
         dest='command',
         help='Available commands',
-        metavar='{parse,excel,compare,tui}'
+        metavar='{parse,ad,excel,compare,tui}'
     )
     
+    # ===== AD COMMAND =====
+    ad_parser = subparsers.add_parser('ad', help='Analyse a BloodHound ZIP collection without a server')
+    ad_parser.add_argument('-i', '--input-file', required=True, help='Path to a BloodHound collection ZIP')
+    ad_parser.add_argument('-of', '--output-folder', default='./output', help='Output folder path (default: ./output)')
+    ad_parser.add_argument('-on', '--output-name', help='Output JSON name without extension')
+    ad_parser.add_argument('--paths', action='store_true', help='Enable bounded Kuzu path analysis (requires yapp[ad])')
+
     # ===== PARSE COMMAND (default) =====
     parse_parser = subparsers.add_parser(
         'parse',
@@ -393,6 +400,31 @@ def handle_parse(args, log):
         log.error(f"Unexpected error: {str(e)}")
         return 1
 
+def handle_ad(args, log):
+    """Handle offline BloodHound analysis."""
+    import json
+    from .core.ad_analyzer import ADAnalyzerError, analyze_bloodhound
+    from .utils.file_utils import _get_base_name, _build_output_name
+
+    try:
+        results = analyze_bloodhound(args.input_file, include_paths=args.paths)
+        output_folder = ensure_output_directory(args.output_folder)
+        base = _get_base_name(args.input_file, args.output_name)
+        output_path = output_folder / _build_output_name(base, '_AD_Findings')
+        with open(output_path, 'w', encoding='utf-8') as output:
+            json.dump(results, output, indent=2, sort_keys=True)
+            output.write('\n')
+        print(f"{Colors.GREEN}{Colors.BRIGHT}✓ AD findings saved:{Colors.RESET}")
+        print(f"  {Colors.CYAN}{output_path}{Colors.RESET}")
+        print(f"  Findings: {results['summary']['total']}")
+        return 0
+    except (FileNotFoundError, ADAnalyzerError) as exc:
+        log.error(str(exc))
+        return 1
+    except Exception as exc:
+        log.error(f"AD analysis failed: {exc}")
+        return 1
+
 def handle_compare(args, log):
     """Handle compare command"""
     try:
@@ -563,6 +595,8 @@ def main():
     # Route to appropriate handler
     if args.command == 'parse':
         return handle_parse(args, log)
+    elif args.command == 'ad':
+        return handle_ad(args, log)
     elif args.command == 'excel':
         return handle_excel(args, log)
     elif args.command == 'compare':

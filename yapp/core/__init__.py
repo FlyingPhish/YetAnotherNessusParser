@@ -19,6 +19,7 @@ from .consolidator import VulnerabilityConsolidator, ConsolidationError
 from .formatter import APIFormatter, FormatterError
 from .excel_formatter import ExcelFormatter
 from .processor import process_file, process_nmap_comparison
+from .ad_analyzer import ADAnalyzerError, analyze_bloodhound, load_bloodhound_zip
 
 __all__ = [
     # Core parsers
@@ -34,8 +35,11 @@ __all__ = [
     # Main processing functions
     'process_file',
     'process_nmap_comparison',
+    'analyze_bloodhound',
+    'load_bloodhound_zip',
     
     # Exceptions
     'ConsolidationError',
-    'FormatterError'
+    'FormatterError',
+    'ADAnalyzerError'
 ]

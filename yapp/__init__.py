@@ -46,6 +46,8 @@ Examples:
 
 # Import core classes
 from .core import (
+    analyze_bloodhound,
+    ADAnalyzerError,
     NessusParser,
     NmapParser,
     VulnerabilityConsolidator, 
@@ -100,6 +102,8 @@ __all__ = [
     # Main processing functions
     "process_file",
     "process_data",
+    "analyze_bloodhound",
+    "ADAnalyzerError",
     
     # Utilities
     "detect_file_type",
