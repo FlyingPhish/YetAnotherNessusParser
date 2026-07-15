@@ -4,6 +4,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
+from yapp.core.ad_analyzer import ADGraph
 from yapp.core.ad_excel import ADExcelFormatter
 from yapp.core.ad_excel_operator import _fleet_access_rows
 from yapp.core.ad_pipeline import analyze_bloodhound
@@ -69,6 +70,22 @@ class ADPipelineTests(unittest.TestCase):
         fleet_sheet = workbook["Fleet Access"]
         self.assertEqual("AdminTo", fleet_sheet["E2"].value)
         self.assertEqual("top", fleet_sheet["E2"].alignment.vertical)
+
+
+    def test_reuses_supplied_graph_and_reports_progress(self):
+        graph = ADGraph()
+        graph.add_node("U1", "User", {"name": "alice@corp.local"})
+        messages = []
+
+        report = analyze_bloodhound(
+            "does-not-exist.zip",
+            graph=graph,
+            progress=messages.append,
+        )
+
+        self.assertEqual(1, report["engine"]["node_count"])
+        self.assertIn("Loaded 1 objects and 0 relationships", messages)
+        self.assertEqual("Analysis complete", messages[-1])
 
 
 if __name__ == "__main__":

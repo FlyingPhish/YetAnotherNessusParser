@@ -266,20 +266,35 @@ def setup_argparse() -> argparse.ArgumentParser:
     # ===== TUI COMMAND =====
     tui_parser = subparsers.add_parser(
         'tui',
-        help='Launch high-volume Nessus triage TUI'
+        help='Launch Nessus triage or BloodHound AD operator TUI'
     )
 
     tui_parser.add_argument(
         '-i', '--input-file',
         required=True,
-        help='Path to Nessus input file'
+        help='Path to Nessus input or BloodHound collection ZIP'
     )
 
     tui_parser.add_argument(
         '-t', '--file-type',
-        choices=['auto', 'nessus'],
+        choices=['auto', 'nessus', 'ad'],
         default='auto',
         help='Input file type for TUI mode (default: auto-detect)'
+    )
+
+    tui_parser.add_argument(
+        '--owned', action='append', default=[], metavar='USER',
+        help='AD mode: assume a user is owned; repeat for multiple users'
+    )
+
+    tui_parser.add_argument(
+        '--owned-users', action='append', default=[], metavar='FILE',
+        help='AD mode: file containing one owned user per line'
+    )
+
+    tui_parser.add_argument(
+        '--no-paths', action='store_true',
+        help='AD mode: skip optional bounded Kuzu path analysis'
     )
 
     tui_parser.add_argument(
@@ -655,7 +670,7 @@ def handle_excel(args, log):
         return 1
 
 def handle_tui(args, log):
-    """Handle tui command — launch Textual Nessus triage UI"""
+    """Handle TUI command and dispatch Nessus or BloodHound AD mode."""
     if args.entity_limit is not None and args.entity_limit < 1:
         log.error("--entity-limit must be a positive integer")
         return 1
@@ -667,19 +682,50 @@ def handle_tui(args, log):
     try:
         from .tui import build_scan_index, run_tui_app
     except Exception:
-        log.error("TUI dependencies are not installed. Install with: pip install 'yapp[tui]'")
+        log.error("TUI dependencies are not installed. Install with: pip install yapp")
         return 1
 
     try:
+        ad_mode = args.file_type == "ad" or (
+            args.file_type == "auto"
+            and Path(args.input_file).suffix.casefold() == ".zip"
+        )
+        owned_principals = []
+        if ad_mode:
+            from .core.ad_owned import read_owned_principals
+            from .tui.ad_app import load_ad_operator_state
+
+            owned_principals = read_owned_principals(args.owned, args.owned_users)
+            saved = load_ad_operator_state(args.input_file).get("assumed_owned") or []
+            seen = {value.casefold() for value in owned_principals}
+            owned_principals.extend(
+                value for value in saved if value.casefold() not in seen
+            )
+            import time
+
+            analysis_started = time.perf_counter()
+
+            def ad_progress(message):
+                elapsed = time.perf_counter() - analysis_started
+                print(
+                    f"{Colors.CYAN}[AD {elapsed:6.1f}s]{Colors.RESET} {message}",
+                    flush=True,
+                )
+        else:
+            ad_progress = None
+
         scan = build_scan_index(
             input_file=args.input_file,
             file_type=args.file_type,
-            consolidate=True,          # always consolidate — required for the view toggle
+            consolidate=not ad_mode,
             api_output=args.api_output,
             excel=args.excel,
             rules_file=args.rules_file,
             entity_limit=args.entity_limit,
-            log_exclusions=args.log_exclusions
+            log_exclusions=args.log_exclusions,
+            owned_principals=owned_principals,
+            include_paths=not args.no_paths,
+            progress=ad_progress,
         )
 
         run_tui_app(
@@ -688,6 +734,7 @@ def handle_tui(args, log):
             output_name=args.output_name,
             single_file=args.single_file,
             page_size=args.page_size,
+            entity_limit=args.entity_limit,
         )
         return 0
     except FileNotFoundError as e:

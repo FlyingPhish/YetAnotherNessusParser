@@ -135,3 +135,71 @@ class ScanIndex:
         """Triage sidecar JSON — sits next to the input file."""
         source = Path(self.input_file).resolve()
         return source.parent / f"{source.stem}.triage.json"
+
+
+@dataclass(frozen=True)
+class ADRelationship:
+    """One relationship shown as evidence in a path or node pivot."""
+
+    source: dict[str, Any]
+    relationship: str
+    target: dict[str, Any]
+    category: str
+    severity: str
+    traversable: bool
+    direct: bool = True
+    via: tuple[dict[str, Any], ...] = ()
+    why: str = ""
+    opportunity: str = ""
+    caveat: str = ""
+
+
+@dataclass
+class ADPathRow:
+    """Ranked, bounded attack path for the operator queue."""
+
+    path_id: str
+    source: dict[str, Any]
+    target: dict[str, Any]
+    nodes: tuple[dict[str, Any], ...]
+    steps: tuple[ADRelationship, ...]
+    target_class: str
+    score: int
+    choke_count: int = 0
+    owned: bool = False
+    triage_state: str = "new"
+
+    @property
+    def length(self) -> int:
+        return len(self.steps)
+
+
+@dataclass
+class ADNodePivot:
+    """Bounded relationship inventory for a selected AD object."""
+
+    entity: dict[str, Any]
+    outbound: tuple[ADRelationship, ...] = ()
+    inbound: tuple[ADRelationship, ...] = ()
+    paths: tuple[str, ...] = ()
+
+
+@dataclass
+class ADIndex:
+    """AD-specific, presentation-ready state; deliberately separate from ScanIndex."""
+
+    input_file: str
+    parse_options: dict[str, Any]
+    report: dict[str, Any]
+    paths: list[ADPathRow]
+    nodes: dict[str, dict[str, Any]]
+    pivots: dict[str, ADNodePivot]
+    assumed_owned: list[str]
+    metadata: dict[str, Any]
+    notes: dict[str, str] = field(default_factory=dict)
+    bookmarks: set[str] = field(default_factory=set)
+
+    def get_state_path(self) -> Path:
+        """Operator sidecar beside the collection, using only its safe stem."""
+        source = Path(self.input_file).resolve()
+        return source.parent / f"{source.stem}.ad-tui.json"

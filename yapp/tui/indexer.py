@@ -6,7 +6,7 @@ import hashlib
 import math
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from ..core.processor import process_file
 from ..utils.file_utils import detect_file_type
@@ -311,13 +311,30 @@ def build_scan_index(
     rules_file: str | None = None,
     entity_limit: int | None = None,
     log_exclusions: bool = False,
-) -> ScanIndex:
+    owned_principals: tuple[str, ...] | list[str] = (),
+    include_paths: bool = True,
+    progress: Callable[[str], None] | None = None,
+) -> ScanIndex | Any:
     """Process input and build in-memory no-SQL indexes for TUI usage."""
-    detected = detect_file_type(input_file) if file_type == "auto" else file_type
+    if file_type == "auto" and Path(input_file).suffix.casefold() == ".zip":
+        detected = "ad"
+    else:
+        detected = detect_file_type(input_file) if file_type == "auto" else file_type
+
+    if detected == "ad":
+        from .ad_indexer import build_ad_index
+
+        return build_ad_index(
+            input_file,
+            owned_principals=owned_principals,
+            include_paths=include_paths,
+            rules_file=rules_file,
+            progress=progress,
+        )
 
     if detected != "nessus":
         raise ValueError(
-            f"TUI v1 is Nessus-focused. Detected file type '{detected}' for '{input_file}'."
+            f"TUI supports Nessus or BloodHound ZIP input; detected '{detected}'."
         )
 
     parse_options = {

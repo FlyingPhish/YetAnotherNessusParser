@@ -4,7 +4,12 @@ import types
 import unittest
 
 from yapp.core.ad_analyzer import ADGraph
-from yapp.core.ad_paths import _cypher_string, _load_graph, add_path_findings
+from yapp.core.ad_paths import (
+    _cypher_string,
+    _load_graph,
+    add_path_findings,
+    add_priority_path_findings,
+)
 
 
 class _Result:
@@ -99,6 +104,28 @@ class PathQueryTests(unittest.TestCase):
             quote + "a" + slash + slash + "b" + slash + quote + "c" + quote
         )
         self.assertEqual(expected, _cypher_string(value))
+
+    def test_operator_priority_returns_one_nearest_allow_listed_path_per_source(self):
+        graph = ADGraph()
+        graph.add_node("U1", "User", {"name": "alice"})
+        graph.add_node("U2", "User", {"name": "bob"})
+        graph.add_node("C1", "Computer", {"name": "server01"})
+        graph.add_node("G1", "Group", {"name": "domain admins"})
+        graph.add_edge("U1", "C1", "AdminTo")
+        graph.add_edge("C1", "G1", "GenericAll")
+        graph.add_edge("U2", "G1", "UnknownFutureEdge")
+
+        findings = []
+        paths = add_priority_path_findings(
+            graph,
+            findings,
+            source_ids=["U2", "U1"],
+        )
+
+        self.assertEqual(1, len(paths))
+        self.assertEqual("U1", paths[0]["source"]["id"])
+        self.assertEqual(["AdminTo", "GenericAll"], paths[0]["edges"])
+        self.assertEqual("ad.owned.path_to_domain_admin", findings[0]["id"])
 
     @staticmethod
     def _restore_module(original):
