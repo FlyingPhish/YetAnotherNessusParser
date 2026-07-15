@@ -4,10 +4,16 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from yapp.core.ad_analyzer import ADGraph
-from yapp.core.ad_excel import ADExcelFormatter
+from yapp import (
+    ADAnalysisPolicy,
+    ADExcelFormatter,
+    ADGraph,
+    analyze_bloodhound,
+    get_default_ad_rules_path,
+    get_supported_file_types,
+    load_bloodhound_zip,
+)
 from yapp.core.ad_excel_operator import _fleet_access_rows
-from yapp.core.ad_pipeline import analyze_bloodhound
 
 
 class ADPipelineTests(unittest.TestCase):
@@ -86,6 +92,16 @@ class ADPipelineTests(unittest.TestCase):
         self.assertEqual(1, report["engine"]["node_count"])
         self.assertIn("Loaded 1 objects and 0 relationships", messages)
         self.assertEqual("Analysis complete", messages[-1])
+
+
+    def test_public_library_surface_advertises_bloodhound(self):
+        capabilities = get_supported_file_types()["bloodhound"]
+
+        self.assertEqual("analyze_bloodhound", capabilities["entry_point"])
+        self.assertIn("owned_analysis", capabilities["features"])
+        self.assertTrue(get_default_ad_rules_path().is_file())
+        self.assertTrue(callable(load_bloodhound_zip))
+        self.assertIsInstance(ADAnalysisPolicy(), ADAnalysisPolicy)
 
 
 if __name__ == "__main__":

@@ -1,14 +1,15 @@
 # Offline Active Directory Analysis
 
 YAPP can analyse a BloodHound collection ZIP without running BloodHound or
-Neo4j. Direct rules need no graph dependency. Bounded path rules use the
-optional embedded Kuzu backend.
+Neo4j. Runtime dependencies are installed with YAPP; exhaustive `--paths` analysis
+uses the embedded Kuzu backend.
 
 ```bash
-pip install "yapp[ad]"
 yapp ad -i collection.zip
 yapp ad -i collection.zip --paths
 ```
+
+For programmatic use, import `analyze_bloodhound` directly from `yapp`. See the [Library Usage guide](Library%20Usage.md#bloodhound--active-directory-processing) for owned-user paths, policies, report structure, API mapping, and Excel generation.
 
 ## Owned users
 

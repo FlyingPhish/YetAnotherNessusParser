@@ -86,8 +86,8 @@ def analyze_bloodhound(
             emit(f"Calculated {len(paths):,} attack paths")
         except ImportError as exc:
             raise ADAnalyzerError(
-                "Path analysis requires the optional dependency; "
-                "install with `pip install yapp[ad]`"
+                "Path analysis backend is unavailable; reinstall YAPP with its "
+                "required dependencies"
             ) from exc
 
     emit("Ranking choke points")

@@ -48,6 +48,9 @@ Examples:
 # Import core classes
 from .core import (
     analyze_bloodhound,
+    load_bloodhound_zip,
+    ADAnalysisPolicy,
+    ADGraph,
     ADAnalyzerError,
     ADAPIFormatter,
     ADExcelFormatter,
@@ -65,6 +68,7 @@ from .core import (
 
 # Import main processing functions
 from .core.processor import process_file, process_data
+from .config import get_default_ad_rules_path
 
 # Import CLI functionality
 from .cli import cli_entry_point
@@ -110,6 +114,9 @@ __all__ = [
     "process_file",
     "process_data",
     "analyze_bloodhound",
+    "load_bloodhound_zip",
+    "ADAnalysisPolicy",
+    "ADGraph",
     "ADAnalyzerError",
     "ADReportingError",
     "ADAPIFormatter",
@@ -117,9 +124,12 @@ __all__ = [
     "load_ad_configuration",
     "load_ad_rules",
     "map_ad_findings",
+    "get_default_ad_rules_path",
     
     # Utilities
     "detect_file_type",
+    "get_supported_file_types",
+    "get_version_info",
     
     # CLI entry point
     "cli_entry_point",
@@ -149,6 +159,15 @@ def get_supported_file_types() -> dict:
             "extensions": [".xml"],
             "features": ["parsing", "port_filtering", "flat_json_output"],
             "parser_class": "NmapParser"
+        },
+        "bloodhound": {
+            "description": "BloodHound Active Directory ZIP collections",
+            "extensions": [".zip"],
+            "features": [
+                "posture_analysis", "owned_analysis", "bounded_paths",
+                "privilege_analysis", "api_formatting", "excel_formatting"
+            ],
+            "entry_point": "analyze_bloodhound"
         }
     }
 

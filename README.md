@@ -212,6 +212,8 @@ yapp tui -i bloodhound.zip --owned-users cracked-users.txt
 
 The TUI opens on a prioritized mission view. Press `Enter` to inspect a route, `v` for privilege exposures, and `o` to update assumed-owned users. See [TUI Usage](yapp/docs/TUI%20Usage.md) for the full workflow, terminology, controls, safety model, and bounded-view behavior.
 
+Programmatic users can call `analyze_bloodhound()` directly and receive a JSON-ready report without writing files. See [Library Usage](yapp/docs/Library%20Usage.md#bloodhound--active-directory-processing) for owned-user paths, policy controls, API mapping, Excel output, and error handling.
+
 ## 🔬 Nessus Consolidation Engine
 The consolidation engine intelligently groups related vulnerabilities, reducing noise and improving vulnerability management efficiency.
 

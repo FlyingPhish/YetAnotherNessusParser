@@ -90,6 +90,69 @@ results = process_file(
 )
 ```
 
+## BloodHound / Active Directory Processing
+
+BloodHound collections use the dedicated `analyze_bloodhound()` entry point. It returns a JSON-serializable dictionary and does not write files.
+
+### Basic offline analysis
+
+```python
+from yapp import ADAnalyzerError, analyze_bloodhound
+
+try:
+    report = analyze_bloodhound("bloodhound.zip")
+except (FileNotFoundError, ADAnalyzerError) as exc:
+    print(f"AD analysis failed: {exc}")
+else:
+    print(report["summary"])
+    print(report["privilege_analysis"]["memberships"])
+    print(report["operator_analysis"]["fleet_access"])
+```
+
+### Owned users and prioritized paths
+
+```python
+from yapp import ADAnalysisPolicy, analyze_bloodhound
+
+report = analyze_bloodhound(
+    "bloodhound.zip",
+    owned_principals=["alice@corp.local", r"CORP\\bob"],
+    include_paths=True,
+    operator_paths=True,  # Same bounded, prioritized mode as the TUI
+    policy=ADAnalysisPolicy(max_local_admin_hosts=5),
+    progress=print,
+)
+
+owned = report.get("owned_analysis", {})
+print("Resolved:", len(owned.get("resolved", [])))
+print("Paths:", len(owned.get("paths", [])))
+```
+
+The report contains `summary`, `findings`, `privilege_analysis`, `operator_analysis`, `path_analysis`, and, when supplied, `owned_analysis`. Inputs are currently file-backed ZIP paths; there is no raw ZIP-bytes equivalent to `process_data()`.
+
+### API mapping and Excel output
+
+```python
+from yapp import (
+    ADAPIFormatter,
+    ADExcelFormatter,
+    analyze_bloodhound,
+    load_ad_configuration,
+    map_ad_findings,
+)
+
+config = load_ad_configuration("custom_ad_rules.json")
+report = analyze_bloodhound(
+    "bloodhound.zip",
+    sensitive_groups=config["sensitive_groups"],
+)
+mapped = map_ad_findings(report, config["rules"])
+api_output = ADAPIFormatter(entity_limit=20).format(mapped)
+ADExcelFormatter().format(report, mapped).save("bloodhound-report.xlsx")
+```
+
+API output requires rules with your internal vulnerability IDs. `get_default_ad_rules_path()` exposes the packaged catalogue for default rules and sensitive-group definitions.
+
 ## Nmap Processing
 
 ### Basic Nmap parsing
