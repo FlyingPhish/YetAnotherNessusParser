@@ -6,6 +6,7 @@ A Python library for parsing and processing various pentesting tool outputs.
 Supported formats:
 - Nessus .nessus XML files (with consolidation and API formatting)
 - Nmap .xml XML files (with flat JSON output option)
+- BloodHound ZIP collections (offline AD analysis and reporting)
 
 Examples:
     Basic parsing (auto-detect):
@@ -82,12 +83,12 @@ try:
     __description__ = _metadata.get("Summary", "Swiss Army Knife for Pentester File Processing")
 except ImportError:
     # Fallback for development/editable installs where metadata might not be available
-    __version__ = "4.0.0-dev"
+    __version__ = "7.0.0"
     __author__ = "FlyingPhishy"
     __description__ = "Swiss Army Knife for Pentester File Processing"
 except Exception:
     # Fallback if package not installed properly
-    __version__ = "4.0.0-dev"
+    __version__ = "7.0.0"
     __author__ = "FlyingPhishy" 
     __description__ = "Swiss Army Knife for Pentester File Processing"
 

@@ -185,6 +185,26 @@ class ADNodePivot:
 
 
 @dataclass
+class ADExposureRow:
+    """Aggregated privilege exposure with bounded drill-down evidence."""
+
+    exposure_id: str
+    category: str
+    priority: str
+    score: int
+    principal: dict[str, Any]
+    relationship: str
+    targets: tuple[dict[str, Any], ...]
+    target_count: int = 0
+    effective_count: int = 0
+    effective_principals: tuple[dict[str, Any], ...] = ()
+    owned: bool = False
+    summary: str = ""
+    why: str = ""
+    caveat: str = ""
+
+
+@dataclass
 class ADIndex:
     """AD-specific, presentation-ready state; deliberately separate from ScanIndex."""
 
@@ -196,6 +216,7 @@ class ADIndex:
     pivots: dict[str, ADNodePivot]
     assumed_owned: list[str]
     metadata: dict[str, Any]
+    exposures: list[ADExposureRow] = field(default_factory=list)
     notes: dict[str, str] = field(default_factory=dict)
     bookmarks: set[str] = field(default_factory=set)
 

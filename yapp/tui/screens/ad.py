@@ -9,7 +9,7 @@ from textual.containers import VerticalScroll
 from textual.screen import ModalScreen, Screen
 from textual.widgets import DataTable, Footer, Header, Input, Static
 
-from ..state import ADIndex, ADPathRow, ADRelationship
+from ..state import ADExposureRow, ADIndex, ADPathRow, ADRelationship
 
 _KIND_STYLE = {
     "user": "bright_cyan",
@@ -18,6 +18,33 @@ _KIND_STYLE = {
     "domain": "bold bright_magenta",
     "certificateauthority": "bright_green",
 }
+
+_EXPOSURE_LABELS = {
+    "broad_admin_membership": "Broad admin membership",
+    "computer_admin_membership": "Computer admin member",
+    "privileged_control": "Privileged object control",
+    "local_admin_access": "Local admin access",
+}
+
+_PRIORITY_STYLES = {
+    "ACT NOW": "bold black on bright_cyan",
+    "CRITICAL": "bold bright_magenta",
+    "HIGH": "bold bright_red",
+    "MEDIUM": "bold yellow",
+    "REVIEW": "white",
+}
+
+
+def _priority_text(priority: str) -> Text:
+    return Text(priority, style=_PRIORITY_STYLES.get(priority, "white"))
+
+
+def _path_priority(path: ADPathRow) -> str:
+    if path.owned:
+        return "ACT NOW"
+    if path.score >= 80:
+        return "HIGH"
+    return "REVIEW"
 
 
 def _name(entity: dict) -> str:
@@ -53,6 +80,7 @@ class ADMissionScreen(Screen):
 
     BINDINGS = [
         Binding("enter", "open_path", "Inspect Path", priority=True),
+        Binding("v", "view_exposures", "Exposures"),
         Binding("o", "app.assume_owned", "Assume Owned"),
         Binding("m", "app.mark_path", "Triage"),
         Binding("b", "app.bookmark_path", "Bookmark"),
@@ -78,15 +106,14 @@ class ADMissionScreen(Screen):
         yield Static(id="mission")
         yield Static(id="warnings")
         yield DataTable(id="paths")
-        yield Static("Green edges are allow-listed; evidence-only edges are red and rank below traversable paths.", id="queue-help")
+        yield Static(id="queue-help")
         yield Footer()
 
     def on_mount(self) -> None:
         table = self.query_one("#paths", DataTable)
         table.cursor_type = "row"
         table.zebra_stripes = True
-        table.add_column("Score", width=7)
-        table.add_column("Owned", width=7)
+        table.add_column("Priority", width=11)
         table.add_column("Objective", width=16)
         table.add_column("Steps", width=6)
         table.add_column("Source")
@@ -106,8 +133,14 @@ class ADMissionScreen(Screen):
         mission.append(f"Critical {summary.get('critical', 0)}  ", style="bold bright_magenta")
         mission.append(f"High {summary.get('high', 0)}  ", style="bold red")
         mission.append(f"Owned {len(owned.get('principals') or [])}  ", style="bold bright_cyan")
-        mission.append(f"Privileged identities {len(privilege.get('memberships') or [])}  ")
+        privileged_principals = {
+            str((item.get("principal") or {}).get("id") or "")
+            for item in privilege.get("memberships") or []
+            if (item.get("principal") or {}).get("id")
+        }
+        mission.append(f"Privileged principals {len(privileged_principals)}  ")
         mission.append(f"Attack paths {len(index.paths)}  ", style="bold")
+        mission.append(f"Exposures {len(index.exposures)}  ", style="bold yellow")
         mission.append(f"Choke points {len((index.report.get('path_analysis') or {}).get('choke_points') or [])}")
         self.query_one("#mission", Static).update(mission)
 
@@ -125,8 +158,7 @@ class ADMissionScreen(Screen):
         table.clear()
         for row in self.current_rows:
             table.add_row(
-                str(row.score),
-                "yes" if row.owned else "",
+                _priority_text(_path_priority(row)),
                 row.target_class.replace("_", " "),
                 str(row.length),
                 _entity_text(row.source, owned=row.owned),
@@ -135,6 +167,14 @@ class ADMissionScreen(Screen):
                 row.triage_state,
                 key=row.path_id,
             )
+        help_text = (
+            "Start here: Enter inspects a route • v opens privilege exposures • "
+            "o updates assumed-owned users | Green = traversable; red = evidence only"
+            if self.current_rows
+            else "No bounded high-value routes found. Press v to review privilege "
+            "exposures, or check the collection gaps above."
+        )
+        self.query_one("#queue-help", Static).update(help_text)
 
     @property
     def selected_path_id(self) -> str | None:
@@ -148,9 +188,222 @@ class ADMissionScreen(Screen):
         if self.selected_path_id:
             self.app.action_open_ad_path(self.selected_path_id)
 
+    def action_view_exposures(self) -> None:
+        self.app.action_open_ad_exposures()
+
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         self.app.action_open_ad_path(str(getattr(event.row_key, "value", event.row_key)))
 
+
+class ADExposureQueueScreen(Screen):
+    """Aggregated administrative membership, control, and local-admin exposures."""
+
+    BINDINGS = [
+        Binding("enter", "open_exposure", "Inspect", priority=True),
+        Binding("escape", "app.pop_screen", "Back"),
+    ]
+
+    CSS = """
+    #exposure-summary { height: auto; padding: 1 2; border-bottom: solid $primary; }
+    #exposures { height: 1fr; }
+    #exposure-help { height: auto; padding: 0 2; color: $text-muted; }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Header(show_clock=True)
+        yield Static(id="exposure-summary")
+        yield DataTable(id="exposures")
+        yield Static(
+            "Start with ACT NOW, then CRITICAL. Targets are controlled objects; "
+            "effective actors inherit the grant. Enter opens the evidence.",
+            id="exposure-help",
+        )
+        yield Footer()
+
+    def on_mount(self) -> None:
+        rows = self.app.ad_index.exposures[:1000]
+        broad = sum(
+            1 for row in rows
+            if row.category in {"broad_admin_membership", "computer_admin_membership"}
+        )
+        controls = sum(1 for row in rows if row.category == "privileged_control")
+        local_admin = sum(1 for row in rows if row.category == "local_admin_access")
+        self.query_one("#exposure-summary", Static).update(
+            f" Privilege Exposure  |  Administrative memberships {broad}  |  "
+            f"Privileged controls {controls}  |  Local-admin grants {local_admin}"
+        )
+
+        table = self.query_one("#exposures", DataTable)
+        table.cursor_type = "row"
+        table.zebra_stripes = True
+        table.add_column("Priority", width=11)
+        table.add_column("Exposure", width=24)
+        table.add_column("Controlled by")
+        table.add_column("Relationship", width=20)
+        table.add_column("Targets", width=8)
+        table.add_column("Effective actors", width=17)
+        table.add_column("Owned", width=7)
+        for row in rows:
+            table.add_row(
+                _priority_text(row.priority),
+                _EXPOSURE_LABELS.get(row.category, row.category.replace("_", " ")),
+                _entity_text(row.principal, owned=row.owned),
+                row.relationship,
+                str(row.target_count),
+                str(row.effective_count),
+                "yes" if row.owned else "",
+                key=row.exposure_id,
+            )
+        if not rows:
+            self.query_one("#exposure-help", Static).update(
+                "No privilege exposures were identified in the collected data. "
+                "Review collection gaps before treating this as a clean result."
+            )
+
+    @property
+    def selected_exposure_id(self) -> str | None:
+        table = self.query_one("#exposures", DataTable)
+        row_index = table.cursor_row
+        rows = self.app.ad_index.exposures[:1000]
+        if row_index is None or not 0 <= row_index < len(rows):
+            return None
+        return rows[row_index].exposure_id
+
+    def action_open_exposure(self) -> None:
+        if self.selected_exposure_id:
+            self.app.action_open_ad_exposure(self.selected_exposure_id)
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        self.app.action_open_ad_exposure(
+            str(getattr(event.row_key, "value", event.row_key))
+        )
+
+
+class ADExposureDetailScreen(Screen):
+    """Exact targets, privilege context, and effective actors for one exposure."""
+
+    BINDINGS = [
+        Binding("n", "pivot_target", "Pivot Target"),
+        Binding("s", "pivot_source", "Pivot Source"),
+        Binding("escape", "app.pop_screen", "Back"),
+    ]
+
+    CSS = """
+    #exposure-heading { height: auto; max-height: 9; padding: 1 2; border-bottom: solid $primary; }
+    #exposure-targets { height: 1fr; min-height: 8; }
+    #exposure-detail { height: 15; padding: 1 2; border-top: solid $panel; overflow-y: auto; }
+    """
+
+    def __init__(self, exposure: ADExposureRow) -> None:
+        super().__init__()
+        self.exposure = exposure
+
+    def compose(self) -> ComposeResult:
+        yield Header(show_clock=True)
+        yield Static(id="exposure-heading")
+        yield DataTable(id="exposure-targets")
+        with VerticalScroll(id="exposure-detail"):
+            yield Static()
+        yield Footer()
+
+    def on_mount(self) -> None:
+        row = self.exposure
+        heading = Text()
+        heading.append_text(_priority_text(row.priority))
+        heading.append("  ")
+        heading.append(
+            _EXPOSURE_LABELS.get(row.category, row.category.replace("_", " ")) + "\n",
+            style="bold",
+        )
+        heading.append_text(_entity_text(row.principal, owned=row.owned))
+        heading.append(f" --{row.relationship}--> {row.target_count:,} targets")
+        heading.append(f" | {row.effective_count:,} effective actors\n")
+        heading.append(f"{row.summary}\n")
+        heading.append(f"Why it matters: {row.why}\n")
+        heading.append(f"Caveat: {row.caveat}")
+        self.query_one("#exposure-heading", Static).update(heading)
+
+        table = self.query_one("#exposure-targets", DataTable)
+        table.cursor_type = "row"
+        table.zebra_stripes = True
+        table.add_column("#", width=5)
+        table.add_column("Target")
+        table.add_column("Type", width=12)
+        table.add_column("Privilege / Scope")
+        for index, target in enumerate(row.targets[:1000]):
+            entity = target.get("entity") or {}
+            contexts = []
+            for membership in target.get("privileged_memberships") or []:
+                group = membership.get("group") or {}
+                mode = membership.get("membership") or "effective"
+                contexts.append(f"{group.get('name', '?')} ({mode})")
+            if target.get("target_class") not in {None, "computer"}:
+                contexts.append(str(target["target_class"]).replace("_", " "))
+            if target.get("membership"):
+                contexts.append(str(target["membership"]))
+            table.add_row(
+                str(index + 1),
+                _entity_text(entity, target=True),
+                str(entity.get("type") or "?"),
+                ", ".join(contexts) or "direct target",
+                key=str(index),
+            )
+        if row.targets:
+            self._show_target(0)
+
+    def _selected_target(self) -> int:
+        selected = self.query_one("#exposure-targets", DataTable).cursor_row
+        return selected if selected is not None and 0 <= selected < len(self.exposure.targets) else 0
+
+    def _show_target(self, index: int) -> None:
+        target = self.exposure.targets[index]
+        entity = target.get("entity") or {}
+        detail = Text()
+        detail.append(f"Target: {_name(entity)} [{entity.get('type', '?')}]\n", style="bold")
+        detail.append(f"Exact ID: {entity.get('id', '')}\n")
+        memberships = target.get("privileged_memberships") or []
+        if memberships:
+            detail.append("Privileged through:\n", style="bold")
+            for membership in memberships[:20]:
+                group = membership.get("group") or {}
+                via = " -> ".join(
+                    _name(item) for item in membership.get("via") or []
+                ) or "direct"
+                detail.append(
+                    f"  {_name(group)} [{membership.get('membership', 'effective')}] via {via}\n"
+                )
+        via = target.get("via") or []
+        if via:
+            detail.append("Target via: " + " -> ".join(_name(item) for item in via) + "\n")
+
+        actors = self.exposure.effective_principals
+        if actors:
+            detail.append(f"Effective actors ({self.exposure.effective_count:,}):\n", style="bold")
+            for actor in actors[:50]:
+                actor_entity = actor.get("entity") or actor
+                actor_via = " -> ".join(_name(item) for item in actor.get("via") or [])
+                detail.append(f"  {_name(actor_entity)}")
+                if actor_via:
+                    detail.append(f" via {actor_via}")
+                detail.append(f" | ID {actor_entity.get('id', '')}\n")
+            if self.exposure.effective_count > 50:
+                detail.append(
+                    f"  … {self.exposure.effective_count - 50:,} more actors omitted from this bounded pane"
+                )
+        self.query_one("#exposure-detail Static", Static).update(detail)
+
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        value = str(getattr(event.row_key, "value", event.row_key))
+        if value.isdigit() and int(value) < len(self.exposure.targets):
+            self._show_target(int(value))
+
+    def action_pivot_target(self) -> None:
+        if self.exposure.targets:
+            entity = self.exposure.targets[self._selected_target()].get("entity") or {}
+            self.app.action_open_ad_node(str(entity.get("id") or ""))
+
+    def action_pivot_source(self) -> None:
+        self.app.action_open_ad_node(str(self.exposure.principal.get("id") or ""))
 
 class ADPathScreen(Screen):
     """Focused chain plus exact step evidence."""

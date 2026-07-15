@@ -62,7 +62,7 @@ def setup_argparse() -> argparse.ArgumentParser:
     )
     ad_parser.add_argument(
         '--paths', action='store_true',
-        help='Enable bounded Kuzu path analysis (requires yapp[ad])'
+        help='Enable bounded path analysis'
     )
     ad_parser.add_argument(
         '--owned', action='append', default=[], metavar='USER',
@@ -294,7 +294,7 @@ def setup_argparse() -> argparse.ArgumentParser:
 
     tui_parser.add_argument(
         '--no-paths', action='store_true',
-        help='AD mode: skip optional bounded Kuzu path analysis'
+        help='AD mode: skip bounded path analysis'
     )
 
     tui_parser.add_argument(

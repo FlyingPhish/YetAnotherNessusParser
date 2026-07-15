@@ -27,16 +27,35 @@ yapp tui -i bloodhound.zip --owned alice@corp.local --owned CORP\\bob
 yapp tui -i bloodhound.zip --owned-users owned.txt
 ```
 
-Use `--no-paths` only when Kuzu path analysis is intentionally not required.
+Use `--no-paths` only when bounded path analysis is intentionally not required.
 
 ## AD Operator Workflow
 
-The mission screen shows critical/high findings, owned principals, privileged exposure, prioritized paths, choke points, and collection gaps. Missing collection data is displayed as unknown or not collected.
+### Your first minute
+
+1. Read the collection-gap banner; absent data is never treated as a clean result.
+2. Inspect the first `ACT NOW` or `HIGH` route with `Enter`.
+3. Press `v` and review `ACT NOW`, then `CRITICAL`, privilege exposures.
+4. Press `o` whenever your foothold changes; routes and owned controls recompute in-session.
+
+The mission screen shows critical/high findings, owned principals, privileged principals, prioritized paths, privilege exposures, choke points, and collection gaps. Missing collection data is displayed as unknown or not collected.
+
+The Privilege Exposure queue aggregates broad or explicit administrative membership, control over privileged identities and groups, and local-administrator fan-out. Drill-down retains exact targets, effective actors, inherited `via` paths, privilege context, object IDs, and operational caveats.
+
+Terminology:
+
+- `ACT NOW`: the controlling principal or route source is currently assumed owned.
+- `HIGH`, `CRITICAL`, `MEDIUM`, `REVIEW`: posture priorities, not proof of exploitability.
+- **Target**: a unique object affected by the displayed grant.
+- **Effective actor**: a user or computer that receives the grant directly or through group membership.
+- **Evidence only**: visible relationship data that is not allow-listed for path traversal.
 
 Controls:
 
-- `Enter`: inspect the selected attack path.
-- `n`: pivot from a selected path step into the target node.
+- `Enter`: inspect the selected attack path or exposure.
+- `v`: open the Privilege Exposure queue.
+- `n`: pivot from a selected path step or exposure target.
+- `s`: pivot from an exposure into its controlling principal.
 - `o`: replace the assumed-owned user set and recompute owned controls and paths.
 - `m`: cycle path triage state.
 - `b`: bookmark or unbookmark a path.

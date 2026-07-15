@@ -12,7 +12,14 @@ from textual.app import App
 
 from .ad_exports import export_ad_results
 from .ad_indexer import build_ad_index
-from .screens.ad import ADMissionScreen, ADNodeScreen, ADPathScreen, AssumeOwnedScreen
+from .screens.ad import (
+    ADExposureDetailScreen,
+    ADExposureQueueScreen,
+    ADMissionScreen,
+    ADNodeScreen,
+    ADPathScreen,
+    AssumeOwnedScreen,
+)
 from .state import ADIndex, TRIAGE_STATES
 
 _STATE_VERSION = 1
@@ -148,6 +155,20 @@ class ADBloodHoundApp(App):
         path = next((row for row in self.ad_index.paths if row.path_id == path_id), None)
         if path:
             self.push_screen(ADPathScreen(path))
+
+    def action_open_ad_exposures(self) -> None:
+        self.push_screen(ADExposureQueueScreen())
+
+    def action_open_ad_exposure(self, exposure_id: str) -> None:
+        exposure = next(
+            (
+                row for row in self.ad_index.exposures
+                if row.exposure_id == exposure_id
+            ),
+            None,
+        )
+        if exposure:
+            self.push_screen(ADExposureDetailScreen(exposure))
 
     def action_open_ad_node(self, node_id: str) -> None:
         if node_id in self.ad_index.pivots:

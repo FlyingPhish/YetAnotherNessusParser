@@ -6,10 +6,15 @@ from pathlib import Path
 
 from yapp.core.ad_analyzer import ADGraph
 from yapp.tui.ad_app import ADBloodHoundApp
+from yapp.tui.ad_exposures import build_exposure_rows
 from yapp.tui.ad_indexer import _path_rows, _pivots
 from yapp.tui.indexer import build_scan_index
-from yapp.tui.screens.ad import ADMissionScreen
-from yapp.tui.state import ADIndex
+from yapp.tui.screens.ad import (
+    ADExposureDetailScreen,
+    ADExposureQueueScreen,
+    ADMissionScreen,
+)
+from yapp.tui.state import ADExposureRow, ADIndex
 
 
 class ADTUIAdapterTests(unittest.TestCase):
@@ -121,6 +126,69 @@ class ADTUIAdapterTests(unittest.TestCase):
         self.assertEqual("G1", control.via[0]["id"])
         self.assertTrue(control.traversable)
 
+    def test_exposures_group_broad_membership_privileged_control_and_local_admin(self):
+        graph = ADGraph()
+        graph.add_node("C1", "Computer", {"name": "ws1"})
+        graph.add_node("C2", "Computer", {"name": "ws2"})
+        domain_computers = {"id": "GDC", "name": "DOMAIN COMPUTERS@CORP", "type": "Group"}
+        administrators = {"id": "GA", "name": "ADMINISTRATORS@CORP", "type": "Group"}
+        controller = {"id": "G1", "name": "HELPDESK@CORP", "type": "Group"}
+        privileged = {"id": "U2", "name": "ADMIN@CORP", "type": "User"}
+        actor = {"id": "U1", "name": "ALICE@CORP", "type": "User"}
+        report = {
+            "privilege_analysis": {
+                "memberships": [
+                    {
+                        "principal": domain_computers,
+                        "group": administrators,
+                        "membership": "direct",
+                        "via": [],
+                    },
+                    {
+                        "principal": privileged,
+                        "group": administrators,
+                        "membership": "direct",
+                        "via": [],
+                    },
+                ],
+                "permissions": [{
+                    "principal": controller,
+                    "relationship": "GenericAll",
+                    "category": "acl_control",
+                    "severity": "high",
+                    "target": privileged,
+                    "effective_principals": [actor],
+                    "effective_paths": [{
+                        "principal": actor,
+                        "membership": "direct",
+                        "via": [],
+                    }],
+                }],
+            },
+            "operator_analysis": {
+                "fleet_access": [
+                    {
+                        "relationship": "AdminTo",
+                        "granted_to": controller,
+                        "principal": actor,
+                        "target": {"id": target, "name": target, "type": "Computer"},
+                        "via": [],
+                    }
+                    for target in ("C1", "C2")
+                ],
+            },
+        }
+
+        rows = build_exposure_rows(report, graph, ["U1"])
+        by_category = {row.category: row for row in rows}
+
+        self.assertEqual(2, by_category["broad_admin_membership"].effective_count)
+        self.assertEqual(1, by_category["privileged_control"].target_count)
+        self.assertEqual(1, by_category["privileged_control"].effective_count)
+        self.assertTrue(by_category["privileged_control"].owned)
+        self.assertEqual(2, by_category["local_admin_access"].target_count)
+        self.assertTrue(by_category["local_admin_access"].owned)
+
 
 class ADTUIScreenTests(unittest.IsolatedAsyncioTestCase):
     async def test_mission_screen_mounts_with_empty_path_queue(self):
@@ -150,6 +218,60 @@ class ADTUIScreenTests(unittest.IsolatedAsyncioTestCase):
         async with app.run_test() as pilot:
             await pilot.pause()
             self.assertIsInstance(app.screen, ADMissionScreen)
+            self.assertIn(
+                "No bounded high-value routes found",
+                str(app.screen.query_one("#queue-help").render()),
+            )
+
+    async def test_exposure_queue_and_detail_mount(self):
+        exposure = ADExposureRow(
+            exposure_id="E1",
+            category="local_admin_access",
+            priority="HIGH",
+            score=80,
+            principal={"id": "U1", "name": "alice", "type": "User"},
+            relationship="AdminTo",
+            targets=({
+                "entity": {"id": "C1", "name": "server01", "type": "Computer"},
+                "target_class": "computer",
+            },),
+            target_count=1,
+            effective_count=1,
+        )
+        index = ADIndex(
+            input_file="collection.zip",
+            parse_options={"file_type": "ad", "include_paths": False},
+            report={
+                "summary": {"critical": 0, "high": 0},
+                "privilege_analysis": {"memberships": []},
+                "operator_analysis": {"coverage": []},
+                "path_analysis": {"choke_points": []},
+            },
+            paths=[],
+            nodes={},
+            pivots={},
+            assumed_owned=[],
+            metadata={"source_name": "collection.zip"},
+            exposures=[exposure],
+        )
+        app = ADBloodHoundApp(index, ".")
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.action_open_ad_exposures()
+            await pilot.pause()
+            self.assertIsInstance(app.screen, ADExposureQueueScreen)
+            self.assertIn(
+                "effective actors inherit the grant",
+                str(app.screen.query_one("#exposure-help").render()),
+            )
+            app.action_open_ad_exposure("E1")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, ADExposureDetailScreen)
+            self.assertIn(
+                "Local admin access",
+                str(app.screen.query_one("#exposure-heading").render()),
+            )
+
 
 
 if __name__ == "__main__":

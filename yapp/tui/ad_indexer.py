@@ -22,6 +22,7 @@ from ..core.ad_owned import EDGE_POLICIES
 from ..core.ad_pipeline import analyze_bloodhound
 from ..core.ad_posture import _is_domain_admins
 from ..core.ad_reporting import load_ad_configuration
+from .ad_exposures import build_exposure_rows
 from .state import ADIndex, ADNodePivot, ADPathRow, ADRelationship
 
 _SEVERITY_WEIGHT = {"info": 0, "low": 5, "medium": 12, "high": 22, "critical": 32}
@@ -374,6 +375,10 @@ def build_ad_index(
     )
     coverage = (report.get("operator_analysis") or {}).get("coverage") or []
     if progress:
+        progress("Building privilege exposure queue")
+    owned_ids = _owned_ids(report)
+    exposures = build_exposure_rows(report, graph, owned_ids)
+    if progress:
         progress("Indexing bounded node pivots")
     pivots = _pivots(graph, paths, report)
     if progress:
@@ -400,4 +405,5 @@ def build_ad_index(
                 1 for item in coverage if item.get("status") not in {"complete", "collected"}
             ),
         },
+        exposures=exposures,
     )
