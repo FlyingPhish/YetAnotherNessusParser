@@ -130,6 +130,20 @@ class ADPostureTests(unittest.TestCase):
             ["U3"],
             [entity["id"] for entity in permission["effective_principals"]],
         )
+        self.assertEqual("direct", permission["effective_paths"][0]["membership"])
+        self.assertEqual([], permission["effective_paths"][0]["via"])
+
+    def test_computer_membership_finding_preserves_membership_path(self):
+        result = analyze_ad_posture(self.graph, now=self.now)
+        finding = next(
+            item for item in result["findings"]
+            if item["id"] == "ad.privilege.computer_in_administrative_group"
+        )
+
+        membership = finding["evidence"][0]["memberships"][0]
+        self.assertEqual("direct", membership["membership"])
+        self.assertEqual("S-1-5-21-1-512", membership["group"]["id"])
+        self.assertEqual([], membership["via"])
 
     def test_dcsync_path_includes_membership_and_composite_edge(self):
         result = analyze_ad_posture(self.graph, now=self.now)

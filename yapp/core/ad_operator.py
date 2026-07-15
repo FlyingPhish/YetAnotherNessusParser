@@ -384,7 +384,7 @@ def _relationship_inventory(
     List[Dict[str, Any]],
     List[Dict[str, Any]],
     List[Dict[str, Any]],
-    int,
+    List[Dict[str, Any]],
 ]:
     privileged_ids = context["privileged_ids"]
     expected_admin_ids = context["expected_admin_ids"]
@@ -393,12 +393,10 @@ def _relationship_inventory(
     delegation: List[Dict[str, Any]] = []
     credential_access: List[Dict[str, Any]] = []
     findings: List[Dict[str, Any]] = []
-    session_count = 0
+    sessions: List[Dict[str, Any]] = []
 
     for edge in graph.edges:
         kind = edge.kind.casefold()
-        if kind == "hassession":
-            session_count += 1
         source = graph.nodes.get(edge.source)
         target = graph.nodes.get(edge.target)
         if not source or not target:
@@ -473,18 +471,27 @@ def _relationship_inventory(
                     [row],
                     "Remove the write path, review key credentials, and rotate affected credentials where compromise is possible.",
                 ))
-        elif kind == "hassession" and target.id in privileged_ids:
-            if not _is_domain_controller(source, administrative_paths, matched_groups):
+        elif kind == "hassession":
+            domain_controller = _is_domain_controller(
+                source, administrative_paths, matched_groups
+            )
+            session = {
+                **row,
+                "privileged_user": target.id in privileged_ids,
+                "domain_controller": domain_controller,
+            }
+            sessions.append(session)
+            if target.id in privileged_ids and not domain_controller:
                 findings.append(_finding(
                     "ad.sessions.privileged_user_on_non_dc",
                     "high",
                     "Privileged user has a session on a non-domain controller",
                     "A sensitive user session is exposed on a lower-tier computer.",
                     [_entity(target), _entity(source)],
-                    [row],
+                    [session],
                     "End the session, investigate credential exposure, and enforce administrative tiering.",
                 ))
-    return delegation, credential_access, findings, session_count
+    return delegation, credential_access, findings, sessions
 
 
 def _adcs_inventory(
@@ -553,7 +560,7 @@ def analyze_operator_data(
         delegation,
         credential_access,
         relationship_findings,
-        session_count,
+        sessions,
     ) = _relationship_inventory(graph, context)
     adcs, adcs_findings = _adcs_inventory(graph, context)
     coverage = [
@@ -562,8 +569,8 @@ def analyze_operator_data(
         _coverage("laps_status", computers, "haslaps", "has_laps"),
         {
             "feature": "sessions",
-            "status": "collected" if session_count or "sessions" in graph.collected_features else "not_collected",
-            "observed": session_count,
+            "status": "collected" if sessions or "sessions" in graph.collected_features else "not_collected",
+            "observed": len(sessions),
             "applicable": len(computers),
         },
         {
@@ -579,6 +586,7 @@ def analyze_operator_data(
         "account_inventory": account_inventory,
         "delegation": delegation,
         "credential_access": credential_access,
+        "sessions": sessions,
         "adcs": adcs,
         "findings": [
             *fleet_findings,

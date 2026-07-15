@@ -55,18 +55,20 @@ class ADPipelineTests(unittest.TestCase):
         self.assertEqual("AdminTo", next(rows)[1])
 
         workbook = ADExcelFormatter().format(report)
+        self.assertEqual(
+            ["Summary", "Risk Register", "Fleet Access", "Collection Coverage"],
+            workbook.sheetnames,
+        )
         self.assertTrue({
-            "Fleet Access",
-            "Collection Coverage",
-            "Account Inventory",
-            "Delegation",
-            "Credential Access",
-            "AD CS",
-            "Choke Points",
-        }.issubset(workbook.sheetnames))
+            "Findings", "Affected Entities", "Evidence", "Account Inventory",
+            "Path Steps",
+        }.isdisjoint(workbook.sheetnames))
+        risk_sheet = workbook["Risk Register"]
+        self.assertEqual("Risk ID", risk_sheet["A1"].value)
+        self.assertEqual("high", risk_sheet["C2"].value)
         fleet_sheet = workbook["Fleet Access"]
-        self.assertEqual("AdminTo", fleet_sheet["B2"].value)
-        self.assertEqual("top", fleet_sheet["B2"].alignment.vertical)
+        self.assertEqual("AdminTo", fleet_sheet["E2"].value)
+        self.assertEqual("top", fleet_sheet["E2"].alignment.vertical)
 
 
 if __name__ == "__main__":

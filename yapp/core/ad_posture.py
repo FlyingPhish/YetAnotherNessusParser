@@ -309,12 +309,25 @@ def _permission_findings(
         ):
             continue
         effective = []
+        effective_paths = []
         if source.kind.casefold() == "group":
-            effective = [
-                _entity(graph.nodes[principal_id])
-                for principal_id in _descendant_paths(graph, members, source.id, descendant_paths)
+            descendants = _descendant_paths(
+                graph, members, source.id, descendant_paths
+            )
+            effective_paths = [
+                {
+                    "principal": _entity(graph.nodes[principal_id]),
+                    "membership": "direct" if len(path_ids) == 2 else "transitive",
+                    "via": [
+                        _entity(graph.nodes[node_id])
+                        for node_id in path_ids[1:-1]
+                        if node_id in graph.nodes
+                    ],
+                }
+                for principal_id, path_ids in descendants.items()
                 if graph.nodes[principal_id].kind.casefold() in {"user", "computer"}
             ]
+            effective = [item["principal"] for item in effective_paths]
         permission = {
             "principal": _entity(source),
             "relationship": edge.kind,
@@ -322,6 +335,7 @@ def _permission_findings(
             "severity": policy.severity,
             "target": _entity(target),
             "effective_principals": effective,
+            "effective_paths": effective_paths,
             "properties": edge.properties,
         }
         permissions.append(permission)
@@ -581,7 +595,25 @@ def analyze_ad_posture(
                 "Computer account has administrative group membership",
                 "A computer account is an effective member of an administrative group.",
                 [_entity(computer), *[_entity(group) for group in groups]],
-                [{"administrative_groups": [_entity(group) for group in groups]}],
+                [{
+                    "administrative_groups": [_entity(group) for group in groups],
+                    "memberships": [
+                        {
+                            "group": _entity(group),
+                            "membership": (
+                                "direct"
+                                if len(administrative_paths[group.id][computer.id]) == 2
+                                else "transitive"
+                            ),
+                            "via": [
+                                _entity(graph.nodes[node_id])
+                                for node_id in administrative_paths[group.id][computer.id][1:-1]
+                                if node_id in graph.nodes
+                            ],
+                        }
+                        for group in groups
+                    ],
+                }],
                 "Remove computer accounts from administrative groups unless the design is explicitly required and reviewed.",
             ))
 

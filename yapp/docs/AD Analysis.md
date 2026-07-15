@@ -43,9 +43,9 @@ groups. `--paths` additionally identifies paths whose target is Domain Admins.
 
 The JSON contains `privilege_analysis.memberships`, `permissions`, and
 `dcsync_paths`. These are filtered to administrative/high-value scope so normal
-directory membership does not become finding noise. The Excel report exposes the
-same data in Administrative Memberships, Administrative Permissions, Paths, and
-Path Steps sheets.
+directory membership does not become finding noise. Excel presents them as
+Privileged Memberships, Privileged Controls, and Attack Paths, preserving nested
+membership and effective-principal paths.
 
 Policy thresholds can be changed per run:
 
@@ -81,9 +81,13 @@ password-bearing attributes are never copied into evidence.
 
 `path_analysis.choke_points` counts reused DCSync path steps by domain and target
 class; `--paths` adds bounded high-value paths to the same summary. Only steps
-shared by at least two collected paths are included. Excel
-adds Fleet Access, Collection Coverage, Account Inventory, Delegation, Credential
-Access, AD CS, and Choke Points sheets.
+shared by at least two collected paths are included. Excel uses a severity-sorted
+Risk Register plus conditional operator sheets for Privileged Memberships,
+Privileged Controls, Fleet Access, Delegation, Credential Access, Sessions, AD CS,
+Stale & Legacy Accounts, Owned Access, Attack Paths, and Choke Points. Empty
+investigation sheets are omitted; Collection Coverage is always present. Raw
+evidence remains available in JSON instead of being duplicated into generic
+Findings, Affected Entities, Evidence, or Path Steps sheets.
 
 ## API mapping and Excel
 

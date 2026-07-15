@@ -105,6 +105,9 @@ class ADOperatorTests(unittest.TestCase):
             "ad.permissions.nonprivileged_admin_to_adcs",
         }.issubset(finding_ids))
         self.assertTrue(result["adcs"]["present"])
+        self.assertEqual(1, len(result["sessions"]))
+        self.assertTrue(result["sessions"][0]["privileged_user"])
+        self.assertFalse(result["sessions"][0]["domain_controller"])
         self.assertNotIn("must-never-appear", json.dumps(result))
 
     def test_group_expansion_is_reused_across_fleet_grants(self):
