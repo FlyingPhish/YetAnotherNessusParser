@@ -70,14 +70,25 @@ class ADReportingTests(unittest.TestCase):
                 "ad.owned.outbound_control",
                 "ad.owned.path_to_high_value",
                 "ad.permissions.path_to_high_value",
+                "ad.groups.excessive_domain_admins",
+                "ad.privilege.user_not_protected_users",
+                "ad.password.user_password_old",
+                "ad.password.krbtgt_password_old",
+                "ad.privilege.computer_in_administrative_group",
+                "ad.kerberos.timeroast_candidate",
+                "ad.permissions.control_over_high_privilege",
+                "ad.permissions.dcsync",
+                "ad.owned.path_to_domain_admin",
+                "ad.permissions.path_to_domain_admin",
             },
             finding_ids,
         )
-        self.assertTrue(
-            all(rule["internal_vulnerability_id"] is None for rule in rules)
+        self.assertEqual(
+            list(range(1, 16)),
+            [rule["internal_vulnerability_id"] for rule in rules],
         )
         mapped = map_ad_findings(self.report, rules)
-        self.assertEqual([], ADAPIFormatter().format(mapped))
+        self.assertEqual(2, len(ADAPIFormatter().format(mapped)))
 
     def test_exact_mappings_produce_existing_stock_api_contract(self):
         path = self._write_rules(

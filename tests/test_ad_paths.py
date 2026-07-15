@@ -49,7 +49,7 @@ class PathQueryTests(unittest.TestCase):
         graph = ADGraph()
         graph.add_node("U1", "User", {"name": "alice@corp.local"})
         graph.add_node("C1", "Computer", {"name": "server01.corp.local"})
-        graph.add_node("G1", "Group", {"name": "domain admins", "highvalue": True})
+        graph.add_node("G1", "Group", {"name": "domain admins"})
         graph.add_edge("U1", "C1", "AdminTo")
         graph.add_edge("C1", "G1", "GenericAll")
         graph.add_edge("U1", "G1", "UnknownFutureEdge")
@@ -76,7 +76,7 @@ class PathQueryTests(unittest.TestCase):
         self.assertIn("properties(rels(p), \"kind\")", path_query)
         self.assertIn("length(path) AS path_length", path_query)
         self.assertEqual(1, len(paths))
-        self.assertEqual("ad.owned.path_to_high_value", findings[0]["id"])
+        self.assertEqual("ad.owned.path_to_domain_admin", findings[0]["id"])
 
     def test_skips_copy_for_empty_allowed_edge_set(self):
         graph = ADGraph()

@@ -31,12 +31,40 @@ rights. With `--paths`, YAPP also emits bounded attack paths from resolved
 owned users to high-value nodes. Unknown relationship types are retained in
 the graph but are not assumed to be exploitable.
 
+## Administrative posture
+
+Every run also reports effective administrative membership and allow-listed control
+permissions. Findings cover excessive Domain Admins, privileged users outside
+Protected Users, old user and KRBTGT passwords, computer accounts in administrative
+groups, likely legacy-password TimeRoast targets, control over high-privilege
+objects, and effective DCSync rights. DCSync paths include nested group membership
+and combine GetChanges with GetChangesAll even when the rights come from different
+groups. `--paths` additionally identifies paths whose target is Domain Admins.
+
+The JSON contains `privilege_analysis.memberships`, `permissions`, and
+`dcsync_paths`. These are filtered to administrative/high-value scope so normal
+directory membership does not become finding noise. The Excel report exposes the
+same data in Administrative Memberships, Administrative Permissions, Paths, and
+Path Steps sheets.
+
+Policy thresholds can be changed per run:
+
+```bash
+yapp ad -i collection.zip \
+  --max-domain-admins 5 \
+  --max-password-age-days 365 \
+  --max-krbtgt-password-age-days 180
+```
+
+TimeRoast results are candidates rather than proof of a weak password. The default
+requires a computer password older than 30 days whose password-set timestamp is
+within one day of account creation; evidence includes the legacy lowercase,
+14-character machine-name password candidate.
+
 ## API mapping and Excel
 
 YAPP ships `yapp/config/default_ad_rules.json` with every stable AD finding ID.
-The default internal vulnerability IDs are intentionally `null` because those
-IDs are organization-specific. Copy the file, assign your real IDs, and pass it as
-`ad-rules.json`:
+The packaged catalogue contains stable finding IDs and starter internal vulnerability IDs. Copy it when your internal catalogue uses different IDs, then pass the copy as `ad-rules.json`:
 
 ```json
 {
@@ -63,9 +91,7 @@ yapp ad -i collection.zip -r ad-rules.json --api-output --excel
 ```
 
 The files are written as `*_AD_Findings.json`, `*_AD_API.json`, and
-`*_AD_Report.xlsx`. Excel automatically uses the packaged catalogue; use `--excel` alone when
-internal vulnerability IDs are not needed. API output requires a custom `--rules-file` with
-your internal IDs and retains the existing `type`, `finding_id`, and
+`*_AD_Report.xlsx`. Excel and API output use the packaged catalogue by default. Use `--rules-file` to override its starter IDs. API output retains the existing `type`, `finding_id`, and
 `affected_entities` contract.
 
 Mappings use exact finding IDs rather than title patterns. Multiple finding IDs

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from .ad_analyzer import ADGraph, _entity, _finding, _prop, _truthy
 from .ad_owned import traversable_edge_kinds
+from .ad_posture import _is_domain_admins
 
 
 def _cypher_string(value: str) -> str:
@@ -66,6 +67,7 @@ def add_path_findings(
         node
         for node in graph.nodes.values()
         if _truthy(_prop(node, "highvalue", "high_value", "istierzero"))
+        or _is_domain_admins(node)
     ]
     if not targets or source_ids is not None and not source_ids:
         return []
@@ -119,15 +121,34 @@ def add_path_findings(
             "max_depth": depth,
         }
         paths.append(path)
-        findings.append(
-            _finding(
+        domain_admin_path = _is_domain_admins(target)
+        if domain_admin_path:
+            finding_id = (
+                "ad.owned.path_to_domain_admin"
+                if owned_mode
+                else "ad.permissions.path_to_domain_admin"
+            )
+            title = (
+                "Owned principal has a path to Domain Admins"
+                if owned_mode
+                else "User has a path to Domain Admins"
+            )
+        else:
+            finding_id = (
                 "ad.owned.path_to_high_value"
                 if owned_mode
-                else "ad.permissions.path_to_high_value",
-                "critical" if owned_mode else "high",
+                else "ad.permissions.path_to_high_value"
+            )
+            title = (
                 "Owned principal has a path to a high-value asset"
                 if owned_mode
-                else "User has a path to a high-value asset",
+                else "User has a path to a high-value asset"
+            )
+        findings.append(
+            _finding(
+                finding_id,
+                "critical" if owned_mode else "high",
+                title,
                 "The collection contains a bounded, allow-listed attack path to a high-value asset.",
                 [_entity(source), _entity(target)],
                 [path],

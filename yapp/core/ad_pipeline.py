@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Union
 
 from .ad_analyzer import ADAnalyzerError, load_bloodhound_zip, run_direct_rules
+from .ad_posture import ADAnalysisPolicy, analyze_ad_posture
 
 
 def analyze_bloodhound(
@@ -13,10 +14,13 @@ def analyze_bloodhound(
     *,
     include_paths: bool = False,
     owned_principals: Optional[Sequence[str]] = None,
+    policy: Optional[ADAnalysisPolicy] = None,
 ) -> Dict[str, Any]:
     """Analyze a collection and return stable JSON-ready output."""
     graph = load_bloodhound_zip(input_file)
     findings = run_direct_rules(graph)
+    privilege_analysis = analyze_ad_posture(graph, policy)
+    findings.extend(privilege_analysis.pop("findings"))
     owned_analysis = None
 
     if owned_principals:
@@ -55,6 +59,7 @@ def analyze_bloodhound(
         },
         "summary": {"total": len(findings), **severity_counts},
         "findings": findings,
+        "privilege_analysis": privilege_analysis,
     }
     if owned_analysis is not None:
         owned_analysis.pop("resolved_ids", None)

@@ -3,7 +3,7 @@
     {
       "rule_name": "asrep_roastable_accounts",
       "title": "AS-REP Roastable Accounts",
-      "internal_vulnerability_id": null,
+      "internal_vulnerability_id": 1,
       "finding_ids": ["ad.kerberos.asrep_roastable"],
       "enabled": true,
       "api_output": true
@@ -11,7 +11,7 @@
     {
       "rule_name": "kerberoastable_accounts",
       "title": "Kerberoastable Accounts",
-      "internal_vulnerability_id": null,
+      "internal_vulnerability_id": 2,
       "finding_ids": ["ad.kerberos.kerberoastable"],
       "enabled": true,
       "api_output": true
@@ -19,7 +19,7 @@
     {
       "rule_name": "non_expiring_user_passwords",
       "title": "User Passwords Do Not Expire",
-      "internal_vulnerability_id": null,
+      "internal_vulnerability_id": 3,
       "finding_ids": ["ad.password.user_password_never_expires"],
       "enabled": true,
       "api_output": true
@@ -27,7 +27,7 @@
     {
       "rule_name": "unconstrained_delegation",
       "title": "Unconstrained Kerberos Delegation",
-      "internal_vulnerability_id": null,
+      "internal_vulnerability_id": 4,
       "finding_ids": ["ad.kerberos.unconstrained_delegation"],
       "enabled": true,
       "api_output": true
@@ -35,7 +35,7 @@
     {
       "rule_name": "owned_principal_outbound_control",
       "title": "Owned Principal Outbound Control",
-      "internal_vulnerability_id": null,
+      "internal_vulnerability_id": 5,
       "finding_ids": ["ad.owned.outbound_control"],
       "enabled": true,
       "api_output": false
@@ -43,10 +43,85 @@
     {
       "rule_name": "path_to_high_value_asset",
       "title": "Path to High-Value Asset",
-      "internal_vulnerability_id": null,
+      "internal_vulnerability_id": 6,
       "finding_ids": [
         "ad.owned.path_to_high_value",
         "ad.permissions.path_to_high_value"
+      ],
+      "enabled": true,
+      "api_output": false
+    },
+    {
+      "rule_name": "excessive_domain_admins",
+      "title": "Excessive Domain Admins",
+      "internal_vulnerability_id": 7,
+      "finding_ids": ["ad.groups.excessive_domain_admins"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "privileged_users_not_protected",
+      "title": "Privileged Users Not in Protected Users",
+      "internal_vulnerability_id": 8,
+      "finding_ids": ["ad.privilege.user_not_protected_users"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "old_user_passwords",
+      "title": "Old User Passwords",
+      "internal_vulnerability_id": 9,
+      "finding_ids": ["ad.password.user_password_old"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "old_krbtgt_password",
+      "title": "Old KRBTGT Password",
+      "internal_vulnerability_id": 10,
+      "finding_ids": ["ad.password.krbtgt_password_old"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "computer_administrative_membership",
+      "title": "Computer Account in Administrative Group",
+      "internal_vulnerability_id": 11,
+      "finding_ids": ["ad.privilege.computer_in_administrative_group"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "timeroast_candidates",
+      "title": "Likely Legacy-Password TimeRoast Targets",
+      "internal_vulnerability_id": 12,
+      "finding_ids": ["ad.kerberos.timeroast_candidate"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "control_over_high_privilege",
+      "title": "Control Over High-Privilege Objects",
+      "internal_vulnerability_id": 13,
+      "finding_ids": ["ad.permissions.control_over_high_privilege"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "dcsync_rights",
+      "title": "DCSync Rights",
+      "internal_vulnerability_id": 14,
+      "finding_ids": ["ad.permissions.dcsync"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "path_to_domain_admin",
+      "title": "Path to Domain Admins",
+      "internal_vulnerability_id": 15,
+      "finding_ids": [
+        "ad.owned.path_to_domain_admin",
+        "ad.permissions.path_to_domain_admin"
       ],
       "enabled": true,
       "api_output": false

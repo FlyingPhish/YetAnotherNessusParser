@@ -29,8 +29,13 @@ def _collect_paths(report: Mapping[str, Any]) -> List[Mapping[str, Any]]:
     paths: List[Mapping[str, Any]] = []
     seen = set()
     candidates = list(report.get("owned_analysis", {}).get("paths", []))
+    candidates.extend(
+        report.get("privilege_analysis", {}).get("dcsync_paths", [])
+    )
     for finding in report.get("findings", []):
-        if str(finding.get("id", "")).endswith("path_to_high_value"):
+        if str(finding.get("id", "")).endswith(
+            ("path_to_high_value", "path_to_domain_admin")
+        ):
             candidates.extend(finding.get("evidence", []))
     for path in candidates:
         if not isinstance(path, dict):
@@ -73,6 +78,7 @@ class ADExcelFormatter:
         self._add_findings(workbook, report, mapping)
         self._add_entities(workbook, report, mapping)
         self._add_evidence(workbook, report, mapping)
+        self._add_privileges(workbook, report)
         self._add_owned(workbook, report)
         self._add_paths(workbook, report)
 
@@ -100,6 +106,7 @@ class ADExcelFormatter:
         engine = report.get("engine", {})
         source = report.get("source", {})
         owned = report.get("owned_analysis", {})
+        privilege = report.get("privilege_analysis", {})
         return [
             ("Source", source.get("path", "")),
             ("Path backend", engine.get("path_backend", "")),
@@ -112,6 +119,9 @@ class ADExcelFormatter:
             ("Low", summary.get("low", 0)),
             ("Info", summary.get("info", 0)),
             ("Mapped internal findings", len(mapped)),
+            ("Administrative memberships", len(privilege.get("memberships", []))),
+            ("Administrative permissions", len(privilege.get("permissions", []))),
+            ("DCSync paths", len(privilege.get("dcsync_paths", []))),
             ("Owned principals", len(owned.get("resolved", []))),
             ("Owned paths", len(owned.get("paths", []))),
             ("Unresolved owned identities", len(owned.get("unresolved", []))),
@@ -214,6 +224,61 @@ class ADExcelFormatter:
             "Evidence",
             ["Internal Vulnerability ID", "Finding ID", "Title", "Evidence JSON"],
             rows,
+        )
+
+    def _add_privileges(self, workbook: Any, report: Mapping[str, Any]) -> None:
+        privilege = report.get("privilege_analysis", {})
+        membership_rows = []
+        for item in privilege.get("memberships", []):
+            principal = item.get("principal", {})
+            group = item.get("group", {})
+            membership_rows.append((
+                principal.get("type", ""),
+                principal.get("name", ""),
+                principal.get("id", ""),
+                group.get("name", ""),
+                group.get("id", ""),
+                item.get("membership", ""),
+                " -> ".join(node.get("name", "") for node in item.get("via", [])),
+            ))
+        permission_rows = []
+        for item in privilege.get("permissions", []):
+            principal = item.get("principal", {})
+            target = item.get("target", {})
+            permission_rows.append((
+                principal.get("type", ""),
+                principal.get("name", ""),
+                principal.get("id", ""),
+                item.get("severity", ""),
+                item.get("category", ""),
+                item.get("relationship", ""),
+                target.get("type", ""),
+                target.get("name", ""),
+                target.get("id", ""),
+                ", ".join(
+                    entity.get("name", "")
+                    for entity in item.get("effective_principals", [])
+                ),
+                item.get("properties", {}),
+            ))
+        self._add_sheet(
+            workbook,
+            "Administrative Memberships",
+            [
+                "Principal Type", "Principal", "Principal ID", "Group",
+                "Group ID", "Membership", "Via",
+            ],
+            membership_rows,
+        )
+        self._add_sheet(
+            workbook,
+            "Administrative Permissions",
+            [
+                "Principal Type", "Principal", "Principal ID", "Severity",
+                "Category", "Relationship", "Target Type", "Target",
+                "Target ID", "Effective Principals", "Properties JSON",
+            ],
+            permission_rows,
         )
 
     def _add_owned(self, workbook: Any, report: Mapping[str, Any]) -> None:

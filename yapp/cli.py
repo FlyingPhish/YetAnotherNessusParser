@@ -88,6 +88,18 @@ def setup_argparse() -> argparse.ArgumentParser:
         "-el", "--entity-limit", type=int,
         help="Max affected entities per API finding"
     )
+    ad_parser.add_argument(
+        "--max-domain-admins", type=int, default=5, metavar="COUNT",
+        help="Maximum enabled Domain Admin users before reporting (default: 5)"
+    )
+    ad_parser.add_argument(
+        "--max-password-age-days", type=int, default=365, metavar="DAYS",
+        help="Maximum enabled-user password age (default: 365)"
+    )
+    ad_parser.add_argument(
+        "--max-krbtgt-password-age-days", type=int, default=180, metavar="DAYS",
+        help="Maximum KRBTGT password age (default: 180)"
+    )
 
     # ===== PARSE COMMAND (default) =====
     parse_parser = subparsers.add_parser(
@@ -442,6 +454,7 @@ def handle_ad(args, log):
     from .core.ad_analyzer import ADAnalyzerError
     from .core.ad_owned import read_owned_principals
     from .core.ad_pipeline import analyze_bloodhound
+    from .core.ad_posture import ADAnalysisPolicy
     from .core.ad_excel import ADExcelFormatter
     from .core.ad_reporting import (
         ADAPIFormatter,
@@ -455,6 +468,14 @@ def handle_ad(args, log):
     try:
         if args.entity_limit is not None and args.entity_limit < 1:
             raise ADReportingError("--entity-limit must be a positive integer")
+        thresholds = {
+            "--max-domain-admins": args.max_domain_admins,
+            "--max-password-age-days": args.max_password_age_days,
+            "--max-krbtgt-password-age-days": args.max_krbtgt_password_age_days,
+        }
+        invalid = next((name for name, value in thresholds.items() if value < 0), None)
+        if invalid:
+            raise ADReportingError(f"{invalid} must be a non-negative integer")
         rules_path = args.rules_file or get_default_ad_rules_path()
         rules = load_ad_rules(str(rules_path))
         if args.api_output and not any(
@@ -471,6 +492,11 @@ def handle_ad(args, log):
             args.input_file,
             include_paths=args.paths,
             owned_principals=owned_principals,
+            policy=ADAnalysisPolicy(
+                max_domain_admins=args.max_domain_admins,
+                max_password_age_days=args.max_password_age_days,
+                max_krbtgt_password_age_days=args.max_krbtgt_password_age_days,
+            ),
         )
         mapped_findings = map_ad_findings(results, rules)
         output_folder = ensure_output_directory(args.output_folder)
