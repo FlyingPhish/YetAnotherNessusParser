@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from .ad_analyzer import ADGraph, ADNode, _entity, _finding, _prop, _truthy
+from .ad_config import match_sensitive_group, normalize_sensitive_groups
 from .ad_owned import EDGE_POLICIES
 from .ad_effective import _effective_sources
 
@@ -21,6 +22,9 @@ class ADAnalysisPolicy:
     max_krbtgt_password_age_days: int = 180
     timeroast_password_age_days: int = 30
     timeroast_creation_window_days: int = 1
+    user_dormancy_days: int = 90
+    computer_dormancy_days: int = 90
+    max_local_admin_hosts: int = 10
 
     def __post_init__(self) -> None:
         for name, value in vars(self).items():
@@ -28,23 +32,22 @@ class ADAnalysisPolicy:
                 raise ValueError(f"{name} must be a non-negative integer")
 
 
-_ADMIN_GROUP_RIDS = {
-    "512",  # Domain Admins
-    "518",  # Schema Admins
-    "519",  # Enterprise Admins
-    "520",  # Group Policy Creator Owners
-    "544",  # BUILTIN\\Administrators
-    "548",  # Account Operators
-    "549",  # Server Operators
-    "550",  # Print Operators
-    "551",  # Backup Operators
-}
 _DOMAIN_ADMINS_RID = "512"
 _PROTECTED_USERS_RID = "525"
 _ACL_CONTROL_KINDS = {
     kind
     for kind, policy in EDGE_POLICIES.items()
     if policy.direct_control and policy.category not in {"remote_access", "local_admin"}
+}
+_DEDICATED_CONTROL_KINDS = {
+    "addallowedtoact",
+    "addkeycredentiallink",
+    "allowedtoact",
+    "allowedtodelegate",
+    "readgmsapassword",
+    "readlapspassword",
+    "synclapspassword",
+    "writeaccountrestrictions",
 }
 
 
@@ -69,11 +72,30 @@ def _is_protected_users(node: ADNode) -> bool:
     )
 
 
-def _is_administrative_group(node: ADNode) -> bool:
-    return node.kind.casefold() == "group" and (
-        _rid(node) in _ADMIN_GROUP_RIDS
-        or _truthy(_prop(node, "highvalue", "high_value", "istierzero"))
-    )
+def _sensitive_group_config(
+    node: ADNode, registry: Sequence[Mapping[str, Any]]
+) -> Optional[Mapping[str, Any]]:
+    if node.kind.casefold() != "group":
+        return None
+    sid = str(_prop(node, "objectid", "objectidentifier", "sid") or node.id)
+    matched = match_sensitive_group(sid, node.name, registry)
+    if matched:
+        return matched
+    if _truthy(_prop(node, "highvalue", "high_value", "istierzero")):
+        return {
+            "key": "bloodhound_high_value",
+            "classification": "tier_zero",
+            "expected_admin": True,
+        }
+    return None
+
+
+def _is_administrative_group(
+    node: ADNode, registry: Optional[Sequence[Mapping[str, Any]]] = None
+) -> bool:
+    return _sensitive_group_config(
+        node, registry or normalize_sensitive_groups()
+    ) is not None
 
 
 def _is_enabled(node: ADNode) -> bool:
@@ -172,11 +194,12 @@ def _path_evidence(
 def _administrative_memberships(
     graph: ADGraph,
     members: Mapping[str, Sequence[str]],
+    registry: Sequence[Mapping[str, Any]],
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, List[str]]]]:
     rows: List[Dict[str, Any]] = []
     paths_by_group: Dict[str, Dict[str, List[str]]] = {}
     for group in sorted(
-        (node for node in graph.nodes.values() if _is_administrative_group(node)),
+        (node for node in graph.nodes.values() if _is_administrative_group(node, registry)),
         key=lambda node: (node.name.casefold(), node.id),
     ):
         paths = _descendant_paths(graph, members, group.id)
@@ -201,16 +224,50 @@ def _administrative_memberships(
 def _high_privilege_ids(
     graph: ADGraph,
     administrative_paths: Mapping[str, Mapping[str, Sequence[str]]],
+    registry: Sequence[Mapping[str, Any]],
 ) -> set[str]:
     privileged = {
         node.id
         for node in graph.nodes.values()
         if _truthy(_prop(node, "highvalue", "high_value", "istierzero"))
-        or _is_administrative_group(node)
+        or _is_administrative_group(node, registry)
     }
     for paths in administrative_paths.values():
         privileged.update(paths)
     return privileged
+
+
+def build_privilege_context(
+    graph: ADGraph,
+    sensitive_groups: Optional[Sequence[Mapping[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Build the shared membership and sensitivity context once per collection."""
+    registry = normalize_sensitive_groups(sensitive_groups)
+    memberships_index, members = _membership_indexes(graph)
+    memberships, administrative_paths = _administrative_memberships(
+        graph, members, registry
+    )
+    privileged_ids = _high_privilege_ids(graph, administrative_paths, registry)
+    expected_admin_ids: set[str] = set()
+    matched_groups: Dict[str, Mapping[str, Any]] = {}
+    for node in graph.nodes.values():
+        config = _sensitive_group_config(node, registry)
+        if not config:
+            continue
+        matched_groups[node.id] = config
+        if config.get("expected_admin"):
+            expected_admin_ids.add(node.id)
+            expected_admin_ids.update(administrative_paths.get(node.id, {}))
+    return {
+        "registry": registry,
+        "memberships_index": memberships_index,
+        "members": members,
+        "memberships": memberships,
+        "administrative_paths": administrative_paths,
+        "privileged_ids": privileged_ids,
+        "expected_admin_ids": expected_admin_ids,
+        "matched_groups": matched_groups,
+    }
 
 
 def _permission_findings(
@@ -222,7 +279,11 @@ def _permission_findings(
     permissions: List[Dict[str, Any]] = []
     for edge in graph.edges:
         kind = edge.kind.casefold()
-        if kind not in _ACL_CONTROL_KINDS or edge.target not in privileged_ids:
+        if (
+            kind not in _ACL_CONTROL_KINDS
+            or kind in _DEDICATED_CONTROL_KINDS
+            or edge.target not in privileged_ids
+        ):
             continue
         source = graph.nodes.get(edge.source)
         target = graph.nodes.get(edge.target)
@@ -378,13 +439,19 @@ def analyze_ad_posture(
     policy: Optional[ADAnalysisPolicy] = None,
     *,
     now: Optional[datetime] = None,
+    sensitive_groups: Optional[Sequence[Mapping[str, Any]]] = None,
+    privilege_context: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Return posture findings plus operator-focused privilege inventory."""
     policy = policy or ADAnalysisPolicy()
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    memberships_index, members = _membership_indexes(graph)
-    memberships, administrative_paths = _administrative_memberships(graph, members)
-    privileged_ids = _high_privilege_ids(graph, administrative_paths)
+    context = dict(privilege_context or build_privilege_context(graph, sensitive_groups))
+    registry = context["registry"]
+    memberships_index = context["memberships_index"]
+    members = context["members"]
+    memberships = context["memberships"]
+    administrative_paths = context["administrative_paths"]
+    privileged_ids = context["privileged_ids"]
     findings: List[Dict[str, Any]] = []
 
     domain_admin_groups = [node for node in graph.nodes.values() if _is_domain_admins(node)]
@@ -517,10 +584,11 @@ def analyze_ad_posture(
     findings.extend(dcsync_findings)
     return {
         "policy": vars(policy),
+        "sensitive_group_registry": registry,
         "administrative_groups": [
             _entity(node)
             for node in graph.nodes.values()
-            if _is_administrative_group(node)
+            if _is_administrative_group(node, registry)
         ],
         "memberships": memberships,
         "permissions": permissions,

@@ -52,6 +52,7 @@ class ADGraph:
         self.nodes: Dict[str, ADNode] = {}
         self.edges: List[ADEdge] = []
         self._edge_keys = set()
+        self.collected_features: set[str] = set()
 
     def add_node(self, node_id: str, kind: str, properties: Optional[Dict[str, Any]] = None) -> None:
         if not node_id:
@@ -96,6 +97,12 @@ _KIND_NAMES = {
     "gpos": "GPO",
     "containers": "Container",
     "certificationauthorities": "CertificateAuthority",
+    "enterprisecas": "EnterpriseCA",
+    "rootcas": "RootCA",
+    "aiacas": "AIACA",
+    "ntauthstores": "NTAuthStore",
+    "certtemplates": "CertTemplate",
+    "issuancepolicies": "IssuancePolicy",
 }
 
 _MAX_MEMBER_BYTES = 512 * 1024 * 1024
@@ -188,6 +195,8 @@ def _add_record_edges(graph: ADGraph, record: Dict[str, Any], node_id: str) -> N
             graph.add_edge(principal or "", node_id, str(permission), {"ace": ace})
 
     sessions = _first(record, "Sessions", "PrivilegedSessions", "HasSession")
+    if sessions is not None:
+        graph.collected_features.add("sessions")
     for session in _items(sessions):
         if not isinstance(session, dict):
             continue
@@ -277,6 +286,11 @@ def load_bloodhound_zip(
                 kind = _KIND_NAMES.get(str(meta_type).lower(), "") or _KIND_NAMES.get(path.stem.lower(), "")
                 if not kind:
                     kind = _KIND_NAMES.get(Path(info.filename).stem.lower(), "Unknown")
+                if kind.casefold() in {
+                    "certificateauthority", "enterpriseca", "rootca", "aiaca",
+                    "ntauthstore", "certtemplate", "issuancepolicy",
+                }:
+                    graph.collected_features.add("adcs_objects")
 
                 for record in data:
                     if not isinstance(record, dict):

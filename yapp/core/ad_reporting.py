@@ -8,6 +8,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
+from .ad_config import normalize_sensitive_groups
+
 
 class ADReportingError(ValueError):
     """Raised when AD reporting configuration or input is invalid."""
@@ -17,8 +19,8 @@ _MAX_RULES_BYTES = 10 * 1024 * 1024
 _SEVERITY_ORDER = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
 
-def load_ad_rules(filename: str) -> List[Dict[str, Any]]:
-    """Load and strictly validate exact AD finding-to-vulnerability mappings."""
+def load_ad_configuration(filename: str) -> Dict[str, Any]:
+    """Load mappings and the shared sensitive-group registry."""
     path = Path(filename)
     if not path.is_file():
         raise FileNotFoundError(f"AD rules file not found: {path}")
@@ -91,7 +93,18 @@ def load_ad_rules(filename: str) -> List[Dict[str, Any]]:
                 "api_output": bool(raw_rule.get("api_output", True)),
             }
         )
-    return rules
+    try:
+        sensitive_groups = normalize_sensitive_groups(
+            payload.get("sensitive_groups") if "sensitive_groups" in payload else None
+        )
+    except ValueError as exc:
+        raise ADReportingError(str(exc)) from exc
+    return {"rules": rules, "sensitive_groups": sensitive_groups}
+
+
+def load_ad_rules(filename: str) -> List[Dict[str, Any]]:
+    """Load exact AD finding mappings; retained as the stable public helper."""
+    return load_ad_configuration(filename)["rules"]
 
 
 def _deduplicate_entities(

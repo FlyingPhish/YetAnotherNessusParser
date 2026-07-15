@@ -56,6 +56,7 @@ class CollectionShapeTests(unittest.TestCase):
         self.assertIn(("C1", "U5", "HasSession"), relationships)
         self.assertIn(("U1", "C1", "AllowedToDelegate"), relationships)
         self.assertIn(("U6", "C1", "AllowedToAct"), relationships)
+        self.assertIn("sessions", graph.collected_features)
 
 
 if __name__ == "__main__":

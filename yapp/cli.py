@@ -100,6 +100,18 @@ def setup_argparse() -> argparse.ArgumentParser:
         "--max-krbtgt-password-age-days", type=int, default=180, metavar="DAYS",
         help="Maximum KRBTGT password age (default: 180)"
     )
+    ad_parser.add_argument(
+        "--user-dormancy-days", type=int, default=90, metavar="DAYS",
+        help="Maximum enabled-user inactivity (default: 90)"
+    )
+    ad_parser.add_argument(
+        "--computer-dormancy-days", type=int, default=90, metavar="DAYS",
+        help="Maximum enabled-computer inactivity (default: 90)"
+    )
+    ad_parser.add_argument(
+        "--max-local-admin-hosts", type=int, default=10, metavar="COUNT",
+        help="Maximum computers administered by one grant (default: 10)"
+    )
 
     # ===== PARSE COMMAND (default) =====
     parse_parser = subparsers.add_parser(
@@ -459,7 +471,7 @@ def handle_ad(args, log):
     from .core.ad_reporting import (
         ADAPIFormatter,
         ADReportingError,
-        load_ad_rules,
+        load_ad_configuration,
         map_ad_findings,
     )
     from .utils.file_utils import _get_base_name, _build_output_name
@@ -472,12 +484,16 @@ def handle_ad(args, log):
             "--max-domain-admins": args.max_domain_admins,
             "--max-password-age-days": args.max_password_age_days,
             "--max-krbtgt-password-age-days": args.max_krbtgt_password_age_days,
+            "--user-dormancy-days": args.user_dormancy_days,
+            "--computer-dormancy-days": args.computer_dormancy_days,
+            "--max-local-admin-hosts": args.max_local_admin_hosts,
         }
         invalid = next((name for name, value in thresholds.items() if value < 0), None)
         if invalid:
             raise ADReportingError(f"{invalid} must be a non-negative integer")
         rules_path = args.rules_file or get_default_ad_rules_path()
-        rules = load_ad_rules(str(rules_path))
+        ad_configuration = load_ad_configuration(str(rules_path))
+        rules = ad_configuration["rules"]
         if args.api_output and not any(
             rule["api_output"] and rule["internal_vulnerability_id"] is not None
             for rule in rules
@@ -496,7 +512,11 @@ def handle_ad(args, log):
                 max_domain_admins=args.max_domain_admins,
                 max_password_age_days=args.max_password_age_days,
                 max_krbtgt_password_age_days=args.max_krbtgt_password_age_days,
+                user_dormancy_days=args.user_dormancy_days,
+                computer_dormancy_days=args.computer_dormancy_days,
+                max_local_admin_hosts=args.max_local_admin_hosts,
             ),
+            sensitive_groups=ad_configuration["sensitive_groups"],
         )
         mapped_findings = map_ad_findings(results, rules)
         output_folder = ensure_output_directory(args.output_folder)

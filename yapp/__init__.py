@@ -51,6 +51,7 @@ from .core import (
     ADAPIFormatter,
     ADExcelFormatter,
     ADReportingError,
+    load_ad_configuration,
     load_ad_rules,
     map_ad_findings,
     NessusParser,
@@ -112,6 +113,7 @@ __all__ = [
     "ADReportingError",
     "ADAPIFormatter",
     "ADExcelFormatter",
+    "load_ad_configuration",
     "load_ad_rules",
     "map_ad_findings",
     

@@ -53,13 +53,37 @@ Policy thresholds can be changed per run:
 yapp ad -i collection.zip \
   --max-domain-admins 5 \
   --max-password-age-days 365 \
-  --max-krbtgt-password-age-days 180
+  --max-krbtgt-password-age-days 180 \
+  --user-dormancy-days 90 \
+  --computer-dormancy-days 90 \
+  --max-local-admin-hosts 10
 ```
 
 TimeRoast results are candidates rather than proof of a weak password. The default
 requires a computer password older than 30 days whose password-set timestamp is
 within one day of account creation; evidence includes the legacy lowercase,
 14-character machine-name password candidate.
+
+## Operator inventories and coverage
+
+`operator_analysis` keeps useful inventory separate from risk findings. Fleet access
+contains `AdminTo` and `CanRDP` grants expanded to effective users and computers,
+but suppresses principals whose configured sensitive group has `expected_admin: true`.
+Non-standard access remains in JSON and Excel; only computer-account administration
+and grants exceeding `--max-local-admin-hosts` become API-mappable findings.
+
+The same section records dormant accounts, SIDHistory, legacy compatibility-group
+members, delegation, LAPS/gMSA/key-credential readers, privileged sessions, and a
+limited AD CS presence/administrative-access inventory. `coverage` reports
+`complete`, `partial`, `collected`, or `not_collected` for optional source data. This
+prevents an absent field from being mistaken for a clean result. Values from
+password-bearing attributes are never copied into evidence.
+
+`path_analysis.choke_points` counts reused DCSync path steps by domain and target
+class; `--paths` adds bounded high-value paths to the same summary. Only steps
+shared by at least two collected paths are included. Excel
+adds Fleet Access, Collection Coverage, Account Inventory, Delegation, Credential
+Access, AD CS, and Choke Points sheets.
 
 ## API mapping and Excel
 
@@ -68,6 +92,22 @@ The packaged catalogue contains stable finding IDs and starter internal vulnerab
 
 ```json
 {
+  "sensitive_groups": [
+    {
+      "key": "domain_admins",
+      "names": ["domain admins"],
+      "sid_suffixes": ["-512"],
+      "classification": "tier_zero",
+      "expected_admin": true
+    },
+    {
+      "key": "custom_tier_zero",
+      "names": ["cloud platform admins"],
+      "sid_suffixes": [],
+      "classification": "tier_zero",
+      "expected_admin": false
+    }
+  ],
   "ad_rules": [
     {
       "rule_name": "asrep_roastable_accounts",
@@ -82,7 +122,10 @@ The packaged catalogue contains stable finding IDs and starter internal vulnerab
 ```
 
 `412` is an example only; replace it with the corresponding ID from your internal
-vulnerability catalogue.
+vulnerability catalogue. `sensitive_groups` is one shared SID/name registry for
+membership, permission, session, delegation, and fleet filtering. `expected_admin`
+controls only whether routine fleet access is suppressed. Custom entries extend the packaged defaults; a matching `key` intentionally overrides
+that default. If the registry is omitted, the packaged defaults are used.
 
 Generate the normal findings JSON, compatible stock API JSON, and Excel report:
 

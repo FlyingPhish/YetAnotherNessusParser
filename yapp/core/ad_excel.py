@@ -8,6 +8,7 @@ from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
 from .ad_reporting import _SEVERITY_ORDER, _unique_entities
+from .ad_excel_operator import add_choke_point_sheet, add_operator_sheets
 
 
 def _excel_value(value: Any) -> Any:
@@ -79,6 +80,8 @@ class ADExcelFormatter:
         self._add_entities(workbook, report, mapping)
         self._add_evidence(workbook, report, mapping)
         self._add_privileges(workbook, report)
+        add_operator_sheets(self._add_sheet, workbook, report)
+        add_choke_point_sheet(self._add_sheet, workbook, report)
         self._add_owned(workbook, report)
         self._add_paths(workbook, report)
 
@@ -107,6 +110,8 @@ class ADExcelFormatter:
         source = report.get("source", {})
         owned = report.get("owned_analysis", {})
         privilege = report.get("privilege_analysis", {})
+        operator = report.get("operator_analysis", {})
+        choke_points = report.get("path_analysis", {}).get("choke_points", [])
         return [
             ("Source", source.get("path", "")),
             ("Path backend", engine.get("path_backend", "")),
@@ -122,6 +127,9 @@ class ADExcelFormatter:
             ("Administrative memberships", len(privilege.get("memberships", []))),
             ("Administrative permissions", len(privilege.get("permissions", []))),
             ("DCSync paths", len(privilege.get("dcsync_paths", []))),
+            ("Risk-filtered fleet access", len(operator.get("fleet_access", []))),
+            ("AD CS objects", len(operator.get("adcs", {}).get("objects", []))),
+            ("Path choke points", len(choke_points)),
             ("Owned principals", len(owned.get("resolved", []))),
             ("Owned paths", len(owned.get("paths", []))),
             ("Unresolved owned identities", len(owned.get("unresolved", []))),

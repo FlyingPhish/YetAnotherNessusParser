@@ -25,6 +25,7 @@ from .ad_excel import ADExcelFormatter
 from .ad_reporting import (
     ADAPIFormatter,
     ADReportingError,
+    load_ad_configuration,
     load_ad_rules,
     map_ad_findings,
 )
@@ -53,6 +54,7 @@ __all__ = [
     "ADReportingError",
     "ADAPIFormatter",
     "ADExcelFormatter",
+    "load_ad_configuration",
     "load_ad_rules",
     "map_ad_findings",
 ]
