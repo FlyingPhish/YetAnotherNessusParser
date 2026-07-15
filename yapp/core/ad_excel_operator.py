@@ -2,22 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterable, Iterator, Mapping, Sequence
 
 
-def add_operator_sheets(
-    add_sheet: Callable[..., Any],
-    workbook: Any,
-    report: Mapping[str, Any],
-) -> None:
-    operator = report.get("operator_analysis", {})
-
-    access_rows = []
-    for item in operator.get("fleet_access", []):
+def _fleet_access_rows(
+    items: Iterable[Mapping[str, Any]],
+) -> Iterator[Sequence[Any]]:
+    for item in items:
         grant = item.get("granted_to", {})
         principal = item.get("principal", {})
         target = item.get("target", {})
-        access_rows.append((
+        yield (
             item.get("domain", ""),
             item.get("relationship", ""),
             grant.get("type", ""),
@@ -29,7 +24,17 @@ def add_operator_sheets(
             target.get("name", ""),
             target.get("id", ""),
             " -> ".join(node.get("name", "") for node in item.get("via", [])),
-        ))
+        )
+
+
+def add_operator_sheets(
+    add_sheet: Callable[..., Any],
+    workbook: Any,
+    report: Mapping[str, Any],
+) -> None:
+    operator = report.get("operator_analysis", {})
+
+    access_rows = _fleet_access_rows(operator.get("fleet_access", []))
     add_sheet(
         workbook,
         "Fleet Access",

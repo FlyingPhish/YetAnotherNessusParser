@@ -81,12 +81,15 @@ def _effective_principals(
     graph: ADGraph,
     members: Mapping[str, Sequence[str]],
     source: ADNode,
+    descendant_paths: Optional[Dict[str, Dict[str, List[str]]]] = None,
 ) -> List[Tuple[ADNode, List[str]]]:
     if source.kind.casefold() != "group":
         return [(source, [source.id])]
     return [
         (graph.nodes[principal_id], path)
-        for principal_id, path in _descendant_paths(graph, members, source.id).items()
+        for principal_id, path in _descendant_paths(
+            graph, members, source.id, descendant_paths
+        ).items()
         if graph.nodes[principal_id].kind.casefold() in {"user", "computer"}
     ]
 
@@ -97,12 +100,14 @@ def _fleet_access(
     policy: ADAnalysisPolicy,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     members = context["members"]
+    descendant_paths = context.get("descendant_paths")
     expected_admin_ids = context["expected_admin_ids"]
     rows: List[Dict[str, Any]] = []
     findings: List[Dict[str, Any]] = []
     seen = set()
     admin_targets: Dict[str, set[str]] = defaultdict(set)
     grants: Dict[str, ADNode] = {}
+    effective_by_source: Dict[str, List[Tuple[ADNode, List[str]]]] = {}
 
     for edge in graph.edges:
         relationship = edge.kind.casefold()
@@ -118,7 +123,13 @@ def _fleet_access(
         if relationship == "adminto":
             admin_targets[source.id].add(target.id)
 
-        for principal, path in _effective_principals(graph, members, source):
+        effective = effective_by_source.get(source.id)
+        if effective is None:
+            effective = _effective_principals(
+                graph, members, source, descendant_paths
+            )
+            effective_by_source[source.id] = effective
+        for principal, path in effective:
             if principal.id in expected_admin_ids or not _is_enabled(principal):
                 continue
             key = (relationship, source.id, principal.id, target.id)
@@ -338,10 +349,13 @@ def _account_hygiene(
             ))
 
     members = context["members"]
+    descendant_paths = context.get("descendant_paths")
     for group in graph.nodes_of_kind("Group"):
         if group.name.split("@", 1)[0].strip().casefold() != "pre-windows 2000 compatible access":
             continue
-        for member_id, path in _descendant_paths(graph, members, group.id).items():
+        for member_id, path in _descendant_paths(
+            graph, members, group.id, descendant_paths
+        ).items():
             member = graph.nodes[member_id]
             row = {
                 "member": _entity(member),
@@ -366,7 +380,12 @@ def _account_hygiene(
 def _relationship_inventory(
     graph: ADGraph,
     context: Mapping[str, Any],
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+) -> Tuple[
+    List[Dict[str, Any]],
+    List[Dict[str, Any]],
+    List[Dict[str, Any]],
+    int,
+]:
     privileged_ids = context["privileged_ids"]
     expected_admin_ids = context["expected_admin_ids"]
     administrative_paths = context["administrative_paths"]
@@ -374,9 +393,12 @@ def _relationship_inventory(
     delegation: List[Dict[str, Any]] = []
     credential_access: List[Dict[str, Any]] = []
     findings: List[Dict[str, Any]] = []
+    session_count = 0
 
     for edge in graph.edges:
         kind = edge.kind.casefold()
+        if kind == "hassession":
+            session_count += 1
         source = graph.nodes.get(edge.source)
         target = graph.nodes.get(edge.target)
         if not source or not target:
@@ -462,7 +484,7 @@ def _relationship_inventory(
                     [row],
                     "End the session, investigate credential exposure, and enforce administrative tiering.",
                 ))
-    return delegation, credential_access, findings
+    return delegation, credential_access, findings, session_count
 
 
 def _adcs_inventory(
@@ -527,13 +549,13 @@ def analyze_operator_data(
     account_inventory, account_findings = _account_hygiene(
         graph, context, policy, now
     )
-    delegation, credential_access, relationship_findings = _relationship_inventory(
-        graph, context
-    )
+    (
+        delegation,
+        credential_access,
+        relationship_findings,
+        session_count,
+    ) = _relationship_inventory(graph, context)
     adcs, adcs_findings = _adcs_inventory(graph, context)
-    session_count = sum(
-        1 for edge in graph.edges if edge.kind.casefold() == "hassession"
-    )
     coverage = [
         _coverage("user_last_logon", users, "lastlogontimestamp", "lastlogon"),
         _coverage("computer_last_logon", computers, "lastlogontimestamp", "lastlogon"),

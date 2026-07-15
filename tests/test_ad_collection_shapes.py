@@ -4,10 +4,18 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from yapp.core.ad_analyzer import load_bloodhound_zip
+from yapp.core.ad_analyzer import ADGraph, _prop, load_bloodhound_zip
 
 
 class CollectionShapeTests(unittest.TestCase):
+    def test_node_property_index_tracks_incremental_updates(self):
+        graph = ADGraph()
+        graph.add_node("U1", "Unknown", {"Display-Name": "first"})
+        graph.add_node("U1", "User", {"display_name": "second"})
+
+        self.assertEqual("second", _prop(graph.nodes["U1"], "DisplayName"))
+        self.assertEqual("User", graph.nodes["U1"].kind)
+
     def test_modern_result_wrappers_map_control_relationships(self):
         users = {
             "meta": {"type": "users"},

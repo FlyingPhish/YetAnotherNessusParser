@@ -154,9 +154,14 @@ def _membership_indexes(
 
 
 def _descendant_paths(
-    graph: ADGraph, members: Mapping[str, Sequence[str]], group_id: str
+    graph: ADGraph,
+    members: Mapping[str, Sequence[str]],
+    group_id: str,
+    cache: Optional[Dict[str, Dict[str, List[str]]]] = None,
 ) -> Dict[str, List[str]]:
     """Return shortest principal-to-group membership paths."""
+    if cache is not None and group_id in cache:
+        return cache[group_id]
     paths = {group_id: [group_id]}
     queue = deque([group_id])
     while queue:
@@ -166,11 +171,14 @@ def _descendant_paths(
                 continue
             paths[member_id] = [member_id, *paths[current]]
             queue.append(member_id)
-    return {
+    result = {
         principal_id: path
         for principal_id, path in paths.items()
         if principal_id != group_id and principal_id in graph.nodes
     }
+    if cache is not None:
+        cache[group_id] = result
+    return result
 
 
 def _path_evidence(
@@ -195,6 +203,7 @@ def _administrative_memberships(
     graph: ADGraph,
     members: Mapping[str, Sequence[str]],
     registry: Sequence[Mapping[str, Any]],
+    descendant_paths: Optional[Dict[str, Dict[str, List[str]]]] = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, List[str]]]]:
     rows: List[Dict[str, Any]] = []
     paths_by_group: Dict[str, Dict[str, List[str]]] = {}
@@ -202,7 +211,7 @@ def _administrative_memberships(
         (node for node in graph.nodes.values() if _is_administrative_group(node, registry)),
         key=lambda node: (node.name.casefold(), node.id),
     ):
-        paths = _descendant_paths(graph, members, group.id)
+        paths = _descendant_paths(graph, members, group.id, descendant_paths)
         paths_by_group[group.id] = paths
         for principal_id, path_ids in paths.items():
             principal = graph.nodes[principal_id]
@@ -244,8 +253,9 @@ def build_privilege_context(
     """Build the shared membership and sensitivity context once per collection."""
     registry = normalize_sensitive_groups(sensitive_groups)
     memberships_index, members = _membership_indexes(graph)
+    descendant_paths: Dict[str, Dict[str, List[str]]] = {}
     memberships, administrative_paths = _administrative_memberships(
-        graph, members, registry
+        graph, members, registry, descendant_paths
     )
     privileged_ids = _high_privilege_ids(graph, administrative_paths, registry)
     expected_admin_ids: set[str] = set()
@@ -264,6 +274,7 @@ def build_privilege_context(
         "members": members,
         "memberships": memberships,
         "administrative_paths": administrative_paths,
+        "descendant_paths": descendant_paths,
         "privileged_ids": privileged_ids,
         "expected_admin_ids": expected_admin_ids,
         "matched_groups": matched_groups,
@@ -274,6 +285,7 @@ def _permission_findings(
     graph: ADGraph,
     members: Mapping[str, Sequence[str]],
     privileged_ids: set[str],
+    descendant_paths: Optional[Dict[str, Dict[str, List[str]]]] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     findings: List[Dict[str, Any]] = []
     permissions: List[Dict[str, Any]] = []
@@ -300,7 +312,7 @@ def _permission_findings(
         if source.kind.casefold() == "group":
             effective = [
                 _entity(graph.nodes[principal_id])
-                for principal_id in _descendant_paths(graph, members, source.id)
+                for principal_id in _descendant_paths(graph, members, source.id, descendant_paths)
                 if graph.nodes[principal_id].kind.casefold() in {"user", "computer"}
             ]
         permission = {
@@ -330,6 +342,7 @@ def _dcsync_findings(
     memberships: Mapping[str, Sequence[str]],
     members: Mapping[str, Sequence[str]],
     privileged_ids: set[str],
+    descendant_paths: Optional[Dict[str, Dict[str, List[str]]]] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     rights: Dict[Tuple[str, str], set[str]] = defaultdict(set)
     properties: Dict[Tuple[str, str], List[Dict[str, Any]]] = defaultdict(list)
@@ -362,7 +375,7 @@ def _dcsync_findings(
         complete_sources.add((source_id, target_id))
         source_paths = {source_id: [source_id]}
         if source.kind.casefold() == "group":
-            source_paths.update(_descendant_paths(graph, members, source_id))
+            source_paths.update(_descendant_paths(graph, members, source_id, descendant_paths))
         attack_paths = [
             _path_evidence(graph, path_ids, "DCSync", target)
             for principal_id, path_ids in source_paths.items()
@@ -385,8 +398,34 @@ def _dcsync_findings(
             [evidence],
             "Restrict replication rights to approved domain controller identities and investigate delegated grants.",
         ))
+    # Identify affected principals from the small set of right-bearing sources.
+    # Membership ordering and evidence paths are resolved only for that subset.
+    affected_principals: set[str] = set()
+    covered_targets: Dict[str, set[str]] = defaultdict(set)
+    for source_id, target_grants in rights_by_source.items():
+        source = graph.nodes.get(source_id)
+        if not source:
+            continue
+        source_paths = {source_id: [source_id]}
+        if source.kind.casefold() == "group":
+            source_paths.update(
+                _descendant_paths(graph, members, source_id, descendant_paths)
+            )
+        for principal_id in source_paths:
+            principal = graph.nodes.get(principal_id)
+            if not principal or principal.kind.casefold() not in {"user", "computer"}:
+                continue
+            for target_id, _granted_rights in target_grants:
+                if (source_id, target_id) in complete_sources:
+                    covered_targets[principal_id].add(target_id)
+                else:
+                    affected_principals.add(principal_id)
+
+    if not affected_principals:
+        return findings, paths
+
     for principal in graph.nodes_of_kind("User", "Computer"):
-        if principal.id in privileged_ids:
+        if principal.id in privileged_ids or principal.id not in affected_principals:
             continue
         effective_sources = _effective_sources(memberships, principal.id)
         target_rights: Dict[str, set[str]] = defaultdict(set)
@@ -406,10 +445,7 @@ def _dcsync_findings(
         for target_id, granted_rights in target_rights.items():
             if (
                 not {"getchanges", "getchangesall"}.issubset(granted_rights)
-                or any(
-                    (source_id, target_id) in complete_sources
-                    for source_id in effective_sources
-                )
+                or target_id in covered_targets.get(principal.id, ())
             ):
                 continue
             target = graph.nodes.get(target_id)
@@ -451,12 +487,15 @@ def analyze_ad_posture(
     members = context["members"]
     memberships = context["memberships"]
     administrative_paths = context["administrative_paths"]
+    descendant_paths = context.get("descendant_paths")
     privileged_ids = context["privileged_ids"]
     findings: List[Dict[str, Any]] = []
 
     domain_admin_groups = [node for node in graph.nodes.values() if _is_domain_admins(node)]
     for group in domain_admin_groups:
-        paths = administrative_paths.get(group.id) or _descendant_paths(graph, members, group.id)
+        paths = administrative_paths.get(group.id) or _descendant_paths(
+            graph, members, group.id, descendant_paths
+        )
         admins = [
             graph.nodes[principal_id]
             for principal_id in paths
@@ -477,7 +516,7 @@ def analyze_ad_posture(
     protected_groups = [node for node in graph.nodes.values() if _is_protected_users(node)]
     protected_ids = set()
     for group in protected_groups:
-        protected_ids.update(_descendant_paths(graph, members, group.id))
+        protected_ids.update(_descendant_paths(graph, members, group.id, descendant_paths))
     privileged_users = {
         principal_id
         for paths in administrative_paths.values()
@@ -575,10 +614,10 @@ def analyze_ad_posture(
             ))
 
     permission_findings, permissions = _permission_findings(
-        graph, members, privileged_ids
+        graph, members, privileged_ids, descendant_paths
     )
     dcsync_findings, dcsync_paths = _dcsync_findings(
-        graph, memberships_index, members, privileged_ids
+        graph, memberships_index, members, privileged_ids, descendant_paths
     )
     findings.extend(permission_findings)
     findings.extend(dcsync_findings)

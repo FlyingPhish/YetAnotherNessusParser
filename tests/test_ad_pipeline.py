@@ -5,6 +5,7 @@ import zipfile
 from pathlib import Path
 
 from yapp.core.ad_excel import ADExcelFormatter
+from yapp.core.ad_excel_operator import _fleet_access_rows
 from yapp.core.ad_pipeline import analyze_bloodhound
 
 
@@ -49,6 +50,10 @@ class ADPipelineTests(unittest.TestCase):
         self.assertIn("fleet_access", report["operator_analysis"])
         self.assertIn('"sessions", "status": "collected"', serialized)
 
+        rows = _fleet_access_rows(report["operator_analysis"]["fleet_access"])
+        self.assertIs(iter(rows), rows)
+        self.assertEqual("AdminTo", next(rows)[1])
+
         workbook = ADExcelFormatter().format(report)
         self.assertTrue({
             "Fleet Access",
@@ -59,6 +64,9 @@ class ADPipelineTests(unittest.TestCase):
             "AD CS",
             "Choke Points",
         }.issubset(workbook.sheetnames))
+        fleet_sheet = workbook["Fleet Access"]
+        self.assertEqual("AdminTo", fleet_sheet["B2"].value)
+        self.assertEqual("top", fleet_sheet["B2"].alignment.vertical)
 
 
 if __name__ == "__main__":

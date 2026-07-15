@@ -1,6 +1,7 @@
 import json
 import unittest
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 from yapp.core.ad_analyzer import ADGraph
 from yapp.core.ad_config import normalize_sensitive_groups
@@ -105,6 +106,46 @@ class ADOperatorTests(unittest.TestCase):
         }.issubset(finding_ids))
         self.assertTrue(result["adcs"]["present"])
         self.assertNotIn("must-never-appear", json.dumps(result))
+
+    def test_group_expansion_is_reused_across_fleet_grants(self):
+        with patch(
+            "yapp.core.ad_operator._descendant_paths",
+            wraps=__import__(
+                "yapp.core.ad_operator", fromlist=["_descendant_paths"]
+            )._descendant_paths,
+        ) as descendant_paths:
+            result = analyze_operator_data(
+                self.graph, self.context, ADAnalysisPolicy(), now=self.now
+            )
+
+        self.assertEqual(2, len([
+            row for row in result["fleet_access"]
+            if row["granted_to"]["id"] == "SOC"
+        ]))
+        soc_calls = [
+            call for call in descendant_paths.call_args_list
+            if call.args[2] == "SOC"
+        ]
+        self.assertEqual(1, len(soc_calls))
+
+    def test_operator_bounds_full_edge_passes(self):
+        class CountingEdges(list):
+            iterations = 0
+
+            def __iter__(self):
+                self.iterations += 1
+                return super().__iter__()
+
+        self.graph.edges = CountingEdges(self.graph.edges)
+        result = analyze_operator_data(
+            self.graph, self.context, ADAnalysisPolicy(), now=self.now
+        )
+
+        self.assertLessEqual(self.graph.edges.iterations, 3)
+        sessions = next(
+            item for item in result["coverage"] if item["feature"] == "sessions"
+        )
+        self.assertEqual(1, sessions["observed"])
 
     def test_coverage_distinguishes_absent_optional_data(self):
         result = analyze_operator_data(

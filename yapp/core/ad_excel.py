@@ -435,7 +435,11 @@ class ADExcelFormatter:
     @staticmethod
     def _style(workbook: Any) -> None:
         from openpyxl.styles import Alignment, Font, PatternFill
+        from openpyxl.utils import get_column_letter
 
+        alignment = Alignment(vertical="top", wrap_text=True)
+        header_font = Font(color="FFFFFF", bold=True)
+        severity_font = Font(color="FFFFFF", bold=True)
         header_fill = PatternFill("solid", fgColor="1F4E78")
         severity_fills = {
             "critical": PatternFill("solid", fgColor="C00000"),
@@ -447,25 +451,27 @@ class ADExcelFormatter:
         for sheet in workbook.worksheets:
             sheet.freeze_panes = "A2"
             sheet.auto_filter.ref = sheet.dimensions
-            for cell in sheet[1]:
-                cell.font = Font(color="FFFFFF", bold=True)
-                cell.fill = header_fill
+            header = tuple(sheet[1])
             severity_column = next(
-                (cell.column for cell in sheet[1] if cell.value == "Severity"), None
+                (cell.column for cell in header if cell.value == "Severity"), None
             )
-            if severity_column:
-                for row in range(2, sheet.max_row + 1):
-                    cell = sheet.cell(row, severity_column)
+            widths = [0] * sheet.max_column
+            for row_number, row in enumerate(sheet.iter_rows(), start=1):
+                for cell in row:
+                    cell.alignment = alignment
+                    widths[cell.column - 1] = max(
+                        widths[cell.column - 1], len(str(cell.value or ""))
+                    )
+                    if row_number == 1:
+                        cell.font = header_font
+                        cell.fill = header_fill
+                if severity_column and row_number > 1:
+                    cell = row[severity_column - 1]
                     fill = severity_fills.get(str(cell.value).lower())
                     if fill:
                         cell.fill = fill
-                        cell.font = Font(color="FFFFFF", bold=True)
-            for column in sheet.columns:
-                width = min(
-                    60,
-                    max(10, max(len(str(cell.value or "")) for cell in column) + 2),
+                        cell.font = severity_font
+            for column, content_width in enumerate(widths, start=1):
+                sheet.column_dimensions[get_column_letter(column)].width = min(
+                    60, max(10, content_width + 2)
                 )
-                sheet.column_dimensions[column[0].column_letter].width = width
-            for row in sheet.iter_rows():
-                for cell in row:
-                    cell.alignment = Alignment(vertical="top", wrap_text=True)

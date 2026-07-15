@@ -2,7 +2,11 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from yapp.core.ad_analyzer import ADGraph
-from yapp.core.ad_posture import ADAnalysisPolicy, analyze_ad_posture
+from yapp.core.ad_posture import (
+    ADAnalysisPolicy,
+    _dcsync_findings,
+    analyze_ad_posture,
+)
 
 
 class ADPostureTests(unittest.TestCase):
@@ -158,6 +162,22 @@ class ADPostureTests(unittest.TestCase):
 
         self.assertEqual("U1", finding["entities"][0]["id"])
         self.assertEqual(2, len(finding["evidence"][0]["grants"]))
+
+    def test_dcsync_does_not_walk_unrelated_principals(self):
+        class UnusedMemberships(dict):
+            def get(self, *_args, **_kwargs):
+                raise AssertionError("unrelated membership traversal")
+
+        graph = ADGraph()
+        for index in range(100):
+            graph.add_node(f"U{index}", "User", {"name": f"user{index}"})
+
+        findings, paths = _dcsync_findings(
+            graph, UnusedMemberships(), {}, set()
+        )
+
+        self.assertEqual([], findings)
+        self.assertEqual([], paths)
 
     def test_timeroast_evidence_uses_legacy_machine_password_shape(self):
         result = analyze_ad_posture(self.graph, now=self.now)

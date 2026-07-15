@@ -27,6 +27,17 @@ class ADNode:
     kind: str
     properties: Dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        properties = self.properties
+        self.properties = {}
+        self.update_properties(properties)
+
+    def update_properties(self, properties: Dict[str, Any]) -> None:
+        self.properties.update(
+            (_normalise_key(str(key)), value) for key, value in properties.items()
+        )
+        self.properties.update(properties)
+
     @property
     def name(self) -> str:
         return str(
@@ -62,7 +73,7 @@ class ADGraph:
             if existing.kind == "Unknown" and kind != "Unknown":
                 existing.kind = kind
             if properties:
-                existing.properties.update(properties)
+                existing.update_properties(properties)
             return
         self.nodes[node_id] = ADNode(node_id, kind or "Unknown", properties or {})
 
@@ -115,10 +126,19 @@ def _normalise_key(value: str) -> str:
 
 
 def _first(mapping: Dict[str, Any], *keys: str) -> Any:
-    normalised = {_normalise_key(str(key)): value for key, value in mapping.items()}
     for key in keys:
-        if _normalise_key(key) in normalised:
-            return normalised[_normalise_key(key)]
+        normalised_key = _normalise_key(key)
+        if normalised_key in mapping:
+            return mapping[normalised_key]
+    missing = object()
+    for wanted in keys:
+        wanted = _normalise_key(wanted)
+        found = missing
+        for key, value in mapping.items():
+            if _normalise_key(str(key)) == wanted:
+                found = value
+        if found is not missing:
+            return found
     return None
 
 
@@ -320,7 +340,11 @@ def _truthy(value: Any) -> bool:
 
 
 def _prop(node: ADNode, *keys: str) -> Any:
-    return _first(node.properties, *keys)
+    for key in keys:
+        normalised_key = _normalise_key(key)
+        if normalised_key in node.properties:
+            return node.properties[normalised_key]
+    return None
 
 
 def _entity(node: ADNode) -> Dict[str, str]:
