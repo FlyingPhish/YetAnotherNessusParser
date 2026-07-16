@@ -11,6 +11,8 @@ yapp ad -i collection.zip --paths
 
 For programmatic use, import `analyze_bloodhound` directly from `yapp`. See the [Library Usage guide](Library%20Usage.md#bloodhound--active-directory-processing) for owned-user paths, policies, report structure, API mapping, and Excel generation.
 
+The interactive Explore workspace strongly recommends the Graphviz `dot` executable for focused terminal layouts. See the [TUI Usage guide](TUI%20Usage.md#graphviz) for installation, fallback, and security behavior. Batch `yapp ad` analysis does not require Graphviz.
+
 ## Owned users
 
 Mark users as assumed compromised to map their outbound control:

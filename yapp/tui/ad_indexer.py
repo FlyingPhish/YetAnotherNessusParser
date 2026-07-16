@@ -93,8 +93,48 @@ _CATEGORY_COPY = {
 }
 
 
+def _safe_property(value: Any) -> Any:
+    if isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, str):
+        return value[:512]
+    return None
+
+
 def _entity(node: ADNode) -> dict[str, Any]:
-    return {"id": node.id, "name": node.name, "type": node.kind}
+    safe_properties = {
+        "Enabled": _prop(node, "enabled"),
+        "High value": _prop(node, "highvalue", "high_value"),
+        "Admin count": _prop(node, "admincount"),
+        "Description": _prop(node, "description"),
+        "Distinguished name": _prop(node, "distinguishedname", "distinguished_name"),
+        "Operating system": _prop(node, "operatingsystem", "operating_system"),
+        "OS version": _prop(node, "operatingsystemversion", "operating_system_version"),
+        "Password last set": _prop(node, "pwdlastset", "passwordlastset"),
+        "Last logon": _prop(node, "lastlogon", "lastlogontimestamp"),
+        "Password never expires": _prop(node, "pwdneverexpires"),
+        "Password not required": _prop(node, "passwordnotrequired"),
+        "Pre-authentication disabled": _prop(
+            node, "doesnotrequirepreauth", "dontreqpreauth"
+        ),
+        "Has SPN": bool(
+            _prop(node, "serviceprincipalnames", "spns")
+            or _truthy(_prop(node, "hasspn", "has_spn"))
+        ),
+        "Has LAPS": _prop(node, "haslaps"),
+        "When created": _prop(node, "whencreated"),
+    }
+    properties = {}
+    for key, value in safe_properties.items():
+        safe_value = _safe_property(value)
+        if safe_value not in (None, ""):
+            properties[key] = safe_value
+    return {
+        "id": node.id,
+        "name": node.name,
+        "type": node.kind,
+        "properties": properties,
+    }
 
 
 def _relationship(
@@ -335,8 +375,22 @@ def _pivots(
     return {
         node_id: ADNodePivot(
             entity=entity,
-            outbound=tuple(sorted(outgoing[node_id], key=lambda item: (not item.traversable, item.relationship.casefold(), str(item.target.get("name") or "").casefold()))),
-            inbound=tuple(sorted(incoming[node_id], key=lambda item: (not item.traversable, item.relationship.casefold(), str(item.source.get("name") or "").casefold()))),
+            outbound=tuple(sorted(
+                outgoing[node_id],
+                key=lambda item: (
+                    not item.traversable,
+                    item.relationship.casefold(),
+                    str(item.target.get("name") or "").casefold(),
+                ),
+            )),
+            inbound=tuple(sorted(
+                incoming[node_id],
+                key=lambda item: (
+                    not item.traversable,
+                    item.relationship.casefold(),
+                    str(item.source.get("name") or "").casefold(),
+                ),
+            )),
             paths=tuple(path_ids[node_id]),
         )
         for node_id, entity in entities.items()

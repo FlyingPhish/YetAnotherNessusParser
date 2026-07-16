@@ -81,7 +81,7 @@ def _merge_state(index: ADIndex, state: dict[str, Any]) -> None:
 class ADBloodHoundApp(App):
     """Separate AD mode; no Nessus concepts leak into its state or screens."""
 
-    TITLE = "YAPP — Active Directory Mission"
+    TITLE = "YAPP — Active Directory"
     CSS = """
     Screen { background: $surface; width: 100%; height: 100%; }
     Toast { max-width: 70; }
@@ -173,6 +173,25 @@ class ADBloodHoundApp(App):
     def action_open_ad_node(self, node_id: str) -> None:
         if node_id in self.ad_index.pivots:
             self.push_screen(ADNodeScreen(node_id))
+
+    def action_explore_ad_node(self, node_id: str, endpoint: str = "") -> None:
+        """Return from any drill-down to Explore with an exact object selected."""
+        mission = self._mission()
+        if not mission or node_id not in self.ad_index.nodes:
+            return
+        while self.screen is not mission:
+            self.pop_screen()
+        mission.open_explore_node(node_id, endpoint)
+
+    def action_show_ad_workspace(self, workspace: str) -> None:
+        """Return from a drill-down to a named main AD workspace."""
+        mission = self._mission()
+        if not mission:
+            return
+        while self.screen is not mission:
+            self.pop_screen()
+        if workspace == "exposures":
+            mission.action_view_exposures()
 
     def action_assume_owned(self) -> None:
         def apply(value: str | None) -> None:

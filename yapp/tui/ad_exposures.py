@@ -17,6 +17,43 @@ _BROAD_GROUPS = {
     "everyone",
 }
 _SEVERITY_ORDER = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+_DIRECT_FINDINGS = {
+    "ad.kerberos.asrep_roastable": (
+        "asrep_roastable",
+        "AS-REP roastable account",
+        "ASRepRoast",
+        "Kerberos pre-authentication is disabled, allowing an offline password-guessing attack against the account.",
+        "Confirm the account remains enabled and requires a documented pre-authentication exception.",
+    ),
+    "ad.kerberos.kerberoastable": (
+        "kerberoastable",
+        "Kerberoastable service account",
+        "Kerberoast",
+        "An SPN-bearing account can expose a Kerberos service ticket for offline password-guessing.",
+        "Validate the SPN is active and the account uses a strong managed password or gMSA.",
+    ),
+    "ad.kerberos.unconstrained_delegation": (
+        "unconstrained_delegation",
+        "Unconstrained delegation",
+        "UnconstrainedDelegation",
+        "A compromise of this identity can expose delegated Kerberos credentials.",
+        "Validate the delegation setting, tier, reachability, and active use before remediation.",
+    ),
+    "ad.password.user_password_never_expires": (
+        "non_expiring_password",
+        "Non-expiring password",
+        "PasswordNeverExpires",
+        "A non-expiring password increases the value and lifetime of a recovered credential.",
+        "Confirm this is a managed service account or remove the exception.",
+    ),
+}
+_AGGREGATED_FINDINGS = {
+    "ad.permissions.control_over_high_privilege",
+    "ad.permissions.dcsync",
+    "ad.permissions.computer_local_admin",
+    "ad.permissions.excessive_local_admin_fanout",
+    "ad.privilege.computer_in_administrative_group",
+}
 
 
 def _base_name(entity: Mapping[str, Any]) -> str:
@@ -322,6 +359,130 @@ def _local_admin_rows(
     return rows
 
 
+def _direct_finding_rows(
+    report: Mapping[str, Any],
+    owned_ids: set[str],
+) -> list[ADExposureRow]:
+    """Expose direct account and delegation posture findings in the triage queue."""
+    rows = []
+    for finding in report.get("findings") or []:
+        if not isinstance(finding, Mapping):
+            continue
+        rule = _DIRECT_FINDINGS.get(str(finding.get("id") or ""))
+        if not rule:
+            continue
+        category, label, relationship, why, caveat = rule
+        severity = str(finding.get("severity") or "medium").casefold()
+        for raw_entity in finding.get("entities") or []:
+            if not isinstance(raw_entity, Mapping):
+                continue
+            entity = dict(raw_entity)
+            entity_id = _entity_id(entity)
+            if not entity_id:
+                continue
+            owned = entity_id in owned_ids
+            score = {"critical": 90, "high": 75, "medium": 55, "low": 35}.get(severity, 20)
+            if owned:
+                score += 20
+            rows.append(
+                ADExposureRow(
+                    exposure_id=_stable_id("direct", finding.get("id"), entity_id),
+                    category=category,
+                    priority="ACT NOW" if owned else severity.upper(),
+                    score=score,
+                    principal=entity,
+                    relationship=relationship,
+                    targets=({"entity": entity, "via": (), "privileged_memberships": ()},),
+                    target_count=1,
+                    owned=owned,
+                    summary=label,
+                    why=why,
+                    caveat=caveat,
+                )
+            )
+    return rows
+
+
+def _posture_finding_rows(
+    report: Mapping[str, Any],
+    owned_ids: set[str],
+) -> list[ADExposureRow]:
+    """Retain every actionable non-path finding not covered by an aggregate row.
+
+    This closes the presentation gap between the analysis engine and the TUI:
+    new posture rules remain visible without creating a fragile one-rule-per-widget
+    implementation.
+    """
+    grouped: dict[str, dict[str, Any]] = {}
+    for finding in report.get("findings") or []:
+        if not isinstance(finding, Mapping):
+            continue
+        finding_id = str(finding.get("id") or "")
+        if (
+            not finding_id.startswith("ad.")
+            or finding_id in _DIRECT_FINDINGS
+            or finding_id in _AGGREGATED_FINDINGS
+            or ".path_to_" in finding_id
+            or finding_id.startswith("ad.owned.")
+        ):
+            continue
+        entities = [dict(value) for value in finding.get("entities") or [] if isinstance(value, Mapping)]
+        if not entities:
+            continue
+        severity = str(finding.get("severity") or "medium").casefold()
+        title = str(finding.get("title") or finding_id).replace("\n", " ")[:160]
+        item = grouped.setdefault(finding_id, {
+            "title": title,
+            "severity": severity,
+            "why": str(finding.get("description") or "Security posture requires review.")[:1000],
+            "caveat": str(finding.get("remediation") or "Validate the finding against the collected evidence.")[:1000],
+            "entities": {},
+        })
+        if _SEVERITY_ORDER.get(severity, 0) > _SEVERITY_ORDER.get(item["severity"], 0):
+            item["severity"] = severity
+        for entity in entities:
+            entity_id = _entity_id(entity)
+            if entity_id:
+                item["entities"][entity_id] = entity
+
+    rows = []
+    for finding_id, item in grouped.items():
+        entities = tuple(
+            sorted(
+                item["entities"].values(),
+                key=lambda entity: str(entity.get("name") or entity.get("id") or "").casefold(),
+            )
+        )
+        if not entities:
+            continue
+        severity = item["severity"]
+        owned = any(_entity_id(entity) in owned_ids for entity in entities)
+        score = {"critical": 90, "high": 75, "medium": 55, "low": 35, "info": 15}.get(severity, 20)
+        if owned:
+            score += 20
+        targets = tuple(
+            {"entity": entity, "via": (), "privileged_memberships": ()}
+            for entity in entities[:1000]
+        )
+        rows.append(
+            ADExposureRow(
+                exposure_id=_stable_id("posture", finding_id),
+                category="security_posture",
+                priority="ACT NOW" if owned else severity.upper(),
+                score=score,
+                principal=entities[0],
+                relationship=item["title"],
+                targets=targets,
+                target_count=len(entities),
+                owned=owned,
+                summary=item["title"],
+                why=item["why"],
+                caveat=item["caveat"],
+            )
+        )
+    return rows
+
+
 def build_exposure_rows(
     report: Mapping[str, Any],
     graph: ADGraph,
@@ -333,6 +494,8 @@ def build_exposure_rows(
         *_membership_rows(report, graph, owned),
         *_privileged_control_rows(report, owned),
         *_local_admin_rows(report, graph, owned),
+        *_direct_finding_rows(report, owned),
+        *_posture_finding_rows(report, owned),
     ]
     return sorted(
         rows,

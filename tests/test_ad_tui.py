@@ -4,7 +4,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from yapp.core.ad_analyzer import ADGraph
+from yapp.core.ad_analyzer import ADGraph, run_direct_rules
 from yapp.tui.ad_app import ADBloodHoundApp
 from yapp.tui.ad_exposures import build_exposure_rows
 from yapp.tui.ad_indexer import _path_rows, _pivots
@@ -177,6 +177,18 @@ class ADTUIAdapterTests(unittest.TestCase):
                     for target in ("C1", "C2")
                 ],
             },
+            "findings": [{
+                "id": "ad.kerberos.kerberoastable",
+                "severity": "high",
+                "entities": [actor],
+            }, {
+                "id": "ad.permissions.shadow_credentials_to_sensitive",
+                "severity": "critical",
+                "title": "Shadow credentials to sensitive target",
+                "description": "A principal can alter key credentials on a sensitive target.",
+                "remediation": "Remove the unnecessary right.",
+                "entities": [controller, privileged],
+            }],
         }
 
         rows = build_exposure_rows(report, graph, ["U1"])
@@ -188,6 +200,20 @@ class ADTUIAdapterTests(unittest.TestCase):
         self.assertTrue(by_category["privileged_control"].owned)
         self.assertEqual(2, by_category["local_admin_access"].target_count)
         self.assertTrue(by_category["local_admin_access"].owned)
+        self.assertEqual("Kerberoast", by_category["kerberoastable"].relationship)
+        self.assertTrue(by_category["kerberoastable"].owned)
+        self.assertEqual(
+            "Shadow credentials to sensitive target",
+            by_category["security_posture"].summary,
+        )
+
+    def test_direct_rules_accept_bloodhound_has_spn_flag(self):
+        graph = ADGraph()
+        graph.add_node("U1", "User", {"name": "svc_sql", "HasSPN": True})
+
+        finding_ids = {finding["id"] for finding in run_direct_rules(graph)}
+
+        self.assertIn("ad.kerberos.kerberoastable", finding_ids)
 
 
 class ADTUIScreenTests(unittest.IsolatedAsyncioTestCase):
@@ -222,6 +248,96 @@ class ADTUIScreenTests(unittest.IsolatedAsyncioTestCase):
                 "No bounded high-value routes found",
                 str(app.screen.query_one("#queue-help").render()),
             )
+
+    async def test_explore_search_endpoints_path_tree_and_graph_mount(self):
+        graph = ADGraph()
+        graph.add_node("U1", "User", {"name": "alice@corp.local"})
+        graph.add_node("G1", "Group", {"name": "helpdesk@corp.local"})
+        graph.add_edge("U1", "G1", "MemberOf")
+        report = {
+            "summary": {"critical": 0, "high": 0},
+            "privilege_analysis": {"memberships": []},
+            "operator_analysis": {"coverage": []},
+            "path_analysis": {"choke_points": []},
+        }
+        nodes = {
+            "U1": {"id": "U1", "name": "alice@corp.local", "type": "User"},
+            "G1": {"id": "G1", "name": "helpdesk@corp.local", "type": "Group"},
+        }
+        index = ADIndex(
+            input_file="collection.zip",
+            parse_options={"file_type": "ad", "include_paths": False},
+            report=report,
+            paths=[],
+            nodes=nodes,
+            pivots=_pivots(graph, [], report),
+            assumed_owned=[],
+            metadata={"source_name": "collection.zip"},
+        )
+        app = ADBloodHoundApp(index, ".")
+        async with app.run_test(size=(100, 35)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            screen.action_show_explore()
+            screen.query_one("#explore-search").value = "alice"
+            await pilot.pause()
+            self.assertEqual(1, screen.query_one("#search-results").row_count)
+
+            screen._focus_node("U1")
+            screen.action_set_source()
+            screen._focus_node("G1")
+            screen.action_set_target()
+            screen.action_find_explore_path()
+            await pilot.pause()
+
+            self.assertEqual("U1", screen.source_id)
+            self.assertEqual("G1", screen.target_id)
+            self.assertEqual(1, screen.explore_path.length)
+            path_tree = screen.query_one("#path-tree")
+            self.assertIn(
+                "MemberOf",
+                str(path_tree.root.children[0].children[0].label),
+            )
+            self.assertIn(
+                "fallback",
+                str(screen.query_one("#graph-status").render()).casefold(),
+            )
+
+    async def test_pivot_explains_direction_and_returns_to_explore(self):
+        graph = ADGraph()
+        graph.add_node("U1", "User", {"name": "alice@corp.local"})
+        graph.add_node("G1", "Group", {"name": "helpdesk@corp.local"})
+        graph.add_edge("U1", "G1", "MemberOf")
+        report = {
+            "summary": {"critical": 0, "high": 0},
+            "privilege_analysis": {"memberships": []},
+            "operator_analysis": {"coverage": []},
+            "path_analysis": {"choke_points": []},
+        }
+        index = ADIndex(
+            input_file="collection.zip",
+            parse_options={"file_type": "ad", "include_paths": False},
+            report=report,
+            paths=[],
+            nodes={
+                "U1": {"id": "U1", "name": "alice@corp.local", "type": "User"},
+                "G1": {"id": "G1", "name": "helpdesk@corp.local", "type": "Group"},
+            },
+            pivots=_pivots(graph, [], report),
+            assumed_owned=[],
+            metadata={"source_name": "collection.zip"},
+        )
+        app = ADBloodHoundApp(index, ".")
+        async with app.run_test(size=(100, 35)) as pilot:
+            await pilot.pause()
+            app.action_open_ad_node("U1")
+            await pilot.pause()
+            self.assertIn("ways into", str(app.screen.query_one("#node-direction-help").render()))
+            self.assertIsNotNone(app.screen.query_one("#node-graph"))
+            app.screen.action_set_source()
+            await pilot.pause()
+            self.assertIsInstance(app.screen, ADMissionScreen)
+            self.assertEqual("U1", app.screen.source_id)
 
     async def test_exposure_queue_and_detail_mount(self):
         exposure = ADExposureRow(

@@ -388,7 +388,10 @@ def run_direct_rules(graph: ADGraph) -> List[Dict[str, Any]]:
                 )
             )
         spns = _prop(node, "serviceprincipalnames", "spns")
-        if isinstance(spns, list) and spns:
+        has_spn = bool(isinstance(spns, list) and spns) or _truthy(
+            _prop(node, "hasspn", "has_spn")
+        )
+        if has_spn:
             findings.append(
                 _finding(
                     "ad.kerberos.kerberoastable",
@@ -396,7 +399,10 @@ def run_direct_rules(graph: ADGraph) -> List[Dict[str, Any]]:
                     "User has service principal names",
                     "A service account with an SPN may be susceptible to Kerberoasting.",
                     [_entity(node)],
-                    [{"property": "ServicePrincipalNames", "value": spns}],
+                    [{
+                        "property": "ServicePrincipalNames",
+                        "value": spns if isinstance(spns, list) else True,
+                    }],
                     "Use a long, managed password or a group managed service account.",
                 )
             )
@@ -413,8 +419,10 @@ def run_direct_rules(graph: ADGraph) -> List[Dict[str, Any]]:
                 )
             )
 
-    for node in graph.nodes_of_kind("Computer"):
-        if _truthy(_prop(node, "unconstraineddelegation")):
+    for node in graph.nodes.values():
+        if node.kind.casefold() in {"user", "computer"} and _truthy(
+            _prop(node, "unconstraineddelegation", "trustedfordelegation")
+        ):
             findings.append(
                 _finding(
                     "ad.kerberos.unconstrained_delegation",
@@ -428,4 +436,3 @@ def run_direct_rules(graph: ADGraph) -> List[Dict[str, Any]]:
             )
 
     return findings
-

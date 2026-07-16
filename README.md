@@ -58,6 +58,9 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
 ### 🩸 **Active Directory / BloodHound**
 - Load BloodHound ZIP collections directly; no database or web server required
 - Prioritized, bounded routes to high-value objectives with exact relationship evidence
+- Mission, Explore, Exposures, and Saved workspaces instead of a Nessus-style table hierarchy
+- Global object search, arbitrary source/target pathfinding, reverse paths, and edge filtering
+- Focused Graphviz layouts with a path tree, persistent object inspector, and safe outline fallback
 - Privilege Exposure queue for broad administrative membership, privileged-object control, and local-admin fan-out
 - Assumed-owned users from the CLI, files, or the TUI, with fast in-session recomputation
 - Bounded node pivots, persistent triage/bookmarks, collection-gap warnings, and JSON/API/Excel exports
@@ -109,6 +112,10 @@ pipx upgrade yapp
 # When installed using pip
 pip install git+https://github.com/FlyingPhish/YetAnotherPentestParser.git --force-reinstall
 ```
+
+### Graphviz for AD Explore
+
+Graphviz is strongly recommended for focused graph layouts. Install it using the [official Graphviz platform instructions](https://graphviz.org/download/) and ensure `dot -V` succeeds. YAPP falls back to a relationship outline when Graphviz is unavailable.
 
 ## 💡 Usage
 
@@ -210,7 +217,7 @@ yapp ad -i bloodhound.zip --paths --owned-users cracked-users.txt -a -x
 yapp tui -i bloodhound.zip --owned-users cracked-users.txt
 ```
 
-The TUI opens on a prioritized mission view. Press `Enter` to inspect a route, `v` for privilege exposures, and `o` to update assumed-owned users. See [TUI Usage](yapp/docs/TUI%20Usage.md) for the full workflow, terminology, controls, safety model, and bounded-view behavior.
+The TUI opens on a prioritized mission view. Press `2` or `x` for object-led Explore, `3` or `v` for privilege exposures, and `o` to update assumed-owned users. Explore supports typed object search, arbitrary path endpoints, relationship filtering, a path tree, and focused Graphviz layouts. See [TUI Usage](yapp/docs/TUI%20Usage.md) for the complete workflow and safety model.
 
 Programmatic users can call `analyze_bloodhound()` directly and receive a JSON-ready report without writing files. See [Library Usage](yapp/docs/Library%20Usage.md#bloodhound--active-directory-processing) for owned-user paths, policy controls, API mapping, Excel output, and error handling.
 
@@ -687,6 +694,8 @@ See [Module Expansion Guide](yapp/docs/Module%20Expansion.md) for detailed instr
 - [X] V7 offline BloodHound analysis and operator-led AD TUI
 - [X] Prioritized attack paths, privilege exposures, and local-admin access
 - [X] Owned-user recomputation, node pivots, triage, bookmarks, and AD exports
+- [X] Mission, Explore, Exposures, and Saved AD workspaces
+- [X] Focused Graphviz layouts, arbitrary pathfinding, edge filters, and object search
 - [X] Make the damned tool
 - [X] Obligatory ASCII art banner for the haters (it isn't a proper tool without one)
 - [X] Make it pretty 👉👈
