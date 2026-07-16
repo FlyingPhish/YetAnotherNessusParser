@@ -7,7 +7,7 @@
 
 **A powerful Python library and CLI tool for parsing and processing multiple pentesting tool outputs.**
 
-YAPP is a comprehensive solution for parsing pentesting tool outputs (Nessus, Nmap, and Burp-soon) into structured JSON, with advanced consolidation capabilities, excel outputting, and both programmatic and command-line interfaces. Built as an extensible framework with modularity, efficiency, and ease of use in mind.
+YAPP parses Nessus, Nmap, and BloodHound data into actionable, exportable results. V7 adds a serverless Active Directory operator TUI for prioritized attack paths, privilege exposures, local-admin access, and owned-user analysis—without requiring Neo4j or a BloodHound server.
 
 ## 🎯 Why YAPP Exists 
 The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most businesses treat capabilities development as an afterthought - they'd rather hire more people to combat performance and resource issues, rather than fix their piss-poor workflows and capabiltiies.
@@ -28,14 +28,16 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
 ### 🔧 **Multi-Tool Support**
 - **Nessus XML**: Full vulnerability parsing with consolidation and API formatting
 - **Nmap XML**: Service discovery with port filtering, flat JSON output, and a comparison spreadsheet between two scans
+- **BloodHound ZIP**: Offline AD analysis, bounded attack paths, privilege exposures, and reporting
 - **Extensible Framework**: Easy to add new parsers following established patterns
 - **Auto-Detection**: Automatically identifies file types
 
 ### 🖥️ **Dual Interface Design**
 - **CLI Tool**: Beautiful command-line interface with colored output and tool-specific options
+- **TUI Mode**: Operator-first Nessus triage and BloodHound AD investigation (`yapp tui`)
 - **Python Library**: Clean programmatic API for integration into your projects
 - **In-Memory Processing**: Parse raw XML strings directly — no filesystem required (ideal for DB/API integration via `process_data()`)
-- **One External Dependency**: It used to be 0 deps but `openpyxl` is needed for xlsx 
+- **Serverless AD Analysis**: No Neo4j or BloodHound server; Textual, Kuzu, and OpenPyXL ship as package dependencies
 
 ### 📊 **Advanced Nessus Processing**
 - Parse Nessus XML files into structured JSON/Python dictionaries
@@ -52,6 +54,16 @@ The pentesting industry has a multi-faceted tooling problem (CAPDEV). Most busin
 - Flat JSON output for legacy tool compatibility
 - Service enumeration and script output capture
 - Compare two Nmap XML files and output differences into spreadsheet
+
+### 🩸 **Active Directory / BloodHound**
+- Load BloodHound ZIP collections directly; no database or web server required
+- Prioritized, bounded routes to high-value objectives with exact relationship evidence
+- Mission, Explore, Exposures, and Saved workspaces instead of a Nessus-style table hierarchy
+- Global object search, arbitrary source/target pathfinding, reverse paths, and edge filtering
+- Focused Graphviz layouts with a path tree, persistent object inspector, and safe outline fallback
+- Privilege Exposure queue for broad administrative membership, privileged-object control, and local-admin fan-out
+- Assumed-owned users from the CLI, files, or the TUI, with fast in-session recomputation
+- Bounded node pivots, persistent triage/bookmarks, collection-gap warnings, and JSON/API/Excel exports
 
 ### 🎯 **Intelligence & Analytics**
 - Track vulnerabilities globally and per host (Nessus)
@@ -101,20 +113,26 @@ pipx upgrade yapp
 pip install git+https://github.com/FlyingPhish/YetAnotherPentestParser.git --force-reinstall
 ```
 
+### Graphviz for AD Explore
+
+Graphviz is strongly recommended for focused graph layouts. Install it using the [official Graphviz platform instructions](https://graphviz.org/download/) and ensure `dot -V` succeeds. YAPP falls back to a relationship outline when Graphviz is unavailable.
+
 ## 💡 Usage
 
 ### 🖥️ Command Line Interface
 
 ```
-usage: yapp [-h] [--version] {parse,excel,compare} ...
+usage: yapp [-h] [--version] {parse,ad,excel,compare,tui} ...
 
 YAPP - Swiss Army Knife for Pentester File Processing
 
 positional arguments:
-  {parse,excel,compare}  Available commands
+  {parse,ad,excel,compare,tui}  Available commands
     parse                Parse and process pentesting files (Nessus/Nmap/JSON)
+    ad                   Analyse a BloodHound ZIP collection without a server
     excel                Generate Excel report from YAPP JSON output
     compare              Compare two Nmap XML scans
+    tui                  Launch Nessus triage or BloodHound AD operator TUI
 
 options:
   -h, --help       show this help message and exit
@@ -189,6 +207,19 @@ options:
   -on, --output-name OUTPUT_NAME
                         Custom output filename (without extension)
 ```
+
+### 🩸 Command Line Interface - Active Directory
+```bash
+# Batch analysis and reporting
+yapp ad -i bloodhound.zip --paths --owned-users cracked-users.txt -a -x
+
+# Interactive operator workflow (ZIP auto-detected)
+yapp tui -i bloodhound.zip --owned-users cracked-users.txt
+```
+
+The TUI opens on a prioritized mission view. Press `2` or `x` for object-led Explore, `3` or `v` for privilege exposures, and `o` to update assumed-owned users. Explore supports typed object search, arbitrary path endpoints, relationship filtering, a path tree, and focused Graphviz layouts. See [TUI Usage](yapp/docs/TUI%20Usage.md) for the complete workflow and safety model.
+
+Programmatic users can call `analyze_bloodhound()` directly and receive a JSON-ready report without writing files. See [Library Usage](yapp/docs/Library%20Usage.md#bloodhound--active-directory-processing) for owned-user paths, policy controls, API mapping, Excel output, and error handling.
 
 ## 🔬 Nessus Consolidation Engine
 The consolidation engine intelligently groups related vulnerabilities, reducing noise and improving vulnerability management efficiency.
@@ -635,7 +666,7 @@ formatter = APIFormatter(entity_limit=5)
 api_data = formatter.format_for_api(consolidated)
 ```
 
-For comprehensive examples, see [Library Usage Examples](examples/library_usage.py) and [Library Documentation](yapp/docs/Library%20Usage.md)
+For comprehensive examples, see [Library Usage Examples](examples/library_usage.py), [Library Documentation](yapp/docs/Library%20Usage.md), and [TUI Usage](yapp/docs/TUI%20Usage.md).
 
 
 ## 🔧 Framework Extension
@@ -655,10 +686,16 @@ See [Module Expansion Guide](yapp/docs/Module%20Expansion.md) for detailed instr
 ### Supported Tools:
 - ✅ **Nessus** (.nessus XML files)
 - ✅ **Nmap** (.xml XML files)
+- ✅ **BloodHound** (ZIP collections; offline analysis and operator TUI)
 - 🔄 **Burp**: Branch created with core burp functionality - pending
 - 🔄 **Framework ready for**: Masscan, Nuclei, OpenVAS, and more
 
 ### Current Version Features:
+- [X] V7 offline BloodHound analysis and operator-led AD TUI
+- [X] Prioritized attack paths, privilege exposures, and local-admin access
+- [X] Owned-user recomputation, node pivots, triage, bookmarks, and AD exports
+- [X] Mission, Explore, Exposures, and Saved AD workspaces
+- [X] Focused Graphviz layouts, arbitrary pathfinding, edge filters, and object search
 - [X] Make the damned tool
 - [X] Obligatory ASCII art banner for the haters (it isn't a proper tool without one)
 - [X] Make it pretty 👉👈
@@ -697,7 +734,7 @@ We welcome contributions! See [Module Expansion Guide](yapp/docs/Module%20Expans
 ### Key Design Principles:
 - **KISS**: Keep implementations simple and readable
 - **DRY**: Modular, reusable components
-- **Minimal Dependencies**: Single external dependency (`openpyxl` for Excel)
+- **Calculated Dependencies**: OpenPyXL for workbooks, Textual for the TUI, and Kuzu for graph analysis
 - **Extensible**: Framework-based architecture for easy expansion
 
 ## 📄 License

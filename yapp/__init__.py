@@ -6,6 +6,7 @@ A Python library for parsing and processing various pentesting tool outputs.
 Supported formats:
 - Nessus .nessus XML files (with consolidation and API formatting)
 - Nmap .xml XML files (with flat JSON output option)
+- BloodHound ZIP collections (offline AD analysis and reporting)
 
 Examples:
     Basic parsing (auto-detect):
@@ -46,6 +47,17 @@ Examples:
 
 # Import core classes
 from .core import (
+    analyze_bloodhound,
+    load_bloodhound_zip,
+    ADAnalysisPolicy,
+    ADGraph,
+    ADAnalyzerError,
+    ADAPIFormatter,
+    ADExcelFormatter,
+    ADReportingError,
+    load_ad_configuration,
+    load_ad_rules,
+    map_ad_findings,
     NessusParser,
     NmapParser,
     VulnerabilityConsolidator, 
@@ -56,6 +68,7 @@ from .core import (
 
 # Import main processing functions
 from .core.processor import process_file, process_data
+from .config import get_default_ad_rules_path
 
 # Import CLI functionality
 from .cli import cli_entry_point
@@ -74,12 +87,12 @@ try:
     __description__ = _metadata.get("Summary", "Swiss Army Knife for Pentester File Processing")
 except ImportError:
     # Fallback for development/editable installs where metadata might not be available
-    __version__ = "4.0.0-dev"
+    __version__ = "7.0.0"
     __author__ = "FlyingPhishy"
     __description__ = "Swiss Army Knife for Pentester File Processing"
 except Exception:
     # Fallback if package not installed properly
-    __version__ = "4.0.0-dev"
+    __version__ = "7.0.0"
     __author__ = "FlyingPhishy" 
     __description__ = "Swiss Army Knife for Pentester File Processing"
 
@@ -100,9 +113,23 @@ __all__ = [
     # Main processing functions
     "process_file",
     "process_data",
+    "analyze_bloodhound",
+    "load_bloodhound_zip",
+    "ADAnalysisPolicy",
+    "ADGraph",
+    "ADAnalyzerError",
+    "ADReportingError",
+    "ADAPIFormatter",
+    "ADExcelFormatter",
+    "load_ad_configuration",
+    "load_ad_rules",
+    "map_ad_findings",
+    "get_default_ad_rules_path",
     
     # Utilities
     "detect_file_type",
+    "get_supported_file_types",
+    "get_version_info",
     
     # CLI entry point
     "cli_entry_point",
@@ -132,6 +159,15 @@ def get_supported_file_types() -> dict:
             "extensions": [".xml"],
             "features": ["parsing", "port_filtering", "flat_json_output"],
             "parser_class": "NmapParser"
+        },
+        "bloodhound": {
+            "description": "BloodHound Active Directory ZIP collections",
+            "extensions": [".zip"],
+            "features": [
+                "posture_analysis", "owned_analysis", "bounded_paths",
+                "privilege_analysis", "api_formatting", "excel_formatting"
+            ],
+            "entry_point": "analyze_bloodhound"
         }
     }
 

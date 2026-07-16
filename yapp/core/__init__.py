@@ -5,9 +5,10 @@ YAPP core processing modules.
 This package contains the core functionality for parsing, consolidating,
 and formatting data from various pentesting tools.
 
-Supported parsers:
+Supported inputs:
 - NessusParser: Parse Nessus .nessus XML files
 - NmapParser: Parse Nmap .xml XML files
+- analyze_bloodhound: Analyze BloodHound ZIP collections offline
 
 Future parsers can be added following the same interface pattern.
 """
@@ -19,6 +20,17 @@ from .consolidator import VulnerabilityConsolidator, ConsolidationError
 from .formatter import APIFormatter, FormatterError
 from .excel_formatter import ExcelFormatter
 from .processor import process_file, process_nmap_comparison
+from .ad_analyzer import ADAnalyzerError, ADGraph, load_bloodhound_zip
+from .ad_pipeline import analyze_bloodhound
+from .ad_posture import ADAnalysisPolicy
+from .ad_excel import ADExcelFormatter
+from .ad_reporting import (
+    ADAPIFormatter,
+    ADReportingError,
+    load_ad_configuration,
+    load_ad_rules,
+    map_ad_findings,
+)
 
 __all__ = [
     # Core parsers
@@ -34,8 +46,19 @@ __all__ = [
     # Main processing functions
     'process_file',
     'process_nmap_comparison',
+    'analyze_bloodhound',
+    'load_bloodhound_zip',
+    'ADGraph',
+    'ADAnalysisPolicy',
     
     # Exceptions
     'ConsolidationError',
-    'FormatterError'
+    'FormatterError',
+    "ADAnalyzerError",
+    "ADReportingError",
+    "ADAPIFormatter",
+    "ADExcelFormatter",
+    "load_ad_configuration",
+    "load_ad_rules",
+    "map_ad_findings",
 ]

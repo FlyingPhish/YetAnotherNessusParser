@@ -5,10 +5,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yapp"
-version = "6.3.0"
+version = "7.1.0"
 description = "Yet Another Pentest Parser - A Swiss Army Knife parser for pentesters. Comes with library and CLI usage."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {text = "AGPL-3.0"}
 authors = [
     {name = "FlyingPhishy"},
@@ -21,8 +21,6 @@ classifiers = [
     "License :: OSI Approved :: GNU Affero General Public License v3",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -31,7 +29,9 @@ classifiers = [
     "Topic :: System :: Systems Administration",
 ]
 dependencies = [
-    "openpyxl"
+    "openpyxl",
+    "textual",
+    "kuzu"
 ]
 
 [project.optional-dependencies]

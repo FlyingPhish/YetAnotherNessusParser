@@ -8,6 +8,7 @@ for managing YAPP settings.
 
 from pathlib import Path
 
+
 def get_default_rules_path() -> Path:
     """
     Get the path to the default consolidation rules file.
@@ -16,6 +17,12 @@ def get_default_rules_path() -> Path:
         Path: Path to default_rules.json in this package
     """
     return Path(__file__).parent / "default_rules.json"
+
+
+def get_default_ad_rules_path() -> Path:
+    """Return the packaged AD finding catalogue path."""
+    return Path(__file__).parent / "default_ad_rules.json"
+
 
 def get_config_dir() -> Path:
     """
@@ -26,7 +33,9 @@ def get_config_dir() -> Path:
     """
     return Path(__file__).parent
 
+
 __all__ = [
-    'get_default_rules_path',
-    'get_config_dir'
+    "get_default_rules_path",
+    "get_default_ad_rules_path",
+    "get_config_dir"
 ]

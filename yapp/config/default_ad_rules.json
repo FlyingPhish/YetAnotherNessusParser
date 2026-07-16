@@ -1,0 +1,241 @@
+{
+  "sensitive_groups": [
+    {"key": "domain_admins", "names": ["domain admins"], "sid_suffixes": ["-512"], "classification": "tier_zero", "expected_admin": true},
+    {"key": "domain_controllers", "names": ["domain controllers"], "sid_suffixes": ["-516"], "classification": "tier_zero", "expected_admin": true},
+    {"key": "schema_admins", "names": ["schema admins"], "sid_suffixes": ["-518"], "classification": "tier_zero", "expected_admin": true},
+    {"key": "enterprise_admins", "names": ["enterprise admins"], "sid_suffixes": ["-519"], "classification": "tier_zero", "expected_admin": true},
+    {"key": "group_policy_creator_owners", "names": ["group policy creator owners"], "sid_suffixes": ["-520"], "classification": "sensitive", "expected_admin": true},
+    {"key": "key_admins", "names": ["key admins"], "sid_suffixes": ["-526"], "classification": "tier_zero", "expected_admin": true},
+    {"key": "enterprise_key_admins", "names": ["enterprise key admins"], "sid_suffixes": ["-527"], "classification": "tier_zero", "expected_admin": true},
+    {"key": "administrators", "names": ["administrators"], "sid_suffixes": ["-544"], "classification": "tier_zero", "expected_admin": true},
+    {"key": "account_operators", "names": ["account operators"], "sid_suffixes": ["-548"], "classification": "sensitive", "expected_admin": true},
+    {"key": "server_operators", "names": ["server operators"], "sid_suffixes": ["-549"], "classification": "sensitive", "expected_admin": true},
+    {"key": "print_operators", "names": ["print operators"], "sid_suffixes": ["-550"], "classification": "sensitive", "expected_admin": true},
+    {"key": "backup_operators", "names": ["backup operators"], "sid_suffixes": ["-551"], "classification": "sensitive", "expected_admin": true},
+    {"key": "dns_admins", "names": ["dnsadmins", "dns admins"], "sid_suffixes": [], "classification": "sensitive", "expected_admin": false}
+  ],
+  "ad_rules": [
+    {
+      "rule_name": "asrep_roastable_accounts",
+      "title": "AS-REP Roastable Accounts",
+      "internal_vulnerability_id": 1,
+      "finding_ids": ["ad.kerberos.asrep_roastable"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "kerberoastable_accounts",
+      "title": "Kerberoastable Accounts",
+      "internal_vulnerability_id": 2,
+      "finding_ids": ["ad.kerberos.kerberoastable"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "non_expiring_user_passwords",
+      "title": "User Passwords Do Not Expire",
+      "internal_vulnerability_id": 3,
+      "finding_ids": ["ad.password.user_password_never_expires"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "unconstrained_delegation",
+      "title": "Unconstrained Kerberos Delegation",
+      "internal_vulnerability_id": 4,
+      "finding_ids": ["ad.kerberos.unconstrained_delegation"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "owned_principal_outbound_control",
+      "title": "Owned Principal Outbound Control",
+      "internal_vulnerability_id": 5,
+      "finding_ids": ["ad.owned.outbound_control"],
+      "enabled": true,
+      "api_output": false
+    },
+    {
+      "rule_name": "path_to_high_value_asset",
+      "title": "Path to High-Value Asset",
+      "internal_vulnerability_id": 6,
+      "finding_ids": [
+        "ad.owned.path_to_high_value",
+        "ad.permissions.path_to_high_value"
+      ],
+      "enabled": true,
+      "api_output": false
+    },
+    {
+      "rule_name": "excessive_domain_admins",
+      "title": "Excessive Domain Admins",
+      "internal_vulnerability_id": 7,
+      "finding_ids": ["ad.groups.excessive_domain_admins"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "privileged_users_not_protected",
+      "title": "Privileged Users Not in Protected Users",
+      "internal_vulnerability_id": 8,
+      "finding_ids": ["ad.privilege.user_not_protected_users"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "old_user_passwords",
+      "title": "Old User Passwords",
+      "internal_vulnerability_id": 9,
+      "finding_ids": ["ad.password.user_password_old"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "old_krbtgt_password",
+      "title": "Old KRBTGT Password",
+      "internal_vulnerability_id": 10,
+      "finding_ids": ["ad.password.krbtgt_password_old"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "computer_administrative_membership",
+      "title": "Computer Account in Administrative Group",
+      "internal_vulnerability_id": 11,
+      "finding_ids": ["ad.privilege.computer_in_administrative_group"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "timeroast_candidates",
+      "title": "Likely Legacy-Password TimeRoast Targets",
+      "internal_vulnerability_id": 12,
+      "finding_ids": ["ad.kerberos.timeroast_candidate"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "control_over_high_privilege",
+      "title": "Control Over High-Privilege Objects",
+      "internal_vulnerability_id": 13,
+      "finding_ids": ["ad.permissions.control_over_high_privilege"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "dcsync_rights",
+      "title": "DCSync Rights",
+      "internal_vulnerability_id": 14,
+      "finding_ids": ["ad.permissions.dcsync"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "path_to_domain_admin",
+      "title": "Path to Domain Admins",
+      "internal_vulnerability_id": 15,
+      "finding_ids": [
+        "ad.owned.path_to_domain_admin",
+        "ad.permissions.path_to_domain_admin"
+      ],
+      "enabled": true,
+      "api_output": false
+    },
+    {
+      "rule_name": "local_administrator_exposure",
+      "title": "Risky Local Administrator Access",
+      "internal_vulnerability_id": 16,
+      "finding_ids": ["ad.permissions.computer_local_admin", "ad.permissions.excessive_local_admin_fanout"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "password_not_required",
+      "title": "Password Not Required",
+      "internal_vulnerability_id": 17,
+      "finding_ids": ["ad.password.user_password_not_required"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "directory_password_material",
+      "title": "Directory Attribute Contains Password Material",
+      "internal_vulnerability_id": 18,
+      "finding_ids": ["ad.password.cleartext_material_present"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "enabled_guest_account",
+      "title": "Enabled Guest Account",
+      "internal_vulnerability_id": 19,
+      "finding_ids": ["ad.accounts.guest_enabled"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "dormant_enabled_accounts",
+      "title": "Dormant Enabled Accounts",
+      "internal_vulnerability_id": 20,
+      "finding_ids": ["ad.accounts.user_dormant", "ad.computers.computer_dormant"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "laps_hygiene",
+      "title": "LAPS Coverage and Reader Exposure",
+      "internal_vulnerability_id": 21,
+      "finding_ids": ["ad.password.computer_without_laps", "ad.permissions.laps_reader"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "sensitive_credential_control",
+      "title": "Sensitive Credential Control",
+      "internal_vulnerability_id": 22,
+      "finding_ids": ["ad.permissions.gmsa_reader_to_privileged", "ad.permissions.shadow_credentials_to_sensitive"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "sensitive_delegation",
+      "title": "Delegation to Sensitive Systems",
+      "internal_vulnerability_id": 23,
+      "finding_ids": ["ad.kerberos.rbcd_to_sensitive", "ad.kerberos.constrained_delegation_to_sensitive"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "privileged_session_exposure",
+      "title": "Privileged Session on Lower-Tier System",
+      "internal_vulnerability_id": 24,
+      "finding_ids": ["ad.sessions.privileged_user_on_non_dc"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "privilege_protection_metadata",
+      "title": "Privilege Protection Metadata",
+      "internal_vulnerability_id": 25,
+      "finding_ids": ["ad.privilege.sensitive_sid_history", "ad.privilege.stale_admincount", "ad.privilege.privileged_missing_admincount"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "legacy_compatibility_group",
+      "title": "Dangerous Legacy Compatibility Group Membership",
+      "internal_vulnerability_id": 26,
+      "finding_ids": ["ad.groups.pre_windows_2000_dangerous_member"],
+      "enabled": true,
+      "api_output": true
+    },
+    {
+      "rule_name": "adcs_administrative_exposure",
+      "title": "AD CS Administrative Exposure",
+      "internal_vulnerability_id": 27,
+      "finding_ids": ["ad.permissions.nonprivileged_admin_to_adcs"],
+      "enabled": true,
+      "api_output": true
+    }
+  ]
+}

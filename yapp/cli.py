@@ -43,9 +43,76 @@ def setup_argparse() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(
         dest='command',
         help='Available commands',
-        metavar='{parse,excel,compare}'
+        metavar='{parse,ad,excel,compare,tui}'
     )
     
+    # ===== AD COMMAND =====
+    ad_parser = subparsers.add_parser(
+        'ad', help='Analyse a BloodHound ZIP collection without a server'
+    )
+    ad_parser.add_argument(
+        '-i', '--input-file', required=True, help='Path to a BloodHound collection ZIP'
+    )
+    ad_parser.add_argument(
+        '-of', '--output-folder', default='./output',
+        help='Output folder path (default: ./output)'
+    )
+    ad_parser.add_argument(
+        '-on', '--output-name', help='Output JSON name without extension'
+    )
+    ad_parser.add_argument(
+        '--paths', action='store_true',
+        help='Enable bounded path analysis'
+    )
+    ad_parser.add_argument(
+        '--owned', action='append', default=[], metavar='USER',
+        help='Assume a user is owned; repeat for multiple users'
+    )
+    ad_parser.add_argument(
+        '--owned-users', action='append', default=[], metavar='FILE',
+        help='File containing one owned user per line; repeat for multiple files'
+    )
+    ad_parser.add_argument(
+        "-a", "--api-output", action="store_true",
+        help="Generate stock API output using mapped internal IDs"
+    )
+    ad_parser.add_argument(
+        "-x", "--excel", action="store_true",
+        help="Generate a normalized AD Excel workbook"
+    )
+    ad_parser.add_argument(
+        "-r", "--rules-file",
+        help="Override packaged AD rules with internal vulnerability IDs"
+    )
+    ad_parser.add_argument(
+        "-el", "--entity-limit", type=int,
+        help="Max affected entities per API finding"
+    )
+    ad_parser.add_argument(
+        "--max-domain-admins", type=int, default=5, metavar="COUNT",
+        help="Maximum enabled Domain Admin users before reporting (default: 5)"
+    )
+    ad_parser.add_argument(
+        "--max-password-age-days", type=int, default=365, metavar="DAYS",
+        help="Maximum enabled-user password age (default: 365)"
+    )
+    ad_parser.add_argument(
+        "--max-krbtgt-password-age-days", type=int, default=180, metavar="DAYS",
+        help="Maximum KRBTGT password age (default: 180)"
+    )
+    ad_parser.add_argument(
+        "--user-dormancy-days", type=int, default=90, metavar="DAYS",
+        help="Maximum enabled-user inactivity (default: 90)"
+    )
+    ad_parser.add_argument(
+        "--computer-dormancy-days", type=int, default=90, metavar="DAYS",
+        help="Maximum enabled-computer inactivity (default: 90)"
+    )
+    ad_parser.add_argument(
+        "--max-local-admin-hosts", type=int, default=10, metavar="COUNT",
+        help="Maximum computers administered by one grant (default: 10)"
+    )
+
     # ===== PARSE COMMAND (default) =====
     parse_parser = subparsers.add_parser(
         'parse',
@@ -195,7 +262,101 @@ def setup_argparse() -> argparse.ArgumentParser:
         '-on', '--output-name',
         help='Custom output filename (without extension)'
     )
-    
+
+    # ===== TUI COMMAND =====
+    tui_parser = subparsers.add_parser(
+        'tui',
+        help='Launch Nessus triage or BloodHound AD operator TUI'
+    )
+
+    tui_parser.add_argument(
+        '-i', '--input-file',
+        required=True,
+        help='Path to Nessus input or BloodHound collection ZIP'
+    )
+
+    tui_parser.add_argument(
+        '-t', '--file-type',
+        choices=['auto', 'nessus', 'ad'],
+        default='auto',
+        help='Input file type for TUI mode (default: auto-detect)'
+    )
+
+    tui_parser.add_argument(
+        '--owned', action='append', default=[], metavar='USER',
+        help='AD mode: assume a user is owned; repeat for multiple users'
+    )
+
+    tui_parser.add_argument(
+        '--owned-users', action='append', default=[], metavar='FILE',
+        help='AD mode: file containing one owned user per line'
+    )
+
+    tui_parser.add_argument(
+        '--no-paths', action='store_true',
+        help='AD mode: skip bounded path analysis'
+    )
+
+    tui_parser.add_argument(
+        '-c', '--consolidate',
+        action='store_true',
+        help='Build consolidated data in-memory for export actions'
+    )
+
+    tui_parser.add_argument(
+        '-a', '--api-output',
+        action='store_true',
+        help='Build API-ready data in-memory (requires --consolidate)'
+    )
+
+    tui_parser.add_argument(
+        '-x', '--excel',
+        action='store_true',
+        help='Build Excel workbook in-memory for export actions'
+    )
+
+    tui_parser.add_argument(
+        '-r', '--rules-file',
+        help='Custom consolidation rules file'
+    )
+
+    tui_parser.add_argument(
+        '-el', '--entity-limit',
+        type=int,
+        help='Max entities per API finding'
+    )
+
+    tui_parser.add_argument(
+        '--log-exclusions',
+        action='store_true',
+        help='Enable detailed consolidation exclusion logging'
+    )
+
+    tui_parser.add_argument(
+        '-of', '--output-folder',
+        default='./output',
+        help='Default output folder for TUI export actions'
+    )
+
+    tui_parser.add_argument(
+        '-on', '--output-name',
+        default='',
+        help='Default output base name for TUI export actions'
+    )
+
+    tui_parser.add_argument(
+        '-sf', '--single-file',
+        action='store_true',
+        help='Default export mode in TUI: write combined JSON output'
+    )
+
+    tui_parser.add_argument(
+        '--page-size',
+        type=int,
+        default=100,
+        help='Findings rows per page in TUI (default: 100)'
+    )
+
     return parser
 
 def handle_parse(args, log):
@@ -314,6 +475,99 @@ def handle_parse(args, log):
         log.error(f"Unexpected error: {str(e)}")
         return 1
 
+def handle_ad(args, log):
+    """Handle offline BloodHound analysis."""
+    from .config import get_default_ad_rules_path
+    from .core.ad_analyzer import ADAnalyzerError
+    from .core.ad_owned import read_owned_principals
+    from .core.ad_pipeline import analyze_bloodhound
+    from .core.ad_posture import ADAnalysisPolicy
+    from .core.ad_excel import ADExcelFormatter
+    from .core.ad_reporting import (
+        ADAPIFormatter,
+        ADReportingError,
+        load_ad_configuration,
+        map_ad_findings,
+    )
+    from .utils.file_utils import _get_base_name, _build_output_name
+    from .utils.json_utils import write_json_output
+
+    try:
+        if args.entity_limit is not None and args.entity_limit < 1:
+            raise ADReportingError("--entity-limit must be a positive integer")
+        thresholds = {
+            "--max-domain-admins": args.max_domain_admins,
+            "--max-password-age-days": args.max_password_age_days,
+            "--max-krbtgt-password-age-days": args.max_krbtgt_password_age_days,
+            "--user-dormancy-days": args.user_dormancy_days,
+            "--computer-dormancy-days": args.computer_dormancy_days,
+            "--max-local-admin-hosts": args.max_local_admin_hosts,
+        }
+        invalid = next((name for name, value in thresholds.items() if value < 0), None)
+        if invalid:
+            raise ADReportingError(f"{invalid} must be a non-negative integer")
+        rules_path = args.rules_file or get_default_ad_rules_path()
+        ad_configuration = load_ad_configuration(str(rules_path))
+        rules = ad_configuration["rules"]
+        if args.api_output and not any(
+            rule["api_output"] and rule["internal_vulnerability_id"] is not None
+            for rule in rules
+        ):
+            raise ADReportingError(
+                "No AD rules have internal vulnerability IDs; "
+                "provide --rules-file with your catalogue IDs"
+            )
+
+        owned_principals = read_owned_principals(args.owned, args.owned_users)
+        results = analyze_bloodhound(
+            args.input_file,
+            include_paths=args.paths,
+            owned_principals=owned_principals,
+            policy=ADAnalysisPolicy(
+                max_domain_admins=args.max_domain_admins,
+                max_password_age_days=args.max_password_age_days,
+                max_krbtgt_password_age_days=args.max_krbtgt_password_age_days,
+                user_dormancy_days=args.user_dormancy_days,
+                computer_dormancy_days=args.computer_dormancy_days,
+                max_local_admin_hosts=args.max_local_admin_hosts,
+            ),
+            sensitive_groups=ad_configuration["sensitive_groups"],
+        )
+        mapped_findings = map_ad_findings(results, rules)
+        output_folder = ensure_output_directory(args.output_folder)
+        base = _get_base_name(args.input_file, args.output_name)
+        output_path = output_folder / _build_output_name(base, "_AD_Findings")
+        if not write_json_output(results, output_path):
+            raise ADReportingError(f"Failed to write AD findings: {output_path}")
+        print(f"{Colors.GREEN}{Colors.BRIGHT}✓ AD findings saved:{Colors.RESET}")
+        print(f"  {Colors.CYAN}{output_path}{Colors.RESET}")
+        print("  Findings: {}".format(results["summary"]["total"]))
+        if args.api_output:
+            api_results = ADAPIFormatter(args.entity_limit).format(mapped_findings)
+            api_path = output_folder / _build_output_name(base, "_AD_API")
+            if not write_json_output(api_results, api_path):
+                raise ADReportingError(f"Failed to write AD API output: {api_path}")
+            print(f"{Colors.GREEN}{Colors.BRIGHT}✓ AD API output saved:{Colors.RESET}")
+            print(f"  {Colors.CYAN}{api_path}{Colors.RESET}")
+            print(f"  Mapped findings: {len(api_results)}")
+
+        if args.excel:
+            workbook = ADExcelFormatter().format(results, mapped_findings)
+            excel_path = output_folder / _build_output_name(
+                base, "_AD_Report", ".xlsx"
+            )
+            workbook.save(excel_path)
+            print(f"{Colors.GREEN}{Colors.BRIGHT}✓ AD Excel report saved:{Colors.RESET}")
+            print(f"  {Colors.CYAN}{excel_path}{Colors.RESET}")
+        return 0
+    except (FileNotFoundError, ADAnalyzerError, ADReportingError) as exc:
+        log.error(str(exc))
+        return 1
+    except Exception as exc:
+        log.error(f"AD analysis failed: {exc}")
+        return 1
+
+
 def handle_compare(args, log):
     """Handle compare command"""
     try:
@@ -415,6 +669,81 @@ def handle_excel(args, log):
         log.error(f"Excel generation failed: {str(e)}")
         return 1
 
+def handle_tui(args, log):
+    """Handle TUI command and dispatch Nessus or BloodHound AD mode."""
+    if args.entity_limit is not None and args.entity_limit < 1:
+        log.error("--entity-limit must be a positive integer")
+        return 1
+
+    if args.page_size < 10:
+        log.error("--page-size must be at least 10")
+        return 1
+
+    try:
+        from .tui import build_scan_index, run_tui_app
+    except Exception:
+        log.error("TUI dependencies are not installed. Install with: pip install yapp")
+        return 1
+
+    try:
+        ad_mode = args.file_type == "ad" or (
+            args.file_type == "auto"
+            and Path(args.input_file).suffix.casefold() == ".zip"
+        )
+        owned_principals = []
+        if ad_mode:
+            from .core.ad_owned import read_owned_principals
+            from .tui.ad_app import load_ad_operator_state
+
+            owned_principals = read_owned_principals(args.owned, args.owned_users)
+            saved = load_ad_operator_state(args.input_file).get("assumed_owned") or []
+            seen = {value.casefold() for value in owned_principals}
+            owned_principals.extend(
+                value for value in saved if value.casefold() not in seen
+            )
+            import time
+
+            analysis_started = time.perf_counter()
+
+            def ad_progress(message):
+                elapsed = time.perf_counter() - analysis_started
+                print(
+                    f"{Colors.CYAN}[AD {elapsed:6.1f}s]{Colors.RESET} {message}",
+                    flush=True,
+                )
+        else:
+            ad_progress = None
+
+        scan = build_scan_index(
+            input_file=args.input_file,
+            file_type=args.file_type,
+            consolidate=not ad_mode,
+            api_output=args.api_output,
+            excel=args.excel,
+            rules_file=args.rules_file,
+            entity_limit=args.entity_limit,
+            log_exclusions=args.log_exclusions,
+            owned_principals=owned_principals,
+            include_paths=not args.no_paths,
+            progress=ad_progress,
+        )
+
+        run_tui_app(
+            scan=scan,
+            output_folder=args.output_folder,
+            output_name=args.output_name,
+            single_file=args.single_file,
+            page_size=args.page_size,
+            entity_limit=args.entity_limit,
+        )
+        return 0
+    except FileNotFoundError as e:
+        log.error(f"File not found: {e}")
+        return 1
+    except Exception as e:
+        log.error(f"TUI failed: {str(e)}")
+        return 1
+
 def main():
     """Main CLI execution function"""
     print_banner(__version__)
@@ -441,10 +770,14 @@ def main():
     # Route to appropriate handler
     if args.command == 'parse':
         return handle_parse(args, log)
+    elif args.command == 'ad':
+        return handle_ad(args, log)
     elif args.command == 'excel':
         return handle_excel(args, log)
     elif args.command == 'compare':
         return handle_compare(args, log)
+    elif args.command == 'tui':
+        return handle_tui(args, log)
     else:
         log.error(f"Unknown command: {args.command}")
         parser.print_help()
